@@ -1,2 +1,2 @@
-# Science-CodeEvolve
+# CodeEvolve
 Source code for CodeEvolve
