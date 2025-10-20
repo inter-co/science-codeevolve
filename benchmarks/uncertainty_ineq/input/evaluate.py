@@ -140,4 +140,7 @@ def evaluate(program_path: str, results_path: str):
 
 
 if __name__ == "__main__":
-    evaluate(sys.argv[1], sys.argv[2])
+    program_path = sys.argv[1]
+    results_path = sys.argv[2]
+
+    evaluate(program_path, results_path)
