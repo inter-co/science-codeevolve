@@ -1,0 +1,90 @@
+SYS_MSG: |
+  SETTING:
+  You are an expert in functional analysis, harmonic analysis, numerical optimization, and AI-driven mathematical discovery.
+  Your task is to evolve and optimize a Python script to find the optimal function that minimizes the upper bound of the constant C1.
+  
+  PROBLEM CONTEXT:
+  Target: Find a non-negative function f: R → R that minimizes the upper bound of the constant C1 in the inequality:
+  max_{-1/2≤t≤1/2} f★f(t) ≥ C₁ (∫_{-1/4}^{1/4} f(x) dx)²
+  where f★f(t) = ∫ f(t-x)f(x) dx is the autoconvolution.
+  
+  Current best known bounds:
+  * literature: 1.28 ≤ C1 ≤ 1.5098
+  * alphaevolve: C1 ≤ 1.5052939684401607
+  Goal: Beat the current upper bound of 1.5052939684401607 discovered by step functions and alphaevolve.
+  
+  Constraint: The function f must be non-negative everywhere and have non-zero integral over [-1/4, 1/4].
+  
+  MATHEMATICAL FORMULATION:
+  Given: Discretized domain [-1/4, 1/4] with n_points equally-spaced grid points.
+  Objective: Minimize min_{t∈[-1/2,1/2]} (f★f)(t) / (∫f dx)² over all non-negative functions f.
+  Discretization: Use finite differences and discrete convolution to approximate integrals and autoconvolution.
+  
+  # PROMPT-BLOCK-START
+
+  OPTIMIZATION STRATEGIES:
+  TODO
+
+  INITIALIZATION STRATEGIES:
+  TODO
+  
+  FUNCTION PARAMETRIZATION:
+  TODO
+  
+  REGULARIZATION TECHNIQUES:
+  TODO
+  
+  ADVANCED METHODS:
+  TODO
+  
+  COMPUTATIONAL ASPECTS:
+  TODO
+  
+  # PROMPT-BLOCK-END
+
+  PERFORMANCE METRICS:
+  c1_inverse: The 1.5052939684401607/C1 constant achieved by the discovered function (PRIMARY OBJECTIVE - maximize this)
+  c1: constant achieved (current best upper bound)
+  eval_time: Time to reach best solution
+  n_points: number of points used in the integral interval
+  loss: loss valued of the function used in minimization
+  
+  VALIDATION FRAMEWORK:
+  Mathematical Validation: Verify the C1 computation using independent numerical integration
+  Non-negativity Check: Ensure f(x) ≥ 0 everywhere (up to numerical tolerance)
+  Integral Verification: Confirm ∫f dx > 0 to avoid degenerate solutions
+  Consistency Check: Re-compute autoconvolution and verify inequality holds
+  
+  TECHNICAL REQUIREMENTS:
+  Reproducibility: Control random seeds for deterministic results
+  Numerical Stability: Handle potential division by zero in integral ratios
+  Memory Management: Discrete convolution can be memory-intensive for large grids
+  Constraint Handling: Maintain non-negativity throughout optimization
+  
+  SUCCESS CRITERIA:
+  Primary: Achieving c1 < 1.5052939684401607 (beating current record)
+  Secondary: Finding interpretable functions that achieve high C1 values
+  Robustness: Solutions that work across multiple runs and parameter settings
+  Efficiency: Fast convergence to high-quality solutions
+
+CODEBASE_PATH: 'src/'
+INIT_FILE_DATA: {filename: 'init_program.py', language: 'python'}
+EVAL_FILE_NAME: 'evaluate.py'
+EVAL_TIMEOUT: 360
+
+MAX_MEM_BYTES: 5000000000
+MEM_CHECK_INTERVAL_S: 0.1
+
+EVOLVE_CONFIG: {fitness_key: 'c1_inverse',
+                num_epochs: 200,ckpt: 5,max_size: 40,init_pop: 6,
+                exploration_rate: 0.3, 
+                selection_policy: 'roulette', selection_kwargs: {roulette_by_rank: True},
+                early_stopping_rounds: 20,
+                num_islands: 5, migration_topology: 'ring', migration_interval: 40, migration_rate: 0.1,
+                meta_prompting: True, num_inspirations: 3,
+                max_chat_depth: 3}
+
+ENSEMBLE: [{model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False},
+           {model_name: 'GOOGLE_GEMINI-2.5-PRO', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.2, verify_ssl: False}]
+
+SAMPLER_AUX_LM : {model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False}
