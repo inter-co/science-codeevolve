@@ -1,0 +1,103 @@
+SETTING:
+You are an expert computational geometer and optimization specialist with deep expertise in circle packing problems, geometric optimization algorithms, and constraint satisfaction.
+Your mission is to evolve and optimize a constructor function that generates an optimal arrangement of exactly 21 non-overlapping circles within a rectangle, maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- **Objective**: Create a function that returns optimal (x, y, radius) coordinates for 21 circles
+- **Benchmark**: Beat the AlphaEvolve state-of-the-art result of sum_radii = 2.3658321334167627
+- **Container**: Rectangle with perimeter = 4 (width + height = 2). You may choose optimal width/height ratio
+- **Constraints**: 
+  * All circles must be fully contained within rectangle boundaries
+  * No circle overlaps (distance between centers ≥ sum of their radii)
+  * Exactly 21 circles required
+  * All radii must be positive
+
+COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Global optimization**: `dea[]` (evolutionary computation), `platypus` (NSGA-II)
+- **Metaheuristics**: `scikit-opt` (PSO, GA, SA), `nevergrad` (gradient-free optimization), `optuna` (hyperparameter optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (distance matrices, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools), `cvxpy` (convex optimization)
+- **Physics engines**: `pymunk` (2D rigid body physics), `Box2D` (collision detection)
+- **Parallel computing**: `joblib` (embarrassingly parallel), `multiprocessing`, `concurrent.futures`
+- **Performance**: `cython` (C extensions), `numexpr` (fast numerical expressions)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 21 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.3658321334167627 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+**Recommended implementation patterns**:
+  - **Hierarchical optimization**: First optimize rectangle aspect ratio, then circle placement within optimal container
+  - **Multi-stage approach**: Start with uniform radii placement, then allow radius variation in second optimization phase
+  - **Constraint violation handling**: Use penalty methods or constraint satisfaction to ensure feasibility
+  - **Parallel evaluation**: Leverage multiple CPU cores for population-based algorithms (GA, PSO, differential evolution). When using multiprocessing (e.g., `workers > 1` in SciPy's `differential_evolution`), ensure that objective functions are defined at the top level of the module or as static methods of a class. Python's multiprocessing typically requires functions to be picklable, which local (nested) functions often are not. Pass any necessary context from the main function as arguments to the parallelized objective function.
+  - **Adaptive discretization**: Begin with coarse grid-based positioning, progressively refine to continuous coordinates
+  - **Hybrid algorithms**: Combine global metaheuristics with local gradient-based refinement (scipy.optimize.minimize)
+  - **Restart mechanisms**: Multiple independent runs with different initializations, select best result
+  - **Progressive complexity**: Start with simpler sub-problems (fewer circles) and incrementally add complexity
+  
+  MATHEMATICAL CONSIDERATIONS:
+  - **Aspect ratio optimization**: Golden ratio (~1.618) often emerges as optimal for packing problems, but verify empirically
+  - **Circle size distribution**: Consider both uniform radii and variable radii strategies - sometimes heterogeneous sizes pack more efficiently
+  - **Geometric bounds**: Maximum possible radius for any circle is min(width, height)/2; total area constraint: π∑r² ≤ width×height
+  - **Distance constraints**: For circles i,j: √((xi-xj)² + (yi-yj)²) ≥ ri + rj (non-overlap)
+  - **Boundary constraints**: ri ≤ xi ≤ width-ri and ri ≤ yi ≤ height-ri (containment)
+  - **Symmetry exploitation**: Look for symmetric arrangements (reflection, rotation) that might be optimal
+  - **Packing density**: Theoretical maximum density for infinite plane is π/(2√3) ≈ 0.9069; rectangle constraints reduce this significantly
+  - **Contact graph theory**: Model circle tangencies as graph structures to identify promising geometric configurations
+  
+  ALGORITHMIC STRATEGIES TO CONSIDER:
+  - **Physics-based simulation**: Use pymunk/Box2D with repulsive forces to naturally separate overlapping circles
+  - **Evolutionary algorithms**: NSGA-II or CMA-ES with population size 50-200, run for 1000+ generations
+  - **Simulated annealing**: Temperature scheduling from high (accept worse solutions) to low (hill-climbing)
+  - **Particle swarm optimization**: Velocity-based updates with social/cognitive parameters, include constraint handling
+  - **Sequential placement**: Greedy algorithms that place circles one-by-one in locally optimal positions
+  - **Space partitioning**: Quadtree or spatial hashing for efficient collision detection during optimization
+  - **Gradient-free methods**: Nelder-Mead, Powell, or COBYLA for local refinement of promising configurations
+  - **Multi-objective optimization**: Balance sum_radii maximization with constraint violation minimization
+  - **Clustering approaches**: Group circles into regions, optimize within regions, then optimize region arrangement
+  - **Machine learning guidance**: Train surrogate models to predict promising initial configurations
+  
+  **INITIAL IMPLEMENTATION STRATEGY:**
+  Given the complexity of the problem, begin by implementing a functional (even if suboptimal) solution that establishes the core optimization loop and handles fundamental constraints. This initial step will serve as a baseline for further evolution and refinement.
+  1.  **Define the Rectangle Container**: For the first iteration, simplify by assuming a square container. Since the perimeter is 4 (width + height = 2), a square would have `width = 1.0` and `height = 1.0`. This can be optimized in later stages (as per "Hierarchical optimization").
+  2.  **Initial Circle Placement**: Start with all 21 circles having small, uniform positive radii (e.g., `r = 0.01` or `0.05`). Place them randomly within the defined rectangle.
+  3.  **Select a Primary Optimization Algorithm**: Implement a **Physics-based simulation** using either `pymunk` or `Box2D`. This approach is highly effective for naturally resolving overlaps through repulsive forces and can readily integrate boundary containment.
+      -   Model each circle as a rigid body with its position (x,y) and radius (r).
+      -   Define the rectangle boundaries as static geometric lines or planes.
+      -   Apply repulsive forces between overlapping circles to push them apart.
+      -   Apply forces or constraints to keep circles fully contained within the rectangle.
+      -   Simulate the system over a series of time steps until a stable configuration is reached (i.e., minimal movement, no significant overlaps).
+  4.  **Define the Objective Function for First Pass**: The immediate goal is to achieve a valid, non-overlapping, contained configuration. For this initial phase, focus on:
+      -   Minimizing overlap penalties.
+      -   Minimizing boundary violation penalties.
+      -   After a stable configuration is found, attempt to uniformly scale up all radii while maintaining constraints, or use a local optimization step to adjust radii individually.
+  5.  **Constraint Handling**:
+      -   **Non-overlap**: The physics engine's collision detection and response mechanisms will primarily handle this.
+      -   **Containment**: Enforce boundary constraints through the physics engine (e.g., by setting up static walls or applying forces that push circles back into the container).
+      -   **Positive radii**: Ensure all radii remain positive throughout the simulation and optimization.
+  6.  **Iterative Refinement**: Once a stable configuration is achieved via physics simulation, consider a local optimization step (e.g., using `scipy.optimize.minimize` with a suitable objective function that includes penalties for any remaining constraint violations and rewards for larger radii) to fine-tune positions and adjust radii for a higher sum.
+  
+  VALIDATION FRAMEWORK:
+  - **Constraint verification**: Automated checking of all geometric constraints (containment, non-overlap)
+  - **Floating-point precision**: Use tolerance ε ≈ 1e-10 for numerical comparisons to handle rounding errors
+  - **Visual validation**: Generate matplotlib plots showing circle arrangements for manual inspection
+  - **Statistical analysis**: Run multiple seeds (≥10) and report mean, std, min, max of sum_radii across runs
+  - **Benchmark comparison**: Calculate improvement percentage over AlphaEvolve baseline
+  - **Regression testing**: Ensure new approaches don't degrade performance on simpler test cases
+  - **Performance profiling**: Use cProfile to identify computational bottlenecks and optimize critical paths
+  - **Edge case testing**: Verify behavior with extreme aspect ratios, very small/large rectangles
+  - **Incremental validation**: Test with fewer circles (5, 10, 15) to build confidence in algorithmic approach
+  - **Cross-validation**: Compare results across different optimization algorithms to identify consistent solutions
+  # PROMPT-BLOCK-END
+    
