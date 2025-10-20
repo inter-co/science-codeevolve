@@ -1,0 +1,81 @@
+SYS_MSG: |
+  SETTING:
+  You are an expert computational geometer and optimization specialist focusing on hexagon packing problems.
+  Your task is to evolve a constructor function that generates an optimal arrangement of exactly 12 unit regular hexagons within a larger regular hexagon, maximizing 1/outer_hex_side_length (equivalently minimizing the outer hexagon's side length).
+  
+  PROBLEM CONTEXT:
+  - Target: Establish new state-of-the-art for 12-hexagon packing of 1/outer_hex_side_length = 1/3.9419123 ≈ 0.2537
+  - Constraint: All 12 inner hexagons must be unit regular hexagons (side length = 1) that are fully contained within the outer hexagon with no overlaps
+  - Mathematical formulation: For hexagon i at position (xi, yi) with rotation θi:
+    * Non-overlap: All pairs of inner hexagons must be disjoint
+    * Containment: All vertices of inner hexagons must lie within the outer hexagon
+    * Objective: maximize 1/R where R is the outer hexagon side length
+
+  PERFORMANCE METRICS:
+  1. **inv_outer_hex_side_length**: 1/outer_hex_side_length (PRIMARY OBJECTIVE - maximize)
+  2. **benchmark_ratio**: inverse_side_length / 0.2537 (progress toward beating SOTA)
+  3. **eval_time**: Execution time for full evaluation
+
+  COMPUTATIONAL RESOURCES:
+  **Core packages**: numpy, scipy, matplotlib, shapely
+  **Additional useful packages**:
+  - **Geometric computing**: 
+    * `shapely` (polygon operations, intersection testing, containment checks)
+    * `scipy.spatial` (distance calculations, geometric queries)
+    * `matplotlib.patches` (hexagon visualization and symmetry analysis)
+  - **Symmetry handling**:
+    * Custom functions for generating symmetric configurations
+    * Group theory utilities for constraint enforcement
+    * Symmetry-aware optimization operators
+  - **Optimization**: 
+    * `scipy.optimize` (constrained optimization, global methods)
+    * `deap` (evolutionary algorithms with custom symmetry operators)
+    * `platypus` (multi-objective optimization)
+  - **Performance**: `numba` (JIT compilation for 12-hexagon calculations), `joblib`
+
+  TECHNICAL REQUIREMENTS:
+  - **Reproducibility**: Deterministic results with proper random seeding
+
+  # PROMPT-BLOCK-START
+    
+  OPTIMIZATION STRATEGIES TO CONSIDER:
+  TODO
+    
+  GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+  TODO
+  
+  **Recommended implementation patterns:**
+  TODO
+  
+  VALIDATION FRAMEWORK:
+  TODO
+  
+  PROBLEM-SPECIFIC CONSIDERATIONS:
+  TODO
+    
+  GEOMETRIC TARGETS AND BENCHMARKS:
+  TODO
+
+  # PROMPT-BLOCK-END
+
+      
+CODEBASE_PATH: 'src/'
+INIT_FILE_DATA: {filename: 'init_program.py', language: 'python'}
+EVAL_FILE_NAME: 'evaluate.py'
+EVAL_TIMEOUT: 360
+
+MAX_MEM_BYTES: 5000000000
+MEM_CHECK_INTERVAL_S: 0.1
+
+EVOLVE_CONFIG: {fitness_key: 'benchmark_ratio',
+                num_epochs: 200,ckpt: 5,max_size: 40,init_pop: 6,
+                exploration_rate: 0.3, 
+                selection_policy: 'roulette', selection_kwargs: {roulette_by_rank: True},
+                early_stopping_rounds: 200,
+                migration_interval: 40, migration_rate: 0.1,
+                meta_prompting: True, num_inspirations: 3}
+
+ENSEMBLE: [{model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False},
+           {model_name: 'GOOGLE_GEMINI-2.5-PRO', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.2, verify_ssl: False}]
+
+SAMPLER_AUX_LM : {model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 1, verify_ssl: False}

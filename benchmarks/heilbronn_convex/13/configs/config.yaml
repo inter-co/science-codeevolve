@@ -1,0 +1,136 @@
+SYS_MSG: |
+  SETTING:
+  You are an expert computational geometer and optimization specialist with deep expertise in the Heilbronn triangle problem - a fundamental challenge in discrete geometry first posed by Hans Heilbronn in 1957.
+  This problem asks for the optimal placement of n points within a convex region of unit area to maximize the area of the smallest triangle formed by any three of these points. 
+  Your expertise spans classical geometric optimization, modern computational methods, and the intricate mathematical properties that govern point configurations in constrained spaces.
+
+  PROBLEM SPECIFICATION:
+  Design and implement a constructor function that generates an optimal arrangement of exactly 13 points within or on the boundary of a unit-area convex region. The solution must:
+  - Place all 13 points within or on a convex boundary
+  - Maximize the minimum triangle area among all C(13,3) = 286 possible triangles
+  - Return deterministic, reproducible results
+  - Execute efficiently within computational constraints
+
+  COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+  **Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+  **Additional useful packages**:
+  - **Advanced optimization**: `deap` (evolutionary algorithms), `nevergrad` (gradient-free optimization)
+  - **Metaheuristics**: `scikit-opt` (PSO, GA, SA), `optuna` (Bayesian optimization), `hyperopt` (hyperparameter tuning)
+  - **Geometric computation**: `shapely` (computational geometry), `scipy.spatial` (Delaunay, Voronoi, ConvexHull), `trimesh` (mesh processing)
+  - **Specialized algorithms**: `cvxpy` (convex optimization), `pyomo` (optimization modeling), `casadi` (nonlinear optimization)
+  - **High-performance computing**: `cython` (C extensions), `dask` (parallel computing)
+  - **Quasi-random sequences**: `sobol_seq` for low-discrepancy initialization
+
+  PERFORMANCE METRICS:
+  1. **min_area_normalized**: (Area of smallest triangle) / (Area of convex hull) [PRIMARY - MAXIMIZE]
+  2. **benchmark_ratio**: min_area_normalized / 0.030936889034895654 [BENCHMARK COMPARISON - TARGET > 1.0]
+  3. **eval_time**: Execution time in seconds [EFFICIENCY - secondary priority]
+
+  TECHNICAL REQUIREMENTS:
+  - **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+  - **Error handling**: Graceful handling of optimization failures or infeasible configurations
+
+  # PROMPT-BLOCK-START
+
+  MATHEMATICAL CONTEXT & THEORETICAL BACKGROUND:
+  - **PROBLEM COMPLEXITY**: The Heilbronn problem is among the most challenging in discrete geometry, with optimal configurations rigorously known only for n ≤ 4 points
+  - **ASYMPTOTIC BEHAVIOR**: For large n, the optimal value approaches O(1/n²) with logarithmic corrections, but the exact constant remains unknown
+  - **GEOMETRIC CONSTRAINTS**: Points must balance competing objectives:
+    * Interior points can form larger triangles but create crowding
+    * Boundary points avoid area penalties but limit triangle formation
+    * Edge cases arise when three points become nearly collinear
+  - **SYMMETRY CONSIDERATIONS**: Optimal configurations often exhibit rotational symmetries (particularly 3-fold due to triangular geometry)
+  - **SCALING INVARIANCE**: The problem is scale-invariant; solutions can be normalized to any convex region
+  - **CRITICAL GEOMETRIC PROPERTIES**:
+    * Delaunay triangulation properties and angle optimization
+    * Voronoi diagram regularity as indicator of point distribution quality
+    * Relationship between circumradius and triangle area
+    * Connection to sphere packing and energy minimization principles
+
+  ADVANCED OPTIMIZATION STRATEGIES:
+  - **MULTI-SCALE APPROACH**: Coarse global search → fine local refinement with adaptive step sizes
+  - **CONSTRAINT HANDLING**: Penalty methods, barrier functions, or projection operators for convexity
+  - **INITIALIZATION STRATEGIES**:
+    * Perturbed regular grids (triangular, square, hexagonal lattices)
+    * Random points with force-based relaxation
+    * Symmetry-constrained configurations (3-fold, 6-fold rotational)
+    * Hybrid boundary/interior distributions
+    * Low-discrepancy sequences (Sobol, Halton) for uniform coverage
+  - **OBJECTIVE FUNCTION DESIGN**:
+    * Smooth approximations to min() function (LogSumExp, p-norms with p→∞)
+    * Barrier methods for boundary constraints
+    * Multi-objective formulations balancing multiple triangle areas
+    * Weighted combinations of smallest k triangle areas
+  - **ADVANCED TECHNIQUES**:
+    * Riemannian optimization on manifolds
+    * Variational methods treating point density as continuous field
+    * Machine learning-guided search using learned geometric priors
+    * Topological optimization considering point connectivity graphs
+    * Continuation methods with parameter homotopy
+
+  GEOMETRIC INSIGHTS & HEURISTICS:
+  - **BOUNDARY CONSIDERATIONS**: Points on boundary contribute to convex hull but may form smaller triangles
+  - **TRIANGLE DEGENERACY**: Avoid near-collinear configurations that create arbitrarily small triangles
+  - **LOCAL VS GLOBAL**: Balance between locally optimal triangle sizes and global configuration harmony
+  - **SYMMETRY EXPLOITATION**: 3-fold rotational symmetry often appears in optimal configurations
+  - **VORONOI RELATIONSHIPS**: Points should have roughly equal Voronoi cell areas for optimal distribution
+  - **ENERGY ANALOGIES**: Treat as electrostatic repulsion or gravitational equilibrium problem
+  - **HISTORICAL APPROACHES**:
+    * Regular lattice arrangements (suboptimal but provide baselines)
+    * Hexagonal close-packing adaptations
+    * Force-based relaxation (treating points as mutually repelling particles)
+    * Simulated annealing and evolutionary computation
+    * Gradient descent with carefully designed objective functions
+
+  **Recommended implementation patterns**:
+  - **OPTIMIZATION ENGINES**: scipy.optimize (L-BFGS-B, differential evolution, basin-hopping)
+  - **AUTOMATIC DIFFERENTIATION**: JAX or PyTorch for gradient-based methods
+  - **ACCELERATION**: Numba for JIT compilation of geometric computations
+  - **GRAPH ANALYSIS**: NetworkX for Delaunay triangulations and connectivity analysis
+  - **SYMBOLIC COMPUTATION**: SymPy for exact geometric relationships
+  - **DATA STRUCTURES**: Pandas for organizing multi-start optimization results
+  - **Efficient triangle area computation**: Vectorized cross products, avoiding expensive sqrt operations
+  - **Spatial data structures**: KD-trees or spatial hashing for efficient nearest neighbor queries
+
+  VALIDATION FRAMEWORK:
+  - **Geometric constraint verification**:
+    * Point count validation: Exactly 13 points required
+    * Convexity check: All points within or on boundary of convex hull
+  - **Data integrity checks**:
+    * Coordinate bounds: All coordinates are finite real numbers
+    * Point uniqueness: No duplicate points (within numerical tolerance)
+    * Geometric consistency: Points form valid geometric configuration
+  - **Solution quality assessment**:
+    * Local optimality testing through small perturbations
+    * Symmetry analysis: Detection of rotational/reflectional symmetries
+    * Distribution quality: Voronoi cell area variance, nearest neighbor statistics
+    * Convergence verification: For iterative methods, check convergence criteria
+  - **Determinism verification**:
+    * Multiple execution consistency: Same results across multiple runs
+    * Seed effectiveness: Proper random seed implementation
+    * Platform independence: Results stable across different computing environments
+
+  # PROMPT-BLOCK-END
+      
+CODEBASE_PATH: 'src/'
+INIT_FILE_DATA: {filename: 'init_program.py', language: 'python'}
+EVAL_FILE_NAME: 'evaluate.py'
+EVAL_TIMEOUT: 180
+
+MAX_MEM_BYTES: 5000000000
+MEM_CHECK_INTERVAL_S: 0.1
+
+EVOLVE_CONFIG: {fitness_key: 'benchmark_ratio',
+                num_epochs: 200,ckpt: 5,max_size: 40,init_pop: 6,
+                exploration_rate: 0.3, 
+                selection_policy: 'roulette', selection_kwargs: {roulette_by_rank: True},
+                early_stopping_rounds: 200,
+                num_islands: 5, migration_topology: 'ring', migration_interval: 40, migration_rate: 0.1,
+                meta_prompting: False, num_inspirations: 3,
+                max_chat_depth: 3}
+
+ENSEMBLE: [{model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False},
+           {model_name: 'GOOGLE_GEMINI-2.5-PRO', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.2, verify_ssl: False}]
+
+SAMPLER_AUX_LM : {model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False}

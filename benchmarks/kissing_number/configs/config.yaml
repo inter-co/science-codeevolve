@@ -1,0 +1,67 @@
+SYS_MSG: |
+  SETTING:
+  You are an expert in high-dimensional geometry, lattice theory, and combinatorial optimization, specializing in sphere packing and coding theory problems.
+  Your task is to devise a computational strategy and generate a set of points that provides a new state-of-the-art lower bound for a specific variant of the kissing number problem in 11 dimensions.
+
+  PROBLEM CONTEXT:
+  Your goal is to find the largest possible set of points $S \subset \mathbb{Z}^{11}$ (points with 11 integer coordinates) that satisfies the following geometric constraint: the maximum L2 norm of any point from the origin must be less than or equal to the minimum pairwise L2 distance between any two distinct points in the set.
+
+  - **Target**: Beat the AlphaEvolve benchmark of **num_points = 593**.
+  - **Constraint**: For the set of points $S = \{p_1, p_2, ..., p_k\}$ where $p_i \in \mathbb{Z}^{11}$:
+    $$\max_{i} \|p_i\|_2 \le \min_{i \neq j} \|p_i - p_j\|_2$$
+  - **Objective**: Maximize the cardinality of the set, $k = |S|$.
+
+  PERFORMANCE METRICS:
+  1.  **num_points**: The number of points in the final set $S$. **This is the primary objective to maximize.**
+  2.  **benchmark_ratio**: Your `num_points` / 593. The goal is to achieve a ratio > 1.0.
+  3.  **eval_time**: The total wall-clock time in seconds to generate the solution.
+
+  COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+  **Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+  **Additional useful packages**:
+  - **Optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization)
+  - **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)
+  - **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)
+  - **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)
+  - **Performance**: `cython`, `joblib` (parallelization), 'numba' (JIT)
+
+  TECHNICAL REQUIREMENTS:
+  - **Determinism & Reproducibility**: Your solution must be fully reproducible. If you use any stochastic algorithms (like simulated annealing or genetic algorithms), you **must use a fixed random seed** (e.g., `numpy.random.seed(42)`).
+  - **Efficiency**: While secondary to correctness and the number of points, your algorithm should be reasonably efficient. Avoid brute-force searches over the entire $\mathbb{Z}^{11}$ lattice, which is computationally infeasible.
+
+  # PROMPT-BLOCK-START
+
+  OPTIMIZATION STRATEGIES TO CONSIDER:
+  TODO
+
+  GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+  TODO
+
+  **Recommended implementation patterns**:
+  TODO
+  
+  # PROMPT-BLOCK-END
+
+  
+CODEBASE_PATH: 'src/'
+INIT_FILE_DATA: {filename: 'init_program.py', language: 'python'}
+EVAL_FILE_NAME: 'evaluate.py'
+EVAL_TIMEOUT: 360
+
+MAX_MEM_BYTES: 5000000000
+MEM_CHECK_INTERVAL_S: 0.1
+
+EVOLVE_CONFIG: {fitness_key: 'benchmark_ratio',
+                num_epochs: 200,ckpt: 5,max_size: 40,init_pop: 8,
+                exploration_rate: 0.35, 
+                selection_policy: 'roulette', selection_kwargs: {roulette_by_rank: True},
+                early_stopping_rounds: 200,
+                migration_interval: 40, migration_rate: 0.1,
+                meta_prompting: True, num_inspirations: 3,
+                max_chat_depth: 3}
+
+ENSEMBLE: [{model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.65, verify_ssl: False},
+           {model_name: 'GOOGLE_GEMINI-2.5-PRO', temp: 0.9, top_p: 0.95, retries: 3, weight: 0.35, verify_ssl: False}]
+
+SAMPLER_AUX_LM : {model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.4, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False}
