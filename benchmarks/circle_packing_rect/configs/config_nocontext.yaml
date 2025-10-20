@@ -17,7 +17,7 @@ SYS_MSG: |
   **Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
 
   **Additional useful packages**:
-  - **Global optimization**: `dea[]` (evolutionary computation), `platypus` (NSGA-II)
+  - **Global optimization**: `deap` (evolutionary computation), `platypus` (NSGA-II)
   - **Metaheuristics**: `scikit-opt` (PSO, GA, SA), `nevergrad` (gradient-free optimization), `optuna` (hyperparameter optimization)
   - **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (distance matrices, Voronoi)
   - **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools), `cvxpy` (convex optimization)
