@@ -1,0 +1,90 @@
+SETTING:
+You are an expert computational geometer and optimization specialist with deep expertise in circle packing problems, geometric optimization algorithms, and constraint satisfaction.
+Your mission is to evolve and optimize a constructor function that generates an optimal arrangement of exactly 21 non-overlapping circles within a rectangle, maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- **Objective**: Create a function that returns optimal (x, y, radius) coordinates for 21 circles
+- **Benchmark**: Beat the AlphaEvolve state-of-the-art result of sum_radii = 2.3658321334167627
+- **Container**: Rectangle with perimeter = 4 (width + height = 2). You may choose optimal width/height ratio
+- **Constraints**: 
+  * All circles must be fully contained within rectangle boundaries
+  * No circle overlaps (distance between centers ≥ sum of their radii)
+  * Exactly 21 circles required
+  * All radii must be positive
+
+COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Global optimization**: `dea[]` (evolutionary computation), `platypus` (NSGA-II)
+- **Metaheuristics**: `scikit-opt` (PSO, GA, SA), `nevergrad` (gradient-free optimization), `optuna` (hyperparameter optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (distance matrices, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools), `cvxpy` (convex optimization)
+- **Physics engines**: `pymunk` (2D rigid body physics), `Box2D` (collision detection)
+- **Parallel computing**: `joblib` (embarrassingly parallel), `multiprocessing`, `concurrent.futures`
+- **Performance**: `cython` (C extensions), `numexpr` (fast numerical expressions)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 21 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.3658321334167627 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+**IMPLEMENTATION STRATEGY & GUIDANCE**:
+
+Your primary task is to implement a robust global optimization algorithm to find an optimal arrangement. **This is a computationally intensive problem, and balancing solution quality with execution time is crucial to avoid timeouts.**
+Given the problem's complexity and the need to maximize `sum_radii` under non-linear constraints, **Evolutionary Algorithms (EA) or Simulated Annealing (SA)** are highly recommended starting points. Python's `scipy.optimize.differential_evolution` (a type of EA) or `scipy.optimize.dual_annealing` are powerful tools for this.
+
+**Step-by-step approach**:
+
+1.  **Define the Rectangle**: Start by fixing the rectangle's aspect ratio. A common heuristic is a square (width=1, height=1) or the golden ratio (width=1.618, height=0.382) for perimeter=4. Given the computational constraints, **initially fix the aspect ratio to a single, well-justified value (e.g., a square or a value known from literature for similar circle counts)** to establish a baseline within time limits. You may consider a *very limited* grid search over aspect ratios only after achieving a baseline solution within time limits. For now, let's assume `width + height = 2`.
+
+2.  **Design the Objective Function**:
+    *   The objective function will take a flattened array of `(x1, y1, r1, x2, y2, r2, ...)` as input.
+    *   It must return a single scalar value to be *minimized*. Therefore, return `-sum_radii` (to maximize sum_radii).
+    *   **Crucially, incorporate penalties for constraint violations**:
+        *   **Non-overlap**: For every pair of circles (i, j), if `√((xi-xj)² + (yi-yj)²) < ri + rj`, add a large penalty proportional to the overlap distance.
+        *   **Containment**: For each circle (i), if `xi < ri` or `xi > width - ri` or `yi < ri` or `yi > height - ri`, add a large penalty proportional to the violation.
+        *   **Positive radii**: Penalize `ri <= 0`.
+    *   The total objective value should be `-sum_radii + total_penalties`. The penalties should be strong enough to guide the optimizer towards feasible regions.
+
+3.  **Set up the Optimizer (e.g., Differential Evolution)**:
+    *   **Bounds**: Define bounds for `x`, `y`, and `r` for each circle.
+        *   `0 <= x <= width`
+        *   `0 <= y <= height`
+        *   `0 < r <= min(width, height) / 2` (initial upper bound, actual max radius can be much smaller)
+    *   Use `scipy.optimize.differential_evolution` or `dual_annealing`. Configure parameters like `popsize`, `maxiter`, and `seed` for reproducibility. **Start with conservative `maxiter` and `popsize` values (e.g., `maxiter=500`, `popsize=15-20`) to establish a baseline within time limits. These can be increased incrementally if computational resources allow and better solutions are needed.**
+    *   Consider using `workers=-1` for parallel evaluation if feasible.
+
+4.  **Mathematical Considerations (for objective function and constraints)**:
+    *   **Geometric bounds**: Maximum possible radius for any circle is `min(width, height)/2`.
+    *   **Distance constraints**: For circles i,j: `√((xi-xj)² + (yi-yj)²) ≥ ri + rj` (non-overlap).
+    *   **Boundary constraints**: `ri ≤ xi ≤ width-ri` and `ri ≤ yi ≤ height-ri` (containment).
+    *   **Circle size distribution**: Allow variable radii; this typically leads to better packing.
+    *   **Symmetry exploitation**: While not explicitly enforced, the optimizer might discover symmetric patterns.
+
+5.  **Refinement**: After an initial run, consider:
+    *   **Hybrid algorithms**: Use a local optimizer (e.g., `scipy.optimize.minimize` with 'L-BFGS-B' or 'SLSQP') to refine the best solution found by the global search.
+    *   **Restart mechanisms**: Run the global optimizer multiple times with different seeds and pick the best result.
+
+6.  **Validation**: Implement the `VALIDATION FRAMEWORK` described below to verify the solution.
+  
+  VALIDATION FRAMEWORK:
+  - **Constraint verification**: Automated checking of all geometric constraints (containment, non-overlap)
+  - **Floating-point precision**: Use tolerance ε ≈ 1e-10 for numerical comparisons to handle rounding errors
+  - **Visual validation**: Generate matplotlib plots showing circle arrangements for manual inspection
+  - **Statistical analysis**: Run multiple seeds (≥10) and report mean, std, min, max of sum_radii across runs
+  - **Benchmark comparison**: Calculate improvement percentage over AlphaEvolve baseline
+  - **Regression testing**: Ensure new approaches don't degrade performance on simpler test cases
+  - **Performance profiling**: Use cProfile to identify computational bottlenecks and optimize critical paths
+  - **Edge case testing**: Verify behavior with extreme aspect ratios, very small/large rectangles
+  - **Incremental validation**: Test with fewer circles (5, 10, 15) to build confidence in algorithmic approach
+  - **Cross-validation**: Compare results across different optimization algorithms to identify consistent solutions
+  # PROMPT-BLOCK-END
+    

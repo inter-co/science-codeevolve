@@ -1,0 +1,130 @@
+CODEBASE_PATH: src/
+ENSEMBLE:
+- model_name: GOOGLE_GEMINI-2.5-FLASH
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.8
+- model_name: GOOGLE_GEMINI-2.5-PRO
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.2
+EVAL_FILE_NAME: evaluate.py
+EVAL_TIMEOUT: 360
+EVOLVE_CONFIG:
+  ckpt: 5
+  early_stopping_rounds: 100
+  exploration_rate: 0.3
+  fitness_key: benchmark_ratio
+  init_pop: 6
+  max_chat_depth: 3
+  max_size: 40
+  meta_prompting: true
+  migration_interval: 40
+  migration_rate: 0.1
+  migration_topology: ring
+  num_epochs: 150
+  num_inspirations: 3
+  num_islands: 5
+  selection_kwargs:
+    roulette_by_rank: true
+  selection_policy: roulette
+INIT_FILE_DATA:
+  filename: init_program.py
+  language: python
+MAX_MEM_BYTES: 1000000000
+MEM_CHECK_INTERVAL_S: 0.1
+SAMPLER_AUX_LM:
+  model_name: GOOGLE_GEMINI-2.5-FLASH
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.8
+SYS_MSG: "SETTING:\nYou are an expert computational geometer and optimization specialist\
+  \ with deep expertise in circle packing problems, geometric optimization algorithms,\
+  \ and constraint satisfaction.\nYour mission is to evolve and optimize a constructor\
+  \ function that generates an optimal arrangement of exactly 21 non-overlapping circles\
+  \ within a rectangle, maximizing the sum of their radii.\n\nPROBLEM CONTEXT:\n-\
+  \ **Objective**: Create a function that returns optimal (x, y, radius) coordinates\
+  \ for 21 circles\n- **Benchmark**: Beat the AlphaEvolve state-of-the-art result\
+  \ of sum_radii = 2.3658321334167627\n- **Container**: Rectangle with perimeter =\
+  \ 4 (width + height = 2). You may choose optimal width/height ratio\n- **Constraints**:\
+  \ \n  * All circles must be fully contained within rectangle boundaries\n  * No\
+  \ circle overlaps (distance between centers \u2265 sum of their radii)\n  * Exactly\
+  \ 21 circles required\n  * All radii must be positive\n\nCOMPUTATIONAL RESOURCES\
+  \ & IMPLEMENTATION GUIDELINES:\n**Core packages**: numpy, scipy, sympy, pandas,\
+  \ networkx, jax, torch, numba, scikit-learn\n\n**Additional useful packages**:\n\
+  - **Global optimization**: `dea[]` (evolutionary computation), `platypus` (NSGA-II)\n\
+  - **Metaheuristics**: `scikit-opt` (PSO, GA, SA), `nevergrad` (gradient-free optimization),\
+  \ `optuna` (hyperparameter optimization)\n- **Geometric computing**: `shapely` (geometric\
+  \ operations), `rtree` (spatial indexing), `scipy.spatial` (distance matrices, Voronoi)\n\
+  - **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools),\
+  \ `cvxpy` (convex optimization)\n- **Physics engines**: `pymunk` (2D rigid body\
+  \ physics), `Box2D` (collision detection)\n- **Parallel computing**: `joblib` (embarrassingly\
+  \ parallel), `multiprocessing`, `concurrent.futures`\n- **Performance**: `cython`\
+  \ (C extensions), `numexpr` (fast numerical expressions)\n\nPERFORMANCE METRICS:\n\
+  1. **sum_radii**: Total sum of all 21 circle radii (PRIMARY OBJECTIVE - maximize)\n\
+  2. **benchmark_ratio**: sum_radii / 2.3658321334167627 (progress toward beating\
+  \ benchmark)  \n3. **eval_time**: Execution time in seconds (keep reasonable, prefer\
+  \ accuracy over speed)\n\nTECHNICAL REQUIREMENTS:\n- **Determinism**: Use fixed\
+  \ random seeds if employing stochastic methods for reproducibility\n- **Error handling**:\
+  \ Graceful handling of optimization failures or infeasible configurations\n- **Memory\
+  \ efficiency**: Avoid excessive memory allocation for distance matrix computations\n\
+  - **Scalability**: Design with potential extension to different circle counts in\
+  \ mind\n\n# PROMPT-BLOCK-START\n**Recommended implementation patterns**:\n  - **Hierarchical\
+  \ optimization**: First optimize rectangle aspect ratio, then circle placement within\
+  \ optimal container\n  - **Multi-stage approach**: Start with uniform radii placement,\
+  \ then allow radius variation in second optimization phase\n  - **Constraint violation\
+  \ handling**: Use penalty methods or constraint satisfaction to ensure feasibility\n\
+  \  - **Parallel evaluation**: Leverage multiple CPU cores for population-based algorithms\
+  \ (GA, PSO, differential evolution)\n  - **Adaptive discretization**: Begin with\
+  \ coarse grid-based positioning, progressively refine to continuous coordinates\n\
+  \  - **Hybrid algorithms**: Combine global metaheuristics with local gradient-based\
+  \ refinement (scipy.optimize.minimize)\n  - **Restart mechanisms**: Multiple independent\
+  \ runs with different initializations, select best result\n  - **Progressive complexity**:\
+  \ Start with simpler sub-problems (fewer circles) and incrementally add complexity\n\
+  \  \n  MATHEMATICAL CONSIDERATIONS:\n  - **Aspect ratio optimization**: Golden ratio\
+  \ (~1.618) often emerges as optimal for packing problems, but verify empirically\n\
+  \  - **Circle size distribution**: Consider both uniform radii and variable radii\
+  \ strategies - sometimes heterogeneous sizes pack more efficiently\n  - **Geometric\
+  \ bounds**: Maximum possible radius for any circle is min(width, height)/2; total\
+  \ area constraint: \u03C0\u2211r\xB2 \u2264 width\xD7height\n  - **Distance constraints**:\
+  \ For circles i,j: \u221A((xi-xj)\xB2 + (yi-yj)\xB2) \u2265 ri + rj (non-overlap)\n\
+  \  - **Boundary constraints**: ri \u2264 xi \u2264 width-ri and ri \u2264 yi \u2264\
+  \ height-ri (containment)\n  - **Symmetry exploitation**: Look for symmetric arrangements\
+  \ (reflection, rotation) that might be optimal\n  - **Packing density**: Theoretical\
+  \ maximum density for infinite plane is \u03C0/(2\u221A3) \u2248 0.9069; rectangle\
+  \ constraints reduce this significantly\n  - **Contact graph theory**: Model circle\
+  \ tangencies as graph structures to identify promising geometric configurations\n\
+  \  \n  ALGORITHMIC STRATEGIES TO CONSIDER:\n  - **Physics-based simulation**: Use\
+  \ pymunk/Box2D with repulsive forces to naturally separate overlapping circles\n\
+  \  - **Evolutionary algorithms**: NSGA-II or CMA-ES with population size 50-200,\
+  \ run for 1000+ generations\n  - **Simulated annealing**: Temperature scheduling\
+  \ from high (accept worse solutions) to low (hill-climbing)\n  - **Particle swarm\
+  \ optimization**: Velocity-based updates with social/cognitive parameters, include\
+  \ constraint handling\n  - **Sequential placement**: Greedy algorithms that place\
+  \ circles one-by-one in locally optimal positions\n  - **Space partitioning**: Quadtree\
+  \ or spatial hashing for efficient collision detection during optimization\n  -\
+  \ **Gradient-free methods**: Nelder-Mead, Powell, or COBYLA for local refinement\
+  \ of promising configurations\n  - **Multi-objective optimization**: Balance sum_radii\
+  \ maximization with constraint violation minimization\n  - **Clustering approaches**:\
+  \ Group circles into regions, optimize within regions, then optimize region arrangement\n\
+  \  - **Machine learning guidance**: Train surrogate models to predict promising\
+  \ initial configurations\n  \n  VALIDATION FRAMEWORK:\n  - **Constraint verification**:\
+  \ Automated checking of all geometric constraints (containment, non-overlap)\n \
+  \ - **Floating-point precision**: Use tolerance \u03B5 \u2248 1e-10 for numerical\
+  \ comparisons to handle rounding errors\n  - **Visual validation**: Generate matplotlib\
+  \ plots showing circle arrangements for manual inspection\n  - **Statistical analysis**:\
+  \ Run multiple seeds (\u226510) and report mean, std, min, max of sum_radii across\
+  \ runs\n  - **Benchmark comparison**: Calculate improvement percentage over AlphaEvolve\
+  \ baseline\n  - **Regression testing**: Ensure new approaches don't degrade performance\
+  \ on simpler test cases\n  - **Performance profiling**: Use cProfile to identify\
+  \ computational bottlenecks and optimize critical paths\n  - **Edge case testing**:\
+  \ Verify behavior with extreme aspect ratios, very small/large rectangles\n  - **Incremental\
+  \ validation**: Test with fewer circles (5, 10, 15) to build confidence in algorithmic\
+  \ approach\n  - **Cross-validation**: Compare results across different optimization\
+  \ algorithms to identify consistent solutions\n  # PROMPT-BLOCK-END\n    \n"
