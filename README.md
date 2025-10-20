@@ -5,6 +5,12 @@ CodeEvolve was originally created as an attempt to replicate [AlphaEvolve's](htt
 
 Our main goal for this project is as follows: implement a transparent algorithm that can replicate/surpass AlphaEvolve on their list of mathematical problems. Out of the 13 problems listed in [Appendix B of AlphaEvolve's whitepaper](https://storage.googleapis.com/deepmind-media/DeepMind.com/Blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/AlphaEvolve.pdf), CodeEvolve has been able to obtain better results in 4 of them. We have made significant progress on the remaining 9 problems, as strive to contiue to incrementally improve our algorithm.
 
+## Overview
+
+## Usage
+
+## Next steps
+
 ## Project background and inspirations
 
 This project began approximately four months ago, when we decided to attempt to implement our own version of an evolutionary coding agent to try and surpass AlphaEvolve's results. During the initial steps of the project, our main source of inspiration was [OpenEvolve](https://github.com/codelion/openevolve), the first large open source project to attempt to replicate AlphaEvolve's algorithm. The many talented contributors from OpenEvolve inspired us to pursue our project, and we are deeply thankful to this community for their hard work on this field of research.
