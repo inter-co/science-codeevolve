@@ -1,0 +1,111 @@
+SETTING:
+You are an expert computational geometer and optimization specialist with deep expertise in circle packing problems, geometric optimization algorithms, and constraint satisfaction.
+Your mission is to evolve and optimize a constructor function that generates an optimal arrangement of exactly 21 non-overlapping circles within a rectangle, maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- **Objective**: Create a function that returns optimal (x, y, radius) coordinates for 21 circles
+- **Benchmark**: Beat the AlphaEvolve state-of-the-art result of sum_radii = 2.3658321334167627
+- **Container**: Rectangle with perimeter = 4 (width + height = 2). You may choose optimal width/height ratio
+- **Constraints**: 
+  * All circles must be fully contained within rectangle boundaries
+  * No circle overlaps (distance between centers ≥ sum of their radii)
+  * Exactly 21 circles required
+  * All radii must be positive
+
+COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Global optimization**: `dea[]` (evolutionary computation), `platypus` (NSGA-II)
+- **Metaheuristics**: `scikit-opt` (PSO, GA, SA), `nevergrad` (gradient-free optimization), `optuna` (hyperparameter optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (distance matrices, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools), `cvxpy` (convex optimization)
+- **Physics engines**: `pymunk` (2D rigid body physics), `Box2D` (collision detection)
+- **Parallel computing**: `joblib` (embarrassingly parallel), `multiprocessing`, `concurrent.futures`
+- **Performance**: `cython` (C extensions), `numexpr` (fast numerical expressions)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 21 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.3658321334167627 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+**Recommended implementation patterns**:
+The problem is a continuous, non-convex global optimization problem with many local optima. The solution should involve defining a single objective function that encapsulates both the primary goal (maximizing sum of radii) and all geometric constraints.
+
+1.  **Decision Variables**: The optimization variables will be a flattened 1D NumPy array `X` containing:
+    *   `X[0:21]`: x-coordinates for the 21 circle centers (`x_0, ..., x_20`).
+    *   `X[21:42]`: y-coordinates for the 21 circle centers (`y_0, ..., y_20`).
+    *   `X[42:63]`: radii for the 21 circles (`r_0, ..., r_20`).
+    *   `X[63]`: the width `W` of the containing rectangle.
+    The total number of variables is `3 * 21 + 1 = 64`. The height `H` of the rectangle will be derived from `W` using the perimeter constraint.
+
+2.  **Objective Function Structure**: Define a single function `objective_function(X: np.ndarray) -> float` that:
+    *   Unpacks `X` into `x_coords`, `y_coords`, `radii`, and `W`.
+    *   Calculates `H = 2 - W`.
+    *   Calculates the sum of radii (`current_sum_radii`).
+    *   Calculates penalty terms for all constraint violations (overlap, containment, non-positive radii).
+    *   Returns `-current_sum_radii + total_penalty` (minimizing this effectively maximizes `current_sum_radii` while satisfying constraints).
+
+3.  **Optimization Framework**: `scipy.optimize.differential_evolution` is highly recommended for its robustness in global optimization of non-convex problems. It requires bounds for each variable.
+
+MATHEMATICAL CONSIDERATIONS:
+
+1.  **Objective Function (to minimize)**:
+    `f_total(X) = -sum(r_i) + P_contain + P_overlap + P_radii + P_rectangle_bounds`
+
+2.  **Rectangle Dimensions**:
+    Let `W` be the width and `H` be the height. The perimeter constraint `2W + 2H = 4` implies `W + H = 2`. Thus, `H = 2 - W`.
+    Bounds for `W`: `1e-6 < W < 2 - 1e-6` (to ensure positive width and height). Violations of these bounds for `W` should incur a penalty `P_rectangle_bounds`.
+
+3.  **Constraint Formulations (as penalty terms to add to the objective)**:
+    Use a quadratic penalty for violation `v`: `K * max(0, v)^2`. `K` should be a large, positive constant (e.g., `1e6` to `1e9`) to strongly enforce constraints.
+
+    *   **Circle Containment (`P_contain`)**: For each circle `i` with center `(x_i, y_i)` and radius `r_i`:
+        *   `x_i - r_i >= 0` -> penalty `K * max(0, r_i - x_i)^2`
+        *   `x_i + r_i <= W` -> penalty `K * max(0, x_i + r_i - W)^2`
+        *   `y_i - r_i >= 0` -> penalty `K * max(0, r_i - y_i)^2`
+        *   `y_i + r_i <= H` -> penalty `K * max(0, y_i + r_i - H)^2`
+        Sum these for all boundaries and circles.
+
+    *   **Non-overlapping (`P_overlap`)**: For any distinct pair of circles `i` and `j` (`i < j` to avoid redundant checks):
+        *   `d_ij_sq = (x_i - x_j)^2 + (y_i - y_j)^2` (squared distance to avoid `sqrt`)
+        *   Constraint: `d_ij_sq >= (r_i + r_j)^2`
+        *   Penalty: `K * max(0, (r_i + r_j)^2 - d_ij_sq)^2`. Sum these for all pairs.
+
+    *   **Positive Radii (`P_radii`)**: For each circle `i`:
+        *   `r_i >= 1e-6` (a small positive lower bound for numerical stability).
+        *   Penalty: `K * max(0, 1e-6 - r_i)^2`. Sum these for all circles.
+
+ALGORITHMIC STRATEGIES TO CONSIDER:
+
+1.  **Global Optimization Algorithm**: `scipy.optimize.differential_evolution` is the primary recommendation. It's well-suited for high-dimensional, non-convex problems and can explore the search space effectively.
+2.  **Variable Bounds**: Define strict numerical bounds for all variables in `X` for `differential_evolution`. These bounds should be broad enough to cover potential solutions but tight enough to aid convergence.
+    *   `x_i`: `[0.0, 2.0]` (since `W` can be up to 2)
+    *   `y_i`: `[0.0, 2.0]` (since `H` can be up to 2)
+    *   `r_i`: `[1e-7, 1.0]` (a radius cannot exceed 1 if `W+H=2`, as the largest possible circle in a 1x1 square would have r=0.5, and a 0.5x1.5 rectangle still limits a radius to 0.25).
+    *   `W`: `[1e-6, 2.0 - 1e-6]`
+    The penalty terms will further refine these bounds by pushing solutions away from the edges where `r_i` would be violated.
+3.  **Initialization**: `differential_evolution` generates its own initial population within the specified bounds, promoting diversity.
+4.  **Reproducibility**: Use a fixed `seed` parameter for `differential_evolution` (e.g., `seed=42`) to ensure deterministic results across runs.
+5.  **Computational Cost**: The overlap check is `O(N^2)` where `N=21` (210 pairs). This is efficient enough for the number of circles. The primary computational cost will be the number of objective function evaluations required by the optimizer.
+
+VALIDATION FRAMEWORK:
+
+1.  **Fitness Function**: The `objective_function(X)` described above is the core fitness function for the optimizer.
+2.  **Constraint Checker**: A separate helper function `is_valid_configuration(circles_data: np.ndarray, W: float, H: float, tolerance: float = 1e-6) -> bool` that takes the `(x, y, r)` for all circles, rectangle dimensions, and returns `True` if all constraints are met within a small `tolerance`, and `False` otherwise. This is useful for post-processing and verifying the final optimized result.
+3.  **Visualization**: Use `matplotlib.pyplot` (import as `plt`) to draw the rectangle and all 21 circles. This is critical for visual verification of the packing and constraint satisfaction.
+    *   Draw the rectangle defined by `(0,0)` to `(W,H)`.
+    *   For each circle `i`, draw a circle patch with center `(x_i, y_i)` and radius `r_i`.
+    *   Ensure aspect ratio is `equal` for correct visual representation.
+4.  **Reporting**: The final function `circle_packing21()` should return a `numpy` array of shape `(21, 3)` containing the `(x, y, radius)` for each circle. Additionally, it should print the final `sum_radii`, `W`, and `H`.
+
+# PROMPT-BLOCK-END
+    

@@ -1,0 +1,91 @@
+SETTING:
+You are an expert computational geometer and optimization specialist with deep expertise in circle packing problems, geometric optimization algorithms, and constraint satisfaction.
+Your mission is to evolve and optimize a constructor function that generates an optimal arrangement of exactly 21 non-overlapping circles within a rectangle, maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- **Objective**: Create a function that returns optimal (x, y, radius) coordinates for 21 circles
+- **Benchmark**: Beat the AlphaEvolve state-of-the-art result of sum_radii = 2.3658321334167627
+- **Container**: Rectangle with perimeter = 4 (width + height = 2). You may choose optimal width/height ratio
+- **Constraints**: 
+  * All circles must be fully contained within rectangle boundaries
+  * No circle overlaps (distance between centers ≥ sum of their radii)
+  * Exactly 21 circles required
+  * All radii must be positive
+
+COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Global optimization**: `dea[]` (evolutionary computation), `platypus` (NSGA-II)
+- **Metaheuristics**: `scikit-opt` (PSO, GA, SA), `nevergrad` (gradient-free optimization), `optuna` (hyperparameter optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (distance matrices, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools), `cvxpy` (convex optimization)
+- **Physics engines**: `pymunk` (2D rigid body physics), `Box2D` (collision detection)
+- **Parallel computing**: `joblib` (embarrassingly parallel), `multiprocessing`, `concurrent.futures`
+- **Performance**: `cython` (C extensions), `numexpr` (fast numerical expressions)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 21 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.3658321334167627 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+**Recommended implementation patterns**:
+*   **Objective Function Design**: Define a single objective function to be minimized. This function should take a flattened array of decision variables (e.g., `[x1, y1, r1, ..., xN, yN, rN, rect_width]`) and return the negative sum of radii. Penalty terms can be added to this function for constraint violations if using unconstrained or weakly constrained optimizers.
+*   **Constraint Formulation**: Express all geometric and numerical constraints as equality or inequality functions suitable for constrained optimization algorithms (e.g., `g(x) >= 0` for inequalities, `h(x) == 0` for equalities).
+*   **Vectorized Operations**: Utilize `numpy` for efficient, vectorized calculations of distances, constraint checks, and objective function evaluation to minimize computation time.
+*   **Two-Stage Optimization**: Consider a strategy where a global optimization algorithm (e.g., Differential Evolution, Genetic Algorithm) is first used to find a promising region in the search space, followed by a local optimization algorithm (e.g., SLSQP, COBYLA) to refine the solution to high precision.
+*   **Decision Variable Structure**: The decision variables should include the `(x, y)` coordinates and `radius` for each of the 21 circles, plus one variable for the rectangle's `width`. The `height` can then be derived as `2 - width`.
+
+MATHEMATICAL CONSIDERATIONS:
+*   **Decision Variables**: Let `N = 21`. The decision vector `X` will be `[x_1, ..., x_N, y_1, ..., y_N, r_1, ..., r_N, rect_width]`.
+*   **Objective Function**: Maximize `sum(r_i)`. In optimization frameworks that minimize, this translates to minimizing `-sum(r_i)`.
+*   **Constraints**:
+    *   **Positive Radii**: `r_i > 0` for all `i = 1, ..., N`.
+    *   **Rectangle Containment**: For each circle `i`:
+        *   `x_i - r_i >= 0` (left boundary)
+        *   `rect_width - (x_i + r_i) >= 0` (right boundary)
+        *   `y_i - r_i >= 0` (bottom boundary)
+        *   `(2 - rect_width) - (y_i + r_i) >= 0` (top boundary)
+    *   **Non-Overlapping**: For every distinct pair of circles `(i, j)` where `i < j`:
+        *   `sqrt((x_i - x_j)^2 + (y_i - y_j)^2) - (r_i + r_j) >= 0`
+    *   **Rectangle Aspect Ratio**: `0 < rect_width < 2` (to ensure both width and height are positive).
+
+ALGORITHMIC STRATEGIES TO CONSIDER:
+*   **Global Optimization**:
+    *   `scipy.optimize.differential_evolution`: A robust global optimization algorithm well-suited for non-convex problems with many local minima. It requires bounds for all decision variables.
+    *   `nevergrad`, `scikit-opt` (Genetic Algorithms, Particle Swarm Optimization): These metaheuristics are good alternatives for exploring complex search spaces.
+*   **Local Optimization (for refinement)**:
+    *   `scipy.optimize.minimize`: After a global search provides a good starting point, methods like `SLSQP`, `COBYLA`, or `trust-constr` can quickly converge to a local optimum. These methods require explicit definitions of constraints.
+*   **Initialization Strategies**:
+    *   **Random Initialization**: Randomly place circles and choose radii within reasonable bounds.
+    *   **Heuristic Initialization**: Try to place circles in a somewhat ordered fashion (e.g., a grid, or sequentially filling space) to provide a better starting point than purely random.
+    *   **Small Fixed Radii**: Start with many small circles and allow the optimizer to expand them.
+*   **Efficient Pairwise Distance Calculation**: Use `scipy.spatial.distance.pdist` to compute all pairwise distances between circle centers efficiently.
+*   **Constraint Handling**:
+    *   **Penalty Methods**: Incorporate constraint violations directly into the objective function as penalty terms (e.g., `objective - C * sum(violation_i)`). This is often used with global optimizers.
+    *   **Feasible Region Enforcement**: Define strict bounds and use optimizers that respect them, or provide explicit constraint functions.
+
+VALIDATION FRAMEWORK:
+*   **`validate_packing(circles_data, rect_width)` function**:
+    *   Input: `circles_data` (Numpy array of `(x, y, r)`), `rect_width`.
+    *   Derive `rect_height = 2 - rect_width`.
+    *   Checks:
+        *   Assert `len(circles_data) == 21`.
+        *   Check `0 < rect_width < 2`.
+        *   Verify `r_i > 0` for all circles.
+        *   Verify rectangle containment for all circles: `x_i - r_i >= 0`, `x_i + r_i <= rect_width`, `y_i - r_i >= 0`, `y_i + r_i <= rect_height`.
+        *   Verify non-overlap: `sqrt((x_i - x_j)^2 + (y_i - y_j)^2) >= r_i + r_j` for all `i != j`.
+    *   Return `True` if all checks pass, `False` otherwise.
+*   **Visualisation**: Use `matplotlib.pyplot` to plot the rectangle and all circles. This is crucial for debugging and visually inspecting the quality of the packing.
+*   **Reporting**: The final function should return the validated `(x, y, r)` coordinates. The main execution block should print the `sum_radii` and the `benchmark_ratio`.
+
+# PROMPT-BLOCK-END
+    
