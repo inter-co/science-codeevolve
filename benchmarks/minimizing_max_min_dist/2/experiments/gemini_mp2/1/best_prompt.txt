@@ -1,0 +1,80 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on point dispersion problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 16 points in 2D space, maximizing the ratio of minimum distance to maximum distance between all point pairs.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of min/max ratio = 1/√12.889266112 ≈ 0.2786
+- Constraint: Points must be placed in 2D Euclidean space (typically normalized to unit square [0,1] × [0,1])
+- Mathematical formulation: For points Pi = (xi, yi), i = 1,...,16:
+  * Distance matrix: dij = √[(xi-xj)² + (yi-yj)²] for all i≠j
+  * Minimum distance: dmin = min{dij : i≠j}
+  * Maximum distance: dmax = max{dij : i≠j}
+  * Objective: maximize dmin/dmax subject to spatial constraints
+
+PERFORMANCE METRICS:
+1. **min_max_ratio**: dmin/dmax ratio (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: min_max_ratio / 0.2786 (progress toward beating AlphaEvolve benchmark)
+3. **eval_time**: Execution time in seconds (balance accuracy vs. efficiency)
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas
+**Additional useful packages**:
+- **3D optimization**: `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)
+- **3D geometric computing**: 
+  * `scipy.spatial` (3D distance matrices, ConvexHull, SphericalVoronoi)
+  * `trimesh` (3D mesh operations), `open3d` (3D data processing)
+- **Specialized 3D algorithms**: 
+  * `spherical-geometry` for spherical arrangements
+  * `quaternion` package for 3D rotations
+- **Performance**: `numba` (3D JIT compilation), `joblib`
+
+TECHNICAL REQUIREMENTS:
+- **Reproducibility**: Fixed random seeds for all stochastic components
+
+# PROMPT-BLOCK-START
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+*   **Global Optimization Algorithms**: Given the non-convex and potentially rugged nature of the objective function (due to `min` and `max` operations), global optimization methods are essential.
+    *   **Differential Evolution (`scipy.optimize.differential_evolution`)**: A robust, population-based metaheuristic known for its efficiency in global optimization over continuous spaces. It is often a good first choice due to its balance of speed and effectiveness for problems with many local minima, and it natively supports bounds. For this problem, it is often faster than `dual_annealing` while maintaining solution quality.
+*   **Dual Annealing (`scipy.optimize.dual_annealing`)**: A powerful global optimization algorithm combining generalized simulated annealing with a local search. While highly effective at finding global minima, it can be computationally intensive. If chosen, careful tuning of parameters like `maxiter`, `initial_temp`, `visit`, and `accept` is crucial to manage `eval_time`.
+*   **Basinhopping (`scipy.optimize.basinhopping`)**: Combines a local optimizer with random steps to escape local minima. It can be very effective but might require careful tuning of step size and number of iterations, potentially leading to longer `eval_time` for thorough exploration.
+*   **Simulated Annealing (SA)**: Another powerful metaheuristic that explores the search space by accepting worse solutions with a certain probability, which decreases over time. Can be implemented manually or using specialized libraries if `scipy`'s options are insufficient.
+*   **Local Optimization (for refinement)**: Once a promising region is identified by a global method, a local optimizer (e.g., `L-BFGS-B` via `scipy.optimize.minimize`) could be used for fine-tuning. However, the objective function's non-differentiability at points where `min` or `max` changes might be an issue. Global methods often include a local search step implicitly or explicitly.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+*   **Uniform Point Distribution**: The core of the problem is to achieve a maximally uniform distribution of points within the unit square. This means minimizing clustering and ensuring no points are excessively far apart.
+*   **Boundary Effects**: Optimal configurations for point dispersion problems often feature points positioned along the boundaries of the domain (the unit square in this case). This is a common strategy to maximize overall distances.
+*   **Distance Metric**: Standard Euclidean distance (`dij = √[(xi-xj)² + (yi-yj)²]`). Efficient computation of the pairwise distance matrix is crucial (e.g., `scipy.spatial.distance.pdist`).
+*   **Scale Invariance**: The `dmin/dmax` ratio is scale-invariant. Normalizing the domain to `[0,1]x[0,1]` simplifies bounds handling without affecting the objective value.
+*   **Known Optimal Configurations**: For small N, optimal configurations are often highly symmetric. While not explicitly enforced, the optimizer should converge towards such symmetries if they exist. For 16 points, the optimal configuration is known to be quite complex, not a simple grid.
+
+IMPLEMENTATION GUIDELINES:
+*   **Objective Function**:
+    *   Define a function, e.g., `objective_function(coords_flat: np.ndarray) -> float`.
+    *   This function will take a 1D `np.ndarray` of shape `(2 * N,)` (i.e., `(x1, y1, x2, y2, ..., xN, yN)` where `N=16`).
+    *   Reshape `coords_flat` into `(N, 2)` to represent `N` points with `(x, y)` coordinates.
+    *   Calculate the pairwise Euclidean distances using `scipy.spatial.distance.pdist`.
+    *   Determine `dmin` (minimum of all pairwise distances) and `dmax` (maximum of all pairwise distances) from these distances.
+    *   The optimizer minimizes, so the function should return `-dmin/dmax` to maximize the ratio. Handle cases where `dmax` might be zero to avoid division by zero (e.g., return a large negative number).
+*   **Bounds**: Define explicit bounds for each coordinate `(0.0, 1.0)` to keep points strictly within the unit square. These bounds should be passed to the optimizer (e.g., `bounds` argument in `scipy.optimize.differential_evolution`). The bounds array should be of shape `(2*N, 2)`.
+*   **Initial Population/Guess**:
+    *   For `differential_evolution`, a randomly generated initial population within the bounds is standard and effective.
+    *   For `basinhopping`, a random initial guess (e.g., `np.random.rand(2 * N)`) within the bounds is usually sufficient, as the algorithm is designed to escape local minima.
+*   **Reproducibility**: Ensure `np.random.seed(42)` is set at the beginning of the constructor function and passed to any stochastic optimizer to guarantee reproducible results.
+*   **Computational Efficiency**:
+    *   `scipy.spatial.distance.pdist` is optimized for distance calculations. Avoid manual nested loops for distances.
+    *   **Optimizer Parameter Tuning**: The `eval_time` is a critical metric. Aim for solutions that converge effectively within a target of **less than 60 seconds**. This often requires careful tuning of optimizer parameters such as `maxiter` for global search and local refinement steps. For global optimizers like `differential_evolution` or `dual_annealing`, `maxiter` values typically in the range of `1000-5000` (depending on problem complexity and other parameters) are a good starting point to balance exploration and time. For local refinement, `maxiter` of `500-1000` is usually sufficient after a good global search. Avoid overly aggressive `maxiter` settings that lead to excessive computation time.
+
+VALIDATION FRAMEWORK:
+*   **Objective Function Accuracy**: Double-check the `objective_function` implementation to ensure `dmin` and `dmax` are correctly identified from the pairwise distances.
+*   **Visual Inspection**: After optimization, plot the 16 points within the `[0,1]x[0,1]` square using a plotting library (e.g., `matplotlib`). A visually uniform distribution is a good qualitative indicator. Optionally, highlight the pairs of points that define `dmin` and `dmax`.
+*   **Benchmark Comparison**: Explicitly output the achieved `min_max_ratio` and `benchmark_ratio` to quantify success against the AlphaEvolve target.
+
+PROBLEM-SPECIFIC CONSIDERATIONS:
+*   **Number of Points (N=16)**: This is a small enough number of points that sophisticated metaheuristics can explore the search space effectively within reasonable time limits. The search space is 32-dimensional (16 points * 2 coordinates).
+*   **Unit Square Domain**: The `[0,1]x[0,1]` constraint is strict. All generated `x` and `y` coordinates must fall within this range.
+*   **AlphaEvolve Benchmark**: The benchmark `0.2786` serves as a challenging target. The solution should aim to surpass this value. This suggests that a simple grid or random distribution is insufficient and requires a dedicated optimization approach.
+*   **Computational Budget**: The primary focus is on achieving the highest `min_max_ratio`, but `eval_time` is a critical secondary objective. The chosen optimization strategy **must** aim for the best ratio achievable **within a strict computational budget of less than 60 seconds**. This implies a need for efficient algorithms and judicious parameter tuning, prioritizing a good-enough solution quickly over a marginally better one that takes excessive time.
+
+# PROMPT-BLOCK-END
+    

@@ -1,0 +1,154 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on 3D point dispersion problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 14 points in 3D space, maximizing the ratio of minimum distance to maximum distance between all point pairs.
+
+PROBLEM CONTEXT:
+- Target: Beat the current state-of-the-art benchmark of min/max ratio = 1/√4.165849767 ≈ 0.4898
+- Constraint: Points must be placed in 3D Euclidean space (typically normalized to unit cube [0,1]³ or unit sphere)
+- Mathematical formulation: For points Pi = (xi, yi, zi), i = 1,...,14:
+  * Distance matrix: dij = √[(xi-xj)² + (yi-yj)² + (zi-zj)²] for all i≠j
+  * Minimum distance: dmin = min{dij : i≠j}
+  * Maximum distance: dmax = max{dij : i≠j}
+  * Objective: maximize dmin/dmax subject to spatial constraints
+
+PERFORMANCE METRICS:
+1. **min_max_ratio**: dmin/dmax ratio (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: min_max_ratio / 0.4898 (progress toward beating AlphaEvolve benchmark)
+3. **eval_time**: Execution time in seconds (balance accuracy vs. efficiency)
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas
+**Additional useful packages**:
+- **3D optimization**: `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)
+- **3D geometric computing**: 
+  * `scipy.spatial` (3D distance matrices, ConvexHull, SphericalVoronoi)
+  * `trimesh` (3D mesh operations), `open3d` (3D data processing)
+- **Specialized 3D algorithms**: 
+  * `spherical-geometry` for spherical arrangements
+  * `quaternion` package for 3D rotations
+- **Performance**: `numba` (3D JIT compilation), `joblib`
+
+TECHNICAL REQUIREMENTS:
+- **Reproducibility**: Fixed random seeds for all stochastic components
+
+# PROMPT-BLOCK-START
+  
+OPTIMIZATION STRATEGIES TO CONSIDER:
+- **Primary Strategy: Force-based methods for dispersion**: Given the objective of maximizing minimum distances, N-body simulation with repulsive potentials (e.g., inverse-square or Lennard-Jones-like) is highly effective for point dispersion. This can serve as an excellent initialization or even a core optimization loop, possibly within a metaheuristic framework.
+  * Molecular dynamics with Lennard-Jones or Coulomb interactions
+  * Spring-embedding algorithms in 3D space
+- **Enhanced Polyhedral foundations & Initial Seeds for N=14**:
+  * For 14 points, consider specific arrangements known to have high symmetry and good dispersion properties:
+    *   **Bicapped Hexagonal Prism**: This configuration (12 vertices of a hexagonal prism + 2 points capping the hexagonal faces) is a well-known strong candidate for optimal 14-point dispersion, especially on a sphere, and can be adapted to the cube.
+    *   **Cuboctahedron + 2 points**: As mentioned, a cuboctahedron has 12 vertices. Adding 2 points, perhaps at the center of two opposing square faces, or along an axis, could yield good results.
+  * Start with vertices of regular polyhedra (tetrahedron, cube, octahedron, dodecahedron, icosahedron)
+  * Truncated polyhedra and compound solids as initialization seeds
+  * Spherical arrangements and geodesic subdivisions
+- **Hybrid optimization**:
+  * **Global Search + Local Refinement**: `scipy.optimize.dual_annealing` for global exploration, followed by a gradient-based local optimizer (e.g., `L-BFGS-B`) for precise refinement. This is a robust approach for non-convex landscapes.
+  * **Multi-objective approach** balancing min/max ratio with geometric regularity
+  * Basin-hopping with 3D-specific local minimization
+- **Advanced metaheuristics (with 3D-aware operators)**:
+  * Evolution Strategies (ES) with correlated mutations in 3D
+  * Differential Evolution with 3D-aware crossover operators
+  * Particle Swarm Optimization with 3D velocity constraints
+  * Simulated Annealing with adaptive 3D perturbation schemes
+
+**DIRECTIVE FOR IMPLEMENTATION:**
+The primary goal is to implement a robust global optimization algorithm to find the optimal 3D point arrangement, aiming for both high `min_max_ratio` and reasonable `eval_time` (e.g., within a few minutes).
+Given the problem's complexity (14 points, 3D, non-convex objective), a **hybrid approach combining a strong initial guess, a force-based pre-optimization, and a robust global search metaheuristic with local refinement** is highly recommended. `scipy.optimize.dual_annealing` remains a strong candidate for the global search phase due to its ability to escape local minima and its support for bounds.
+
+**Objective Function Details:**
+The function to be minimized by `dual_annealing` should return `-dmin/dmax` because `dual_annealing` performs minimization, and our objective is to *maximize* `dmin/dmax`.
+The input to this objective function will be a 1D array representing the flattened 3D coordinates of the 14 points (e.g., `[x1, y1, z1, x2, y2, z2, ..., x14, y14, z14]`). Inside the objective function, this 1D array must be reshaped into a `(14, 3)` array of points to calculate distances.
+
+**Search Domain and Bounds:**
+The points should be constrained within the unit cube `[0,1]³`. This means each coordinate `xi, yi, zi` must be between 0 and 1.
+For `dual_annealing`, the `bounds` parameter should be a list of `(lower_bound, upper_bound)` tuples for each of the `14 * 3 = 42` coordinates. In this case, `[(0, 1)] * 42`.
+
+**Initial Point Generation:**
+For `dual_annealing` or any global optimizer, a good initial `x0` is crucial. Beyond `np.random.rand(42)`, consider using the "Enhanced Polyhedral foundations & Initial Seeds for N=14" described above, such as a **bicapped hexagonal prism** or a **cuboctahedron with two additional points**, as a geometrically informed starting point. Remember to set `np.random.seed(42)` for reproducibility.
+
+**Optimization Tuning and Efficiency:**
+The `eval_time` of the previous attempt was very high (85s). To balance accuracy and efficiency:
+-   **Parameter Tuning**: Carefully tune `maxiter`, `maxfun`, `no_local_search` (for `dual_annealing`), and `maxiter`, `ftol`, `gtol` (for local optimizers). Start with lower values and gradually increase if needed, monitoring `eval_time`.
+-   **Objective Function Speed**: While `pdist` is efficient, repeated calls can be costly. Consider using `numba.jit` to compile the `_objective` function for significant speedups, especially if many iterations are required.
+-   **Alternative Global Optimizers**: If `dual_annealing` remains too slow, explore other `scipy.optimize` methods like `basinhopping` or `shgo`, or specialized packages like `pymoo` for evolutionary algorithms.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+- **3D dispersion theory**: Extension of 2D maximin designs to three dimensions with increased complexity
+- **Spherical vs. cubic domains**: 
+  * Unit sphere: Natural for isotropic dispersion, simpler distance analysis
+  * Unit cube: More complex boundary effects but computationally convenient (THIS IS THE CHOSEN DOMAIN FOR IMPLEMENTATION)
+- **Dimensional scaling**: 3D adds significant complexity compared to 2D - exponentially larger search space
+- **Critical 3D configurations for N=14**: 
+  * **Bicapped Hexagonal Prism**: This is a key configuration to investigate for 14 points, offering high symmetry and good dispersion.
+  * Icosahedral arrangements: High symmetry for 12 points, adaptable to 14 by adding 2 points.
+  * Cuboctahedral geometry: 14 points naturally fit cuboctahedron (12 vertices) + 2 center/face points.
+  * The current SOTA (0.4898) is a challenging target, suggesting that simple polyhedral vertices alone might not be sufficient and requires fine-tuning or more complex arrangements.
+- **Theoretical considerations**:
+  * Upper bounds from sphere packing theory in 3D
+  * Lower bounds from random point processes
+  * Current SOTA (0.4898) suggests room for improvement toward theoretical limits
+- **3D symmetry groups**: Optimal solutions may respect cubic (Oh), icosahedral (Ih), hexagonal, or other point group symmetries.
+
+**Recommended implementation patterns:**
+- **3D distance computation**: 
+  * `scipy.spatial.distance.pdist()` with 3D coordinate arrays (highly recommended for efficiency)
+  * Efficient broadcasting for 3D coordinate differences
+  * Consider `numba` for `_objective` function acceleration.
+  * GPU acceleration for large-scale 3D operations (if applicable, but likely overkill for N=14)
+- **Constraint handling**:
+  * Cubic constraints: 0 ≤ xi, yi, zi ≤ 1 for unit cube domain (THIS IS THE CHOSEN DOMAIN FOR IMPLEMENTATION)
+  * Projection operators for feasible 3D regions (handled by `dual_annealing` bounds)
+- **3D-specific optimization**:
+  * Spherical coordinate parameterization (r, θ, φ) (less relevant with unit cube and `dual_annealing` on Cartesian)
+  * Quaternion-based rotation operators for symmetry exploration (useful for initial configurations or specialized operators)
+  * 3D convex hull analysis for boundary point identification
+- **Advanced 3D techniques**:
+  * Multi-resolution optimization (coarse → fine 3D grids)
+  * Symmetry-constrained optimization using group theory (can dramatically reduce search space if optimal symmetry is known)
+
+VALIDATION FRAMEWORK:
+- **3D geometric validation**:
+  * Verify exactly 14 distinct points in 3D space
+  * Check coordinate bounds for chosen domain (unit cube [0,1]³)
+  * Validate 3D distance matrix properties (symmetry, triangle inequality)
+  * Ensure no collinear or coplanar degeneracies (though optimization should naturally avoid this)
+- **Data validation**:
+  * All coordinates must be finite 3D floats
+  * Minimum separation threshold to avoid numerical issues
+  * Proper handling of 3D floating-point precision
+- **3D solution quality assessment**:
+  * 3D symmetry analysis using point group theory (e.g., check for hexagonal or cuboctahedral symmetry)
+  * Stability under 3D rotations and perturbations
+  * Comparison with known optimal 3D configurations (e.g., bicapped hexagonal prism, cuboctahedral variants)
+  * Convex hull analysis and geometric properties
+- **Optimization diagnostics**:
+  * 3D convergence visualization and history tracking
+  * Multi-start consistency in 3D landscape
+  * Sensitivity analysis for 3D parameter variations
+  
+PROBLEM-SPECIFIC 3D CONSIDERATIONS:
+- **Domain selection**:
+  * Unit cube: Computational convenience, anisotropic boundary effects (THIS IS THE CHOSEN DOMAIN FOR IMPLEMENTATION)
+- **3D initialization strategies**:
+  * **Bicapped hexagonal prism**: Explicitly consider generating points based on this configuration.
+  * Cuboctahedron vertices with additional points.
+  * Platonic solid vertices with perturbations
+  * Spherical Fibonacci spirals for uniform sphere coverage
+  * 3D Latin hypercube sampling for space-filling designs
+  * Crystallographic point arrangements
+  * (For `dual_annealing`, random uniform within bounds is a good starting point, but an informed geometric guess is better)
+- **3D objective function challenges**:
+  * Higher dimensionality increases local optima density
+  * 3D rotation invariance requirements (less critical when optimizing in a fixed cube)
+  * Balance between global dispersion and local regularity
+- **Symmetry considerations**:
+  * **Hexagonal symmetry**: Highly relevant for the bicapped hexagonal prism.
+  * Icosahedral symmetry (suitable for 12 points, adaptable to 14)
+  * Cubic symmetry with additional points
+  * Lower-order symmetries (tetrahedral, octahedral)
+
+# PROMPT-BLOCK-END
+    

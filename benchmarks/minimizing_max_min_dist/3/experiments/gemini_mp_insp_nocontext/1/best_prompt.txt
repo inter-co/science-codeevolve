@@ -1,0 +1,80 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on 3D point dispersion problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 14 points in 3D space, maximizing the ratio of minimum distance to maximum distance between all point pairs.
+
+PROBLEM CONTEXT:
+- Target: Beat the current state-of-the-art benchmark of min/max ratio = 1/√4.165849767 ≈ 0.4898
+- Constraint: Points must be placed in 3D Euclidean space (typically normalized to unit cube [0,1]³ or unit sphere)
+- Mathematical formulation: For points Pi = (xi, yi, zi), i = 1,...,14:
+  * Distance matrix: dij = √[(xi-xj)² + (yi-yj)² + (zi-zj)²] for all i≠j
+  * Minimum distance: dmin = min{dij : i≠j}
+  * Maximum distance: dmax = max{dij : i≠j}
+  * Objective: maximize dmin/dmax subject to spatial constraints
+
+PERFORMANCE METRICS:
+1. **min_max_ratio**: dmin/dmax ratio (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: min_max_ratio / 0.4898 (progress toward beating AlphaEvolve benchmark)
+3. **eval_time**: Execution time in seconds (balance accuracy vs. efficiency)
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas
+**Additional useful packages**:
+- **3D optimization**: `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)
+- **3D geometric computing**: 
+  * `scipy.spatial` (3D distance matrices, ConvexHull, SphericalVoronoi)
+  * `trimesh` (3D mesh operations), `open3d` (3D data processing)
+- **Specialized 3D algorithms**: 
+  * `spherical-geometry` for spherical arrangements
+  * `quaternion` package for 3D rotations
+- **Performance**: `numba` (3D JIT compilation), `joblib`
+
+TECHNICAL REQUIREMENTS:
+- **Reproducibility**: Fixed random seeds for all stochastic components
+
+# PROMPT-BLOCK-START
+  
+OPTIMIZATION STRATEGIES TO CONSIDER:
+This is a challenging global optimization problem in a 42-dimensional continuous search space (14 points * 3 coordinates). Gradient-based local optimization methods are highly likely to get stuck in sub-optimal local minima. Therefore, robust global optimization strategies are essential.
+
+*   **Evolutionary Algorithms (EAs)**:
+    *   `scipy.optimize.differential_evolution`: A powerful and widely used global optimization algorithm, excellent for high-dimensional, non-convex problems. It's often a good first choice.
+    *   Genetic Algorithms (e.g., via `deap` or `pymoo`): Population-based methods that explore the search space broadly.
+*   **Simulated Annealing**:
+    *   `scipy.optimize.dual_annealing`: Another robust stochastic global optimization algorithm that can effectively escape local minima.
+*   **Basin Hopping**:
+    *   `scipy.optimize.basinhopping`: Combines a global stepping algorithm with local optimization at each step.
+
+The optimization process should be iterative, refining point positions over many generations or iterations. The objective function must be designed to return the negative of the min/max ratio, as `scipy.optimize` functions typically minimize.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+This problem is closely related to classic point dispersion and packing problems:
+*   **Tammes Problem**: Maximizing the minimum angular distance between points on a sphere.
+*   **Thomson Problem**: Minimizing the electrostatic potential energy of N electrons constrained to the surface of a sphere.
+Optimal solutions often exhibit high degrees of symmetry. For N=14 points, the optimal configuration is generally not trivial and might involve complex polyhedral structures.
+The objective of maximizing `dmin/dmax` implies seeking a configuration where points are "as equally separated as possible." This often leads to points being distributed on the surface of a bounding convex shape, most commonly a sphere.
+
+**Recommended implementation patterns:**
+1.  **Objective Function**: Define a Python function `objective_func(coordinates_flat)` that:
+    *   Takes a 1D NumPy array `coordinates_flat` (representing the 42 flattened coordinates of the 14 points).
+    *   Reshapes it into a `(14, 3)` NumPy array of `points`.
+    *   **Crucially, normalize these points**: Center them at the origin (subtract centroid) and then scale them so the point furthest from the origin has a distance of 1. This effectively places all points within a unit sphere, preventing trivial scaling of the entire configuration and fixing the scale of `dmax`.
+    *   Calculates all pairwise Euclidean distances using `scipy.spatial.distance.pdist(points, metric='euclidean')`.
+    *   Determines `dmin = np.min(distances)` and `dmax = np.max(distances)`.
+    *   Returns `-dmin / dmax` (negative because optimizers minimize, and we want to maximize the ratio).
+2.  **Initial Guess**: Generate an initial set of 14 points randomly distributed within a unit cube or sphere. Flatten these coordinates for the optimizer.
+3.  **Bounds**: For `scipy.optimize.differential_evolution` or `dual_annealing`, define bounds for each coordinate, e.g., `(-1, 1)` for each of the 42 variables. This helps constrain the search space.
+4.  **Reproducibility**: Ensure `np.random.seed()` is set for the initial point generation and any stochastic components of the optimizer.
+
+VALIDATION FRAMEWORK:
+*   **Distance Calculation**: Utilize `scipy.spatial.distance.pdist(points, metric='euclidean')` for efficient and robust computation of all unique pairwise distances. This returns a 1D array.
+*   **Min/Max Extraction**: `np.min()` and `np.max()` applied to the result of `pdist` will yield `dmin` and `dmax` respectively.
+*   **Objective Function Output**: The function passed to the optimizer should return a single float value (the negative min/max ratio).
+
+PROBLEM-SPECIFIC 3D CONSIDERATIONS:
+*   **Centering and Scaling/Normalization**: This is paramount. Without it, the optimizer could trivially increase the `dmin/dmax` ratio by simply scaling up the entire configuration, leading to an unbounded search space. As described in "Recommended implementation patterns", normalize the points within the objective function to fit within a unit sphere. This ensures `dmax` is implicitly bounded (e.g., by the diameter of the unit sphere, which is 2), allowing the optimizer to focus solely on maximizing `dmin` relative to this fixed `dmax`.
+*   **High Dimensionality**: The 42-dimensional search space necessitates the use of global optimization algorithms capable of handling many variables.
+*   **Computational Cost**: Calculating pairwise distances for 14 points is fast (14*13/2 = 91 distances). The primary computational cost comes from the large number of objective function evaluations performed by global optimizers.
+*   **Symmetry**: While not explicitly enforced, the optimal solution is expected to be highly symmetric. The chosen global optimizer should be capable of finding such symmetries.
+
+# PROMPT-BLOCK-END
+    

@@ -1,0 +1,92 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on point dispersion problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 16 points in 2D space, maximizing the ratio of minimum distance to maximum distance between all point pairs.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of min/max ratio = 1/√12.889266112 ≈ 0.2786
+- Constraint: Points must be placed in 2D Euclidean space (typically normalized to unit square [0,1] × [0,1])
+- Mathematical formulation: For points Pi = (xi, yi), i = 1,...,16:
+  * Distance matrix: dij = √[(xi-xj)² + (yi-yj)²] for all i≠j
+  * Minimum distance: dmin = min{dij : i≠j}
+  * Maximum distance: dmax = max{dij : i≠j}
+  * Objective: maximize dmin/dmax subject to spatial constraints
+
+PERFORMANCE METRICS:
+1. **min_max_ratio**: dmin/dmax ratio (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: min_max_ratio / 0.2786 (progress toward beating AlphaEvolve benchmark)
+3. **eval_time**: Execution time in seconds (balance accuracy vs. efficiency)
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas
+**Additional useful packages**:
+- **3D optimization**: `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)
+- **3D geometric computing**: 
+  * `scipy.spatial` (3D distance matrices, ConvexHull, SphericalVoronoi)
+  * `trimesh` (3D mesh operations), `open3d` (3D data processing)
+- **Specialized 3D algorithms**: 
+  * `spherical-geometry` for spherical arrangements
+  * `quaternion` package for 3D rotations
+- **Performance**: `numba` (3D JIT compilation), `joblib`
+
+TECHNICAL REQUIREMENTS:
+- **Reproducibility**: Fixed random seeds for all stochastic components
+
+# PROMPT-BLOCK-START
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+- **Primary Global Search**: `Differential Evolution` is highly recommended for its robustness against local optima and non-differentiable objective functions.
+- **Local Refinement**: After a global search, `L-BFGS-B` or `Nelder-Mead` could be used for fine-tuning, though `Differential Evolution` is often sufficient for this problem.
+- **Symmetry Exploitation & Custom Initialization**: **Strongly consider providing a custom initial population to `differential_evolution`'s `init` parameter.** For 16 points, a perfectly symmetric 4x4 grid scaled to the unit square is an excellent candidate for a structured initial population. This can significantly accelerate convergence to better local optima by starting the search in a promising region. To do this, generate an array of `(popsize, n_points * n_dims)` where at least one row is the flattened 4x4 grid coordinates, and the remaining rows can be filled with quasi-random sequences (like Sobol) or small perturbations around the symmetric configuration. This hybrid approach leverages both structured insight and broad exploration.
+- **Multi-scale Approaches**: Coarse grid initialization or hierarchical placement can provide good starting points for optimization. Leveraging quasi-random sequences for the initial population (e.g., Sobol or Latin Hypercube sampling via `differential_evolution`'s `init` parameter) can ensure a more uniform and effective exploration of the search space than purely random initialization, especially when combined with structured initial points.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+- **Objective Function Nature**: The `dmin/dmax` ratio involves `min()` and `max()` operations, making it non-smooth and non-differentiable. This reinforces the choice of gradient-free global optimizers like Differential Evolution.
+- **Domain Constraints**: Points must be strictly within the unit square `[0,1] × [0,1]`. This is a hard constraint for the optimization process.
+- **Critical Configurations**: Initializing with configurations like a 4x4 square grid or a regular 16-gon (scaled to fit the unit square) can provide a competitive baseline or good starting points for `Differential Evolution`'s initial population.
+- **Local vs. Global Optima**: The problem landscape is complex with many local optima. A robust global optimization algorithm is essential.
+- **Theoretical Bounds**: The AlphaEvolve benchmark (0.2786) is a challenging target, indicating that a sophisticated optimization approach is required to approach the theoretical upper bound.
+
+IMPLEMENTATION GUIDELINES:
+**Recommended implementation patterns:**
+- **Objective Function Definition**:
+    - Create a Python function, e.g., `objective(coords_1d)`, that takes a 1D NumPy array of `(x1, y1, x2, y2, ..., x16, y16)` coordinates.
+    - Reshape `coords_1d` into a `(16, 2)` array of points.
+    - Use `scipy.spatial.distance.pdist()` to compute the pairwise Euclidean distances between all 16 points.
+    - Calculate `dmin = np.min(distances)` and `dmax = np.max(distances)`.
+    - Return `-dmin / dmax`. The negative sign is crucial because `scipy.optimize.minimize` seeks to minimize, while our objective is to maximize `dmin/dmax`.
+- **Optimization Framework**:
+    - Employ `scipy.optimize.differential_evolution()` as the primary global optimizer.
+    - Define `bounds` for `differential_evolution` as `[(0, 1)] * (16 * 2)` to strictly enforce the unit square constraint for each coordinate.
+    - Set the `seed` parameter of `differential_evolution` to `42` for reproducibility, consistent with `np.random.seed(42)` if used for initial point generation.
+    - **Crucially, consider the `init` parameter of `differential_evolution`. Using `'sobol'` (requires SciPy >= 1.7) or `'latinhypercube'` can significantly improve initial population quality over pure random, leading to faster convergence and better solutions.**
+    - **Crucial Optimization Parameters for `differential_evolution`**: To beat the challenging AlphaEvolve benchmark, aggressive settings for `maxiter` and `popsize` are essential. `maxiter` should be in the range of `5000-10000` (or even higher if computational resources permit), and `popsize` should be `100-300` (or more). The generated code's `eval_time` of ~66 seconds, while substantial, indicates that there is still capacity to increase these parameters further without exceeding typical time limits, thereby potentially finding a slightly better optimum.
+    - **Refined Convergence Criteria for `differential_evolution`**: Beyond `maxiter`, explicitly set `tol` (relative tolerance) to a very small value (e.g., `1e-5` or `1e-6`) and `atol` (absolute tolerance) to a small but non-zero value (e.g., `1e-8`). This ensures the optimization process continues to refine the solution until extremely small changes in the objective function are no longer observed.
+    - `polish=True` is recommended for local refinement of the best solution found by DE, or a dedicated local optimization step (like L-BFGS-B with k-continuation) should be performed *after* DE, as implemented.
+    - **Aggressive k-continuation for `minimize`**: When using k-continuation with `L-BFGS-B` (or similar), ensure the sequence of `k_values` is sufficiently extended and dense, especially at the higher end. The final `k_val` should reach `10000` or `20000` to make the smooth objective a very close approximation of the non-smooth one. Additionally, the `maxiter` for each `minimize` call within the k-continuation loop should be increased (e.g., to `1500-2000`) and `ftol`/`gtol` should be set to extremely tight values (e.g., `ftol=1e-13`, `gtol=1e-8`) to ensure thorough local convergence at each smoothing level.
+- **Constraint Handling**: The `bounds` parameter in `differential_evolution` effectively handles the unit square constraints by restricting the search space.
+- **Distance computation**: `scipy.spatial.distance.pdist()` is highly optimized and crucial for efficient pairwise distance calculations.
+
+VALIDATION FRAMEWORK:
+- **Geometric validation**:
+  * Verify exactly 16 distinct points.
+  * Check coordinate bounds: all `x_i, y_i` must be strictly within `[0,1]`.
+  * Validate distance matrix symmetry and positivity.
+- **Data validation**:
+  * All coordinates must be finite floats.
+  * No duplicate points (minimum separation threshold).
+  * Proper handling of numerical precision issues.
+- **Solution quality assessment**:
+  * Symmetry analysis of final configuration.
+  * Stability under small perturbations.
+  * Comparison with known geometric configurations.
+- **Optimization diagnostics**:
+  * Convergence history tracking (if possible).
+  * Multi-run consistency checks.
+  
+PROBLEM-SPECIFIC CONSIDERATIONS:
+- **Initialization strategies**: The `init` parameter of `differential_evolution` is crucial. While it can generate its own population using quasi-random sequences, providing a **custom initial population** (e.g., containing a 4x4 square grid and other promising configurations) can significantly accelerate convergence and improve solution quality, especially for highly symmetric problems like this. This approach explicitly combines geometric insight with the robustness of `differential_evolution`.
+- **Objective function challenges**: The non-smoothness and multiple local optima are directly addressed by using `differential_evolution` due to its population-based, gradient-free nature.
+- **Constraint geometry**: The problem explicitly requires points within the `[0,1] × [0,1]` unit square. This must be strictly enforced via optimization bounds.
+
+# PROMPT-BLOCK-END
+    

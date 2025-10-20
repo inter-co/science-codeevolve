@@ -1,0 +1,102 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on 3D point dispersion problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 14 points in 3D space, maximizing the ratio of minimum distance to maximum distance between all point pairs.
+
+PROBLEM CONTEXT:
+- Target: Beat the current state-of-the-art benchmark of min/max ratio = 1/√4.165849767 ≈ 0.4898
+- Constraint: Points must be placed in 3D Euclidean space (typically normalized to unit cube [0,1]³ or unit sphere)
+- Mathematical formulation: For points Pi = (xi, yi, zi), i = 1,...,14:
+  * Distance matrix: dij = √[(xi-xj)² + (yi-yj)² + (zi-zj)²] for all i≠j
+  * Minimum distance: dmin = min{dij : i≠j}
+  * Maximum distance: dmax = max{dij : i≠j}
+  * Objective: maximize dmin/dmax subject to spatial constraints
+
+PERFORMANCE METRICS:
+1. **min_max_ratio**: dmin/dmax ratio (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: min_max_ratio / 0.4898 (progress toward beating AlphaEvolve benchmark)
+3. **eval_time**: Execution time in seconds (balance accuracy vs. efficiency)
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas
+**Additional useful packages**:
+- **3D optimization**: `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)
+- **3D geometric computing**: 
+  * `scipy.spatial` (3D distance matrices, ConvexHull, SphericalVoronoi)
+  * `trimesh` (3D mesh operations), `open3d` (3D data processing)
+- **Specialized 3D algorithms**: 
+  * `spherical-geometry` for spherical arrangements
+  * `quaternion` package for 3D rotations
+- **Performance**: `numba` (3D JIT compilation), `joblib`
+
+TECHNICAL REQUIREMENTS:
+- **Reproducibility**: Fixed random seeds for all stochastic components
+
+# PROMPT-BLOCK-START
+  
+OPTIMIZATION STRATEGIES TO CONSIDER:
+The problem of maximizing the minimum-to-maximum distance ratio is a global optimization challenge. Given its non-differentiable and highly multimodal objective function, metaheuristic algorithms are the most suitable approach.
+
+*   **Evolutionary Algorithms (EAs)**:
+    *   **Differential Evolution (DE)**: Highly effective for continuous optimization problems, robust to local optima, and capable of exploring complex landscapes. `scipy.optimize.differential_evolution` is a prime candidate. It works by evolving a population of candidate solutions.
+    *   **Genetic Algorithms (GA)**: Another strong choice, involving selection, crossover, and mutation operations. Libraries like `deap` or `pymoo` provide extensive frameworks for custom GAs.
+*   **Simulated Annealing (SA)**: Can escape local optima by probabilistically accepting worse solutions, gradually reducing the probability over time. `scipy.optimize.dual_annealing` is a good option.
+*   **Iterative Refinement / Force-Directed Layouts**: Start with an initial configuration and iteratively adjust point positions based on a "repulsive force" model, where points push away from close neighbors. This can be used as a local optimizer or initialization strategy.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+This problem is a variant of classical point distribution problems in computational geometry and discrete mathematics.
+
+*   **Thomson Problem & Tammes Problem**: These related problems deal with arranging points on a sphere to minimize potential energy (Thomson) or maximize minimum distance (Tammes). While our problem is in general 3D space, the underlying principle of maximizing repulsion and achieving uniform distribution is similar.
+*   **Energy Minimization Analogy**: The objective `dmin/dmax` can be thought of as maximizing a "repulsive energy" that forces points to spread out as much as possible. A higher ratio implies a more "stable" and uniformly dispersed configuration.
+*   **Sphere Packing / Covering**: Maximizing `dmin` relates to sphere packing (fitting as many non-overlapping spheres as possible). Minimizing `dmax` relates to sphere covering (covering the space with spheres of minimum radius). Our ratio balances both.
+*   **High-Dimensional Search Space**: For 14 points in 3D, the search space has 14 * 3 = 42 continuous dimensions. This complexity necessitates robust global optimization methods.
+
+**Recommended implementation patterns:**
+
+1.  **Objective Function Definition**: Create a function that takes a flattened 1D array of 42 coordinates, reshapes it into `(14, 3)`, calculates the pairwise distances, and returns `-dmin/dmax` (since optimizers typically minimize).
+    ```python
+    import numpy as np
+    from scipy.spatial.distance import pdist, squareform
+
+    def calculate_min_max_ratio(points_flat: np.ndarray) -> float:
+        points = points_flat.reshape((14, 3))
+        if points.shape[0] < 2: # Handle edge case for 0 or 1 point
+            return 0.0
+        
+        # Calculate all pairwise Euclidean distances
+        distances = pdist(points) # Returns condensed distance matrix
+        
+        if len(distances) == 0: # Handle case where pdist returns empty (e.g., 1 point)
+            return 0.0
+
+        dmin = np.min(distances)
+        dmax = np.max(distances)
+        
+        if dmax == 0: # Avoid division by zero if all points are coincident
+            return 0.0 if dmin == 0 else np.inf # Or handle as an invalid state
+            
+        ratio = dmin / dmax
+        return -ratio # For minimization algorithms
+    ```
+2.  **Boundary Constraints**: Points should typically be constrained within a unit cube, e.g., `[0,1]^3`. This means each coordinate `x, y, z` for every point must be between 0 and 1. This can be handled by providing `bounds` to `scipy.optimize` functions.
+3.  **Optimization Driver**: Use `scipy.optimize.differential_evolution` as the primary optimization method.
+    *   Set `bounds` for each of the 42 coordinates (e.g., `[(0, 1)] * 42`).
+    *   Specify `maxiter` and `popsize` for controlling the search process. **For this 42-dimensional problem, the `popsize` parameter (which controls the number of mutation vectors per generation, influencing the diversity and exploration of the search) should typically be at least `D` (number of dimensions), and often `10*D` for robust global search. A `popsize` of at least `D=42` is recommended to ensure sufficient exploration and escape from local optima. The previous `popsize=20` was likely too small.**
+    *   **Initialization (`init` parameter)**: Providing a well-distributed initial population (e.g., using low-discrepancy sequences like Sobol or Latin Hypercube sampling, as implemented in the previous attempt) can significantly improve convergence speed and quality by giving the optimizer a better starting point and covering the search space more uniformly.
+    *   **Balance `maxiter` and `popsize`**: Achieving the benchmark (min/max ratio = 0.4898) requires a thorough search. While `maxiter` directly impacts runtime, a well-chosen `popsize` can significantly improve convergence speed and solution quality. The previous attempt's `eval_time` of ~34 seconds for a `min_max_ratio` of ~0.16 indicates that the parameter choices were inefficient and did not yield sufficient quality. Aim for a significantly higher `min_max_ratio` (closer to the benchmark) even if it means a longer runtime, but always be mindful of computational limits. The goal is to maximize `min_max_ratio` while keeping `eval_time` practical (e.g., under 60-90 seconds for a single run, but ideally under 45-60 seconds for a good quality solution). Consider increasing `popsize` and adjusting `maxiter` to find a better balance.
+    *   Ensure `seed` is set for reproducibility.
+
+VALIDATION FRAMEWORK:
+*   **Fitness Evaluation**: The `calculate_min_max_ratio` function is central. Ensure it correctly computes distances and the ratio.
+*   **Boundary Adherence**: After optimization, verify that all generated point coordinates lie strictly within the `[0,1]` range.
+*   **Convergence**: Monitor the objective function value over iterations. The optimization should converge to a stable value, indicating a potential optimum.
+*   **Reproducibility**: Due to stochastic components, ensure that setting `np.random.seed()` and the `seed` parameter in the optimizer yields identical results for repeated runs.
+
+PROBLEM-SPECIFIC 3D CONSIDERATIONS:
+*   **Domain Choice**: For this problem, we will assume the points are constrained within a **unit cube `[0,1]^3`**. This is a common choice for general point dispersion problems and simplifies boundary handling. The benchmark ratio likely corresponds to this constraint.
+*   **Symmetry**: Optimal solutions for a small number of points often exhibit high geometric symmetry (e.g., vertices of regular polyhedra). For 14 points, the exact symmetry might be complex but the distribution should be as uniform as possible.
+*   **Local Optima**: The search space is highly rugged, meaning many local optima exist. Global optimization methods are essential to avoid getting stuck in suboptimal configurations.
+*   **Computational Cost**: While `N=14` is small, the number of function evaluations in metaheuristics can be high. Efficient distance calculations (using `scipy.spatial.distance.pdist`) are crucial.
+*   **Output Format**: The constructor should return a `np.ndarray` of shape `(14, 3)` with coordinates in the `[0,1]` range.
+
+# PROMPT-BLOCK-END
+    

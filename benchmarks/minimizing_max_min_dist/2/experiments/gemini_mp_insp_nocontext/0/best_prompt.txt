@@ -1,0 +1,73 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on point dispersion problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 16 points in 2D space, maximizing the ratio of minimum distance to maximum distance between all point pairs.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of min/max ratio = 1/√12.889266112 ≈ 0.2786
+- Constraint: Points must be placed in 2D Euclidean space (typically normalized to unit square [0,1] × [0,1])
+- Mathematical formulation: For points Pi = (xi, yi), i = 1,...,16:
+  * Distance matrix: dij = √[(xi-xj)² + (yi-yj)²] for all i≠j
+  * Minimum distance: dmin = min{dij : i≠j}
+  * Maximum distance: dmax = max{dij : i≠j}
+  * Objective: maximize dmin/dmax subject to spatial constraints
+
+PERFORMANCE METRICS:
+1. **min_max_ratio**: dmin/dmax ratio (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: min_max_ratio / 0.2786 (progress toward beating AlphaEvolve benchmark)
+3. **eval_time**: Execution time in seconds (balance accuracy vs. efficiency)
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas
+**Additional useful packages**:
+- **3D optimization**: `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)
+- **3D geometric computing**: 
+  * `scipy.spatial` (3D distance matrices, ConvexHull, SphericalVoronoi)
+  * `trimesh` (3D mesh operations), `open3d` (3D data processing)
+- **Specialized 3D algorithms**: 
+  * `spherical-geometry` for spherical arrangements
+  * `quaternion` package for 3D rotations
+- **Performance**: `numba` (3D JIT compilation), `joblib`
+
+TECHNICAL REQUIREMENTS:
+- **Reproducibility**: Fixed random seeds for all stochastic components
+
+# PROMPT-BLOCK-START
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+-   **Metaheuristic Optimization**: Given the non-convex, non-differentiable nature of the `dmin/dmax` objective function, metaheuristics are highly suitable. They are designed to explore complex search spaces and escape local optima.
+    -   **Differential Evolution**: A robust and powerful evolutionary algorithm often effective for global optimization of functions that are not necessarily smooth or convex. `scipy.optimize.differential_evolution` is a prime candidate, as it natively supports bounds.
+    -   **Simulated Annealing**: Another metaheuristic that can approximate global optima by allowing "uphill" moves (accepting worse solutions) with a decreasing probability, helping to escape local minima.
+-   **Local Optimization with Multiple Restarts**: While local optimizers (e.g., `scipy.optimize.minimize` with methods like L-BFGS-B or SLSQP) can be fast, they are prone to getting stuck in local optima. If used, they must be combined with numerous random restarts to increase the chance of finding a good solution. This approach is generally less robust for this specific problem than metaheuristics.
+-   **Force-directed Layouts**: An alternative approach involves modeling points as particles that exert repulsive forces on each other (e.g., inverse square law) and possibly attractive forces towards the center or boundaries. The system is then simulated until it reaches a low-energy equilibrium state. This can be conceptualized as minimizing a potential energy function.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+-   **Equidistribution and Uniformity**: Optimal arrangements tend towards a highly uniform distribution where points are maximally separated from their neighbors. The ideal solution would have all `d_min` distances equal and `d_max` minimized.
+-   **Symmetry**: For optimal or near-optimal configurations, especially for N=16, some degree of symmetry (rotational, reflectional) is often observed. Exploit this where possible, though direct enforcement can be complex.
+-   **Boundary vs. Interior Points**: Points located near the boundary of the unit square will have fewer neighbors in certain directions, affecting their optimal placement compared to interior points. The boundary acts as a physical constraint.
+-   **Relationship to Tammes Problem / Sphere Packing**: This problem is conceptually related to finding optimal point configurations, such as the Tammes Problem (maximizing minimum distance on a sphere). The core idea is to "push" points apart as much as possible, subject to the container's constraints.
+-   **Energy Minimization**: The problem can be framed as minimizing an "energy" function where points repel each other. For example, minimizing the sum of inverse squared distances, subject to bounds.
+
+IMPLEMENTATION GUIDELINES:
+-   **Objective Function**: Define a function `objective(points)` that takes a flat array of `(x1, y1, x2, y2, ..., x16, y16)` coordinates and returns the negative of the `dmin/dmax` ratio (since `scipy.optimize.minimize` performs minimization).
+    -   Inside `objective`, reshape the input array back to `(16, 2)`.
+    -   Calculate pairwise distances using `scipy.spatial.distance.pdist` (Euclidean metric).
+    -   Determine `dmin` and `dmax` from the calculated distances.
+-   **Bounds**: All point coordinates `(x, y)` must be within `[0, 1]`. When using `scipy.optimize` functions, ensure `bounds=((0,1), (0,1), ..., (0,1))` for all 32 coordinates (16 points * 2 dimensions).
+-   **Initial Population/Guess**: For metaheuristics, start with a random distribution of points uniformly sampled within the `[0,1]x[0,1]` square. This provides a diverse starting point for exploration.
+-   **Pairwise Distance Calculation**: Use `scipy.spatial.distance.pdist(points, metric='euclidean')` for efficient computation of all unique pairwise distances. `np.min` and `np.max` can then be applied to the resulting condensed distance matrix.
+-   **Vectorization**: Leverage NumPy for all array operations to ensure computational efficiency. Avoid explicit Python loops where NumPy vectorized operations can be used.
+-   **Reproducibility**: Explicitly set `np.random.seed()` at the beginning of the function and before any stochastic operations to ensure consistent results across runs.
+
+VALIDATION FRAMEWORK:
+-   **Metric Calculation Function**: Implement a separate helper function, `calculate_metrics(points)`, that takes a `(16, 2)` NumPy array of points and returns a dictionary containing `dmin`, `dmax`, and `dmin/dmax`. This ensures consistent and accurate evaluation.
+-   **Visual Inspection**: After optimization, plot the final 16 points within the unit square using `matplotlib.pyplot.scatter`. This visual check can quickly reveal obvious issues or symmetries.
+-   **Convergence Monitoring**: For iterative optimizers, consider logging the `dmin/dmax` ratio at regular intervals to observe the optimization progress and determine if convergence has been reached.
+
+PROBLEM-SPECIFIC CONSIDERATIONS:
+-   **N=16 Complexity**: Finding the global optimum for N=16 points is a non-trivial problem. The search space is 32-dimensional (16 points * 2 coordinates).
+-   **Multimodal Search Space**: The objective function likely has many local optima, making pure gradient-descent methods ineffective without extensive restarts. This reinforces the need for global optimization strategies.
+-   **Benchmark Target**: The AlphaEvolve benchmark of 0.2786 is a high bar. Achieving or exceeding it requires a well-tuned and robust optimization approach, likely involving hundreds or thousands of objective function evaluations.
+-   **Edge Cases**: Be mindful of numerical stability, especially when calculating `dmin` or `dmax` with very small or very large values.
+
+# PROMPT-BLOCK-END
+    

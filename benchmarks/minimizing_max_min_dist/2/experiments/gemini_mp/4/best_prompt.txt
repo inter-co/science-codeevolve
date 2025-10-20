@@ -1,0 +1,148 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on point dispersion problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 16 points in 2D space, maximizing the ratio of minimum distance to maximum distance between all point pairs.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of min/max ratio = 1/√12.889266112 ≈ 0.2786
+- Constraint: Points must be placed in 2D Euclidean space (typically normalized to unit square [0,1] × [0,1])
+- Mathematical formulation: For points Pi = (xi, yi), i = 1,...,16:
+  * Distance matrix: dij = √[(xi-xj)² + (yi-yj)²] for all i≠j
+  * Minimum distance: dmin = min{dij : i≠j}
+  * Maximum distance: dmax = max{dij : i≠j}
+  * Objective: maximize dmin/dmax subject to spatial constraints
+
+PERFORMANCE METRICS:
+1. **min_max_ratio**: dmin/dmax ratio (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: min_max_ratio / 0.2786 (progress toward beating AlphaEvolve benchmark)
+3. **eval_time**: Execution time in seconds (balance accuracy vs. efficiency)
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas
+**Additional useful packages**:
+- **3D optimization**: `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)
+- **3D geometric computing**: 
+  * `scipy.spatial` (3D distance matrices, ConvexHull, SphericalVoronoi)
+  * `trimesh` (3D mesh operations), `open3d` (3D data processing)
+- **Specialized 3D algorithms**: 
+  * `spherical-geometry` for spherical arrangements
+  * `quaternion` package for 3D rotations
+- **Performance**: `numba` (3D JIT compilation), `joblib`
+
+TECHNICAL REQUIREMENTS:
+- **Reproducibility**: Fixed random seeds for all stochastic components
+
+# PROMPT-BLOCK-START
+
+Your primary task is to implement the `min_max_dist_dim2_16` function by applying a global optimization algorithm to find the optimal point arrangement.
+
+**Specific Implementation Instructions:**
+
+1.  **Choose a Global Optimizer**: Utilize `scipy.optimize.differential_evolution` as it is well-suited for global optimization of non-smooth, bounded problems.
+    *   Set `seed=42` for reproducibility.
+    *   Consider increasing `maxiter` for better convergence, but balance with `eval_time` constraints. A value like `maxiter=1000` or higher is a good starting point.
+
+2.  **Define the Objective Function**:
+    *   Create a helper function, `objective(coords_flat)`, which takes a 1D numpy array `coords_flat` (representing the flattened 2D coordinates of 16 points, i.e., `(16*2,)` shape).
+    *   Inside `objective`:
+        *   Reshape `coords_flat` into `(16, 2)` points.
+        *   Calculate all pairwise Euclidean distances using `scipy.spatial.distance.pdist`.
+        *   Determine `dmin` (minimum distance) and `dmax` (maximum distance).
+        *   Return the *negative* of the `dmin/dmax` ratio, as `differential_evolution` minimizes by default.
+        *   **Robustness**: If `dmax` is zero (e.g., all points are identical), return a very large negative number (e.g., `-np.inf`) to heavily penalize such configurations and guide the optimizer away. If `dmin` is zero but `dmax` is not, the ratio will be zero, which is also a poor outcome.
+
+3.  **Define Bounds**:
+    *   The points must be within the unit square `[0,1] × [0,1]`. Therefore, define bounds for all 32 coordinates as `(0, 1)`. `differential_evolution` accepts a list of `(min, max)` tuples, one for each coordinate.
+
+4.  **Initial Population (Optional)**: While `differential_evolution` generates its own initial population, the `init` argument can be used to provide better starting points (e.g., a regular grid or perturbed regular polygon) if desired, to potentially speed up convergence. However, for a first attempt, the default random initialization within bounds is often sufficient.
+
+5.  **Return Value**: The `min_max_dist_dim2_16` function should return the optimized `(16, 2)` numpy array of points, which are the `x` attribute of the `OptimizeResult` object, reshaped.
+
+**OPTIMIZATION STRATEGIES TO CONSIDER (as background for the chosen method):**
+- **Symmetry exploitation**: Leverage rotational and reflectional symmetries of optimal configurations
+- **Regular polygon foundations**: Start with vertices of regular polygons and perturb systematically
+- **Multi-scale approaches**: 
+  * Coarse grid initialization followed by continuous optimization
+  * Hierarchical placement (outer boundary points first, then interior)
+- **Adaptive algorithms**: 
+  * Simulated annealing with adaptive temperature schedules
+  * Differential evolution with self-adaptive parameters (this is our chosen method)
+  * Particle swarm optimization with velocity clamping
+  * Basin-hopping for escaping local optima
+- **Gradient-free methods**: 
+  * Nelder-Mead simplex for robust local search
+  * Powell's method for coordinate descent
+  * COBYLA for constrained optimization without gradients
+- **Hybrid optimization**:
+  * Genetic algorithms with local refinement operators
+  * Memetic algorithms combining global and local search
+  * Multiple restart strategies from different initializations
+- **Geometric heuristics**:
+  * Maximin designs from experimental design theory
+  * Voronoi-based adaptive placement
+  * Force-directed layouts with repulsive interactions
+  
+**GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS (context for the problem):**
+- **Packing vs. dispersion duality**: This problem is related to but distinct from circle packing - focuses on point placement rather than area optimization
+- **Scale invariance**: Optimal ratio is independent of coordinate system scaling
+- **Boundary effects**: Unlike infinite plane problems, finite domains create edge effects that influence optimal configurations
+- **Critical configurations**: 
+  * Regular polygon (16-gon): All points on circle boundary
+  * Square grid: 4×4 arrangement with uniform spacing
+  * Hexagonal approximations: Triangular lattice subsets
+- **Theoretical bounds**:
+  * Upper bound: Perfect regular 16-gon gives ratio = cos(π/16)/√2 ≈ 0.383
+  * Lower bound: Random placement typically yields ratios < 0.1
+  * AlphaEvolve benchmark: 0.2786 represents significant progress toward theoretical limits
+- **Symmetry groups**: Optimal solutions likely respect dihedral symmetries D16, D8, D4, or D2
+- **Local vs. global optima**: High-dimensional landscape with many local optima requires sophisticated global optimization
+
+**IMPLEMENTATION GUIDELINES (specific techniques to use within the chosen framework):**
+**Recommended implementation patterns:**
+- **Distance computation**: 
+  * `scipy.spatial.distance.pdist()` for efficient pairwise distances (crucial for objective function)
+  * Vectorized operations using broadcasting for gradient computation (though `differential_evolution` is gradient-free)
+- **Optimization frameworks**:
+  * `scipy.optimize.differential_evolution()` for global search (our primary tool)
+  * Custom objective functions handling min/max ratio computation (as detailed above)
+- **Constraint handling**:
+  * `differential_evolution` handles bounds directly, which simplifies constraint management for the unit square.
+- **Advanced techniques**:
+  * Multi-start optimization from diverse initializations (implicitly handled by `differential_evolution`'s population-based approach)
+  * Covariance Matrix Adaptation Evolution Strategy (CMA-ES) (alternative for exploration, but `differential_evolution` is sufficient for this task)
+  * Bayesian optimization for expensive function evaluations (not strictly necessary here as `objective` is relatively fast)
+
+VALIDATION FRAMEWORK:
+- **Geometric validation**:
+  * Verify exactly 16 distinct points
+  * Check coordinate bounds (typically [0,1] × [0,1])
+  * Validate distance matrix symmetry and positivity
+- **Data validation**:
+  * All coordinates must be finite floats
+  * No duplicate points (minimum separation threshold)
+  * Proper handling of numerical precision issues
+- **Solution quality assessment**:
+  * Symmetry analysis of final configuration
+  * Stability under small perturbations
+  * Comparison with known geometric configurations
+- **Optimization diagnostics**:
+  * Convergence history tracking
+  * Gradient norm analysis (when applicable)
+  * Multi-run consistency checks
+  
+PROBLEM-SPECIFIC CONSIDERATIONS:
+- **Initialization strategies**:
+  * Random uniform placement in unit square
+  * Regular polygon vertices with small perturbations
+  * Grid-based starting points with jitter
+  * Quasi-random sequences (Sobol, Halton) for better space coverage
+- **Objective function challenges**:
+  * Non-smooth function (min/max operations)
+  * Multiple local optima
+  * Sensitivity to small coordinate changes
+- **Constraint geometry**:
+  * Unit square vs. unit circle domains
+  * Periodic boundary conditions vs. hard boundaries
+  * Allowable vs. required symmetries
+
+# PROMPT-BLOCK-END
+    

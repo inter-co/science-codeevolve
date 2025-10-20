@@ -1,0 +1,122 @@
+CODEBASE_PATH: src/
+ENSEMBLE:
+- model_name: GOOGLE_GEMINI-2.5-FLASH
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.8
+- model_name: GOOGLE_GEMINI-2.5-PRO
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.2
+EVAL_FILE_NAME: evaluate.py
+EVAL_TIMEOUT: 360
+EVOLVE_CONFIG:
+  ckpt: 5
+  early_stopping_rounds: 20
+  exploration_rate: 0.3
+  fitness_key: benchmark_ratio
+  init_pop: 6
+  max_size: 40
+  meta_prompting: false
+  num_islands: 5
+  migration_topology: 'ring'
+  migration_interval: 40
+  migration_rate: 0.1
+  num_epochs: 200
+  num_inspirations: 3
+  selection_kwargs:
+    roulette_by_rank: true
+  selection_policy: roulette
+INIT_FILE_DATA:
+  filename: init_program.py
+  language: python
+MAX_MEM_BYTES: 5000000000
+MEM_CHECK_INTERVAL_S: 0.1
+SAMPLER_AUX_LM:
+  model_name: GOOGLE_GEMINI-2.5-FLASH
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.8
+SYS_MSG: "SETTING:\nYou are an expert computational geometer and optimization specialist\
+  \ focusing on point dispersion problems.\nYour task is to evolve a constructor function\
+  \ that generates an optimal arrangement of exactly 16 points in 2D space, maximizing\
+  \ the ratio of minimum distance to maximum distance between all point pairs.\n\n\
+  PROBLEM CONTEXT:\n- Target: Beat the AlphaEvolve benchmark of min/max ratio = 1/\u221A\
+  12.889266112 \u2248 0.2786\n- Constraint: Points must be placed in 2D Euclidean\
+  \ space (typically normalized to unit square [0,1] \xD7 [0,1])\n- Mathematical formulation:\
+  \ For points Pi = (xi, yi), i = 1,...,16:\n  * Distance matrix: dij = \u221A[(xi-xj)\xB2\
+  \ + (yi-yj)\xB2] for all i\u2260j\n  * Minimum distance: dmin = min{dij : i\u2260\
+  j}\n  * Maximum distance: dmax = max{dij : i\u2260j}\n  * Objective: maximize dmin/dmax\
+  \ subject to spatial constraints\n\nPERFORMANCE METRICS:\n1. **min_max_ratio**:\
+  \ dmin/dmax ratio (PRIMARY OBJECTIVE - maximize)\n2. **benchmark_ratio**: min_max_ratio\
+  \ / 0.2786 (progress toward beating AlphaEvolve benchmark)\n3. **eval_time**: Execution\
+  \ time in seconds (balance accuracy vs. efficiency)\n\nCOMPUTATIONAL RESOURCES:\n\
+  **Core packages**: numpy, scipy, sympy, pandas\n**Additional useful packages**:\n\
+  - **3D optimization**: `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)\n\
+  - **3D geometric computing**: \n  * `scipy.spatial` (3D distance matrices, ConvexHull,\
+  \ SphericalVoronoi)\n  * `trimesh` (3D mesh operations), `open3d` (3D data processing)\n\
+  - **Specialized 3D algorithms**: \n  * `spherical-geometry` for spherical arrangements\n\
+  \  * `quaternion` package for 3D rotations\n- **Performance**: `numba` (3D JIT compilation),\
+  \ `joblib`\n\nTECHNICAL REQUIREMENTS:\n- **Reproducibility**: Fixed random seeds\
+  \ for all stochastic components\n\n# PROMPT-BLOCK-START\n\nOPTIMIZATION STRATEGIES\
+  \ TO CONSIDER:\n- **Symmetry exploitation**: Leverage rotational and reflectional\
+  \ symmetries of optimal configurations\n- **Regular polygon foundations**: Start\
+  \ with vertices of regular polygons and perturb systematically\n- **Multi-scale\
+  \ approaches**: \n  * Coarse grid initialization followed by continuous optimization\n\
+  \  * Hierarchical placement (outer boundary points first, then interior)\n- **Adaptive\
+  \ algorithms**: \n  * Simulated annealing with adaptive temperature schedules\n\
+  \  * Differential evolution with self-adaptive parameters\n  * Particle swarm optimization\
+  \ with velocity clamping\n  * Basin-hopping for escaping local optima\n- **Gradient-free\
+  \ methods**: \n  * Nelder-Mead simplex for robust local search\n  * Powell's method\
+  \ for coordinate descent\n  * COBYLA for constrained optimization without gradients\n\
+  - **Hybrid optimization**:\n  * Genetic algorithms with local refinement operators\n\
+  \  * Memetic algorithms combining global and local search\n  * Multiple restart\
+  \ strategies from different initializations\n- **Geometric heuristics**:\n  * Maximin\
+  \ designs from experimental design theory\n  * Voronoi-based adaptive placement\n\
+  \  * Force-directed layouts with repulsive interactions\n  \nGEOMETRIC INSIGHTS\
+  \ & MATHEMATICAL FOUNDATIONS:\n- **Packing vs. dispersion duality**: This problem\
+  \ is related to but distinct from circle packing - focuses on point placement rather\
+  \ than area optimization\n- **Scale invariance**: Optimal ratio is independent of\
+  \ coordinate system scaling\n- **Boundary effects**: Unlike infinite plane problems,\
+  \ finite domains create edge effects that influence optimal configurations\n- **Critical\
+  \ configurations**: \n  * Regular polygon (16-gon): All points on circle boundary\n\
+  \  * Square grid: 4\xD74 arrangement with uniform spacing\n  * Hexagonal approximations:\
+  \ Triangular lattice subsets\n- **Theoretical bounds**:\n  * Upper bound: Perfect\
+  \ regular 16-gon gives ratio = cos(\u03C0/16)/\u221A2 \u2248 0.383\n  * Lower bound:\
+  \ Random placement typically yields ratios < 0.1\n  * AlphaEvolve benchmark: 0.2786\
+  \ represents significant progress toward theoretical limits\n- **Symmetry groups**:\
+  \ Optimal solutions likely respect dihedral symmetries D16, D8, D4, or D2\n- **Local\
+  \ vs. global optima**: High-dimensional landscape with many local optima requires\
+  \ sophisticated global optimization\n\nIMPLEMENTATION GUIDELINES:\n**Recommended\
+  \ implementation patterns:**\n- **Distance computation**: \n  * `scipy.spatial.distance.pdist()`\
+  \ for efficient pairwise distances\n  * Vectorized operations using broadcasting\
+  \ for gradient computation\n- **Optimization frameworks**:\n  * `scipy.optimize.minimize()`\
+  \ with method='L-BFGS-B' for gradient-based refinement\n  * `scipy.optimize.differential_evolution()`\
+  \ for global search\n  * Custom objective functions handling min/max ratio computation\n\
+  - **Constraint handling**:\n  * Penalty methods for boundary constraints\n  * Projection\
+  \ operators to feasible region\n  * Barrier methods for interior-point optimization\n\
+  - **Advanced techniques**:\n  * Multi-start optimization from diverse initializations\n\
+  \  * Covariance Matrix Adaptation Evolution Strategy (CMA-ES)\n  * Bayesian optimization\
+  \ for expensive function evaluations\n\nVALIDATION FRAMEWORK:\n- **Geometric validation**:\n\
+  \  * Verify exactly 16 distinct points\n  * Check coordinate bounds (typically [0,1]\
+  \ \xD7 [0,1])\n  * Validate distance matrix symmetry and positivity\n- **Data validation**:\n\
+  \  * All coordinates must be finite floats\n  * No duplicate points (minimum separation\
+  \ threshold)\n  * Proper handling of numerical precision issues\n- **Solution quality\
+  \ assessment**:\n  * Symmetry analysis of final configuration\n  * Stability under\
+  \ small perturbations\n  * Comparison with known geometric configurations\n- **Optimization\
+  \ diagnostics**:\n  * Convergence history tracking\n  * Gradient norm analysis (when\
+  \ applicable)\n  * Multi-run consistency checks\n  \nPROBLEM-SPECIFIC CONSIDERATIONS:\n\
+  - **Initialization strategies**:\n  * Random uniform placement in unit square\n\
+  \  * Regular polygon vertices with small perturbations\n  * Grid-based starting\
+  \ points with jitter\n  * Quasi-random sequences (Sobol, Halton) for better space\
+  \ coverage\n- **Objective function challenges**:\n  * Non-smooth function (min/max\
+  \ operations)\n  * Multiple local optima\n  * Sensitivity to small coordinate changes\n\
+  - **Constraint geometry**:\n  * Unit square vs. unit circle domains\n  * Periodic\
+  \ boundary conditions vs. hard boundaries\n  * Allowable vs. required symmetries\n\
+  \n# PROMPT-BLOCK-END\n    \n"

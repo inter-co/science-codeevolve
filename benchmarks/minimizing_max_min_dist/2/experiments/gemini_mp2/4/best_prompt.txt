@@ -1,0 +1,68 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on point dispersion problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 16 points in 2D space, maximizing the ratio of minimum distance to maximum distance between all point pairs.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of min/max ratio = 1/√12.889266112 ≈ 0.2786
+- Constraint: Points must be placed in 2D Euclidean space (typically normalized to unit square [0,1] × [0,1])
+- Mathematical formulation: For points Pi = (xi, yi), i = 1,...,16:
+  * Distance matrix: dij = √[(xi-xj)² + (yi-yj)²] for all i≠j
+  * Minimum distance: dmin = min{dij : i≠j}
+  * Maximum distance: dmax = max{dij : i≠j}
+  * Objective: maximize dmin/dmax subject to spatial constraints
+
+PERFORMANCE METRICS:
+1. **min_max_ratio**: dmin/dmax ratio (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: min_max_ratio / 0.2786 (progress toward beating AlphaEvolve benchmark)
+3. **eval_time**: Execution time in seconds (balance accuracy vs. efficiency)
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas
+**Additional useful packages**:
+- **3D optimization**: `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)
+- **3D geometric computing**: 
+  * `scipy.spatial` (3D distance matrices, ConvexHull, SphericalVoronoi)
+  * `trimesh` (3D mesh operations), `open3d` (3D data processing)
+- **Specialized 3D algorithms**: 
+  * `spherical-geometry` for spherical arrangements
+  * `quaternion` package for 3D rotations
+- **Performance**: `numba` (3D JIT compilation), `joblib`
+
+TECHNICAL REQUIREMENTS:
+- **Reproducibility**: Fixed random seeds for all stochastic components
+
+# PROMPT-BLOCK-START
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+-   **Hybrid Global/Local Optimization**: The problem landscape is highly multimodal with many local minima. A robust strategy often involves a global search phase (e.g., Simulated Annealing, Basin-Hopping, Evolutionary Algorithms) followed by a local refinement phase using gradient-based methods.
+-   **Evolutionary Algorithms (EAs)**: Packages like `pymoo` or `deap` are well-suited for high-dimensional, non-convex optimization problems. They maintain a population of solutions, which helps explore the search space more effectively and escape local optima compared to single-solution methods. Consider algorithms like NSGA-II if a multi-objective perspective (e.g., balancing dmin and dmax separately) is explored, or single-objective EAs for directly maximizing dmin/dmax.
+-   **Basin-Hopping**: `scipy.optimize.basinhopping` is another powerful global optimization algorithm that combines local minimization with random jumps to explore multiple basins of attraction.
+-   **Multi-start Optimization**: Run the chosen optimizer multiple times with different random seeds or initial conditions and select the best result. This increases the chance of finding the global optimum.
+-   **Parameter Tuning**: Aggressively tune hyperparameters of global optimizers (e.g., `initial_temp`, `maxiter`, `stepsize` for `dual_annealing`; population size, mutation/crossover rates for EAs) to balance exploration and exploitation.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+-   **Symmetry**: For small N, optimal point arrangements often exhibit a high degree of symmetry. This problem is related to the Tammes problem (packing circles on a sphere) or disk packing in a square, where highly symmetric configurations are frequently optimal or near-optimal.
+-   **Initial Configurations**: A purely random initial guess can be highly inefficient. For N=16 points in a 2D square, a uniform 4x4 grid provides an excellent, structured starting point. For example, points at `(i/3, j/3)` for `i, j in {0, 1, 2, 3}` yield a `dmin = 1/3` and `dmax = sqrt(1^2 + 1^2) = sqrt(2)`, resulting in a ratio of `1/(3*sqrt(2)) ≈ 0.2357`. This is a strong baseline and a significantly better starting point than random points.
+-   **Boundary Effects**: Optimal point configurations often involve points being pushed towards the boundaries of the unit square to maximize distances.
+-   **Voronoi Diagrams / Delaunay Triangulations**: These geometric structures can offer insights into the distribution and neighborhood relationships of points, though they might not be directly used in the optimization function itself.
+
+IMPLEMENTATION GUIDELINES:
+-   **Intelligent Initial Guess**: Instead of a purely random `x0`, initialize the global optimizer with a structured arrangement such as a 4x4 grid of points. This will significantly improve the chances of finding a good optimum and reduce convergence time.
+-   **Objective Function Efficiency**: The use of `scipy.spatial.distance.pdist` is efficient for distance calculation. Ensure the objective function is vectorized as much as possible.
+-   **Reproducibility**: Strictly adhere to fixed random seeds for all stochastic components (e.g., `np.random.seed`, `dual_annealing`'s `seed` parameter, EA population initialization).
+-   **Local Refinement**: Always include a final, precise local optimization step using a method like SLSQP, L-BFGS-B, or trust-constr, from the best solution found by the global optimizer.
+-   **Progress Monitoring**: For long-running optimizations, consider adding callbacks or logging to monitor the best ratio found over time.
+
+VALIDATION FRAMEWORK:
+-   **Visual Inspection**: Plot the final point arrangement to visually assess its symmetry, distribution, and how points are positioned relative to the boundaries.
+-   **Robustness Check**: Run the optimization process multiple times (e.g., 5-10 times) with different random seeds (if applicable to the chosen optimizer) and report the average and best `min_max_ratio` to assess the consistency and reliability of the solution.
+-   **Benchmark Comparison**: Explicitly compare the achieved `min_max_ratio` against the `0.2786` AlphaEvolve benchmark.
+
+PROBLEM-SPECIFIC CONSIDERATIONS:
+-   **High Dimensionality**: For 16 points in 2D, the search space has 32 dimensions (`16 * 2`). This high dimensionality makes exhaustive search impossible and poses a significant challenge for global optimizers, increasing the likelihood of getting trapped in local minima.
+-   **Non-convexity**: The objective function (dmin/dmax) is highly non-convex, meaning there are many local optima. This necessitates the use of robust global optimization techniques.
+-   **Computational Cost vs. Quality**: There's a trade-off. Achieving the absolute theoretical optimum might be computationally prohibitive. The goal is to find a configuration that significantly surpasses the benchmark within reasonable time limits.
+-   **Fixed N**: Since N=16 is fixed, specific insights for this number (like the 4x4 grid initial guess) are highly valuable.
+
+# PROMPT-BLOCK-END
+    

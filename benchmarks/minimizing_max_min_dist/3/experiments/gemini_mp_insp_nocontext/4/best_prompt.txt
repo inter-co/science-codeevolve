@@ -1,0 +1,118 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on 3D point dispersion problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 14 points in 3D space, maximizing the ratio of minimum distance to maximum distance between all point pairs.
+
+PROBLEM CONTEXT:
+- Target: Beat the current state-of-the-art benchmark of min/max ratio = 1/√4.165849767 ≈ 0.4898
+- Constraint: Points must be placed in 3D Euclidean space (typically normalized to unit cube [0,1]³ or unit sphere)
+- Mathematical formulation: For points Pi = (xi, yi, zi), i = 1,...,14:
+  * Distance matrix: dij = √[(xi-xj)² + (yi-yj)² + (zi-zj)²] for all i≠j
+  * Minimum distance: dmin = min{dij : i≠j}
+  * Maximum distance: dmax = max{dij : i≠j}
+  * Objective: maximize dmin/dmax subject to spatial constraints
+
+PERFORMANCE METRICS:
+1. **min_max_ratio**: dmin/dmax ratio (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: min_max_ratio / 0.4898 (progress toward beating AlphaEvolve benchmark)
+3. **eval_time**: Execution time in seconds (balance accuracy vs. efficiency)
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas
+**Additional useful packages**:
+- **3D optimization**: `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)
+- **3D geometric computing**: 
+  * `scipy.spatial` (3D distance matrices, ConvexHull, SphericalVoronoi)
+  * `trimesh` (3D mesh operations), `open3d` (3D data processing)
+- **Specialized 3D algorithms**: 
+  * `spherical-geometry` for spherical arrangements
+  * `quaternion` package for 3D rotations
+- **Performance**: `numba` (3D JIT compilation), `joblib`
+
+TECHNICAL REQUIREMENTS:
+- **Reproducibility**: Fixed random seeds for all stochastic components
+
+# PROMPT-BLOCK-START
+  
+OPTIMIZATION STRATEGIES TO CONSIDER:
+The problem of maximizing the min/max distance ratio is a global optimization challenge, as the objective function is non-convex and likely has numerous local optima. A purely gradient-based local optimizer will likely get stuck. Therefore, a robust strategy involves:
+
+1.  **Global Optimization / Metaheuristics**:
+    *   **Simulated Annealing (SA)**: A classic metaheuristic for exploring complex search spaces. `scipy.optimize.dual_annealing` is a good candidate, often paired with a local minimization step.
+    *   **Basin Hopping**: Another global optimization method in `scipy.optimize.basinhopping` that combines random jumps with local minimization.
+    *   **Evolutionary Algorithms (EAs)**: Genetic Algorithms (GAs) or Evolution Strategies (ES) can be very effective. Libraries like `deap` or `pymoo` provide robust frameworks. These are good for exploring diverse solutions.
+    *   **Particle Swarm Optimization (PSO)**: An alternative metaheuristic, often good for continuous optimization.
+
+2.  **Local Optimization (for refinement)**:
+    *   Once a promising region is found by a global method, a local optimizer can fine-tune the solution. `scipy.optimize.minimize` with methods like L-BFGS-B, SLSQP, or COBYLA (for constraint handling) can be used.
+    *   The `minimize` function can also be used with bounds for the unit cube `[0,1]³` or `[-1,1]³` for a sphere centered at the origin.
+
+3.  **Initialization Strategies**:
+    *   Random initialization is usually insufficient. Consider:
+        *   **Farthest Point Sampling (FPS)**: Iteratively add points that are farthest from existing points. This provides a better initial spread.
+        *   **Lattice/Grid-based initialization**: For a unit cube, placing points on a coarse grid can provide a structured start.
+        *   **Multiple random restarts**: Run local optimization from many different random initial points and take the best result.
+        *   **Known configurations**: For small N, some optimal configurations on a sphere are known (e.g., vertices of polyhedra). For N=14, a bicapped hexagonal antiprism is a strong candidate structure on a sphere.
+
+4.  **Hybrid Approaches**: Combine global and local methods. For instance, run a GA for a few generations, then take the best individuals and refine them with `dual_annealing` or `basinhopping`.
+
+5.  **Performance Tuning for Optimization Parameters**:
+    *   **Computational Budget**: The `eval_time` is heavily influenced by the `maxiter` parameters for global (`dual_annealing`, `basinhopping`) and local (`minimize`) optimizers, as well as the number of `num_restarts`.
+    *   **Start Conservatively**: To avoid timeouts, it is crucial to start with lower, more conservative iteration counts (e.g., `maxiter` in the hundreds or low thousands) for both global and local optimizers. Increase these values incrementally if the `eval_time` allows and higher `min_max_ratio` is sought.
+    *   **Prioritize Global Search**: For this non-convex problem, allocating a larger portion of the computational budget to global exploration (e.g., `dual_annealing` `maxiter`) than to local refinement (`minimize` `maxiter`) is generally a more effective strategy. Finding the correct region of the search space is paramount.
+    *   **Restart Management**: `num_restarts` significantly multiplies the total execution time. Balance it with the iterations per restart.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+This problem is closely related to the **Thomson problem** (distributing electrons on a sphere to minimize potential energy) and **Tammes problem** (placing points on a sphere such that the minimum distance between any two points is maximized). While our objective is the min/max ratio, optimal solutions often share properties with these problems.
+
+1.  **Uniform Distribution**: The optimal arrangement will likely involve points distributed as uniformly as possible in the 3D space. This means avoiding clusters and large empty regions.
+2.  **Repulsion Model**: A common heuristic is to model points as charged particles that repel each other. Minimizing a potential energy function like `sum(1/d_ij^k)` (for k=1 or k=2) can lead to good dispersion. The min/max ratio objective can be seen as implicitly driving towards this "repulsion" outcome.
+3.  **Symmetry**: For small numbers of points (like N=14), optimal configurations often exhibit high degrees of symmetry (e.g., vertices of Platonic solids or Archimedean solids, or their duals). For N=14 on a sphere, a bicapped hexagonal antiprism is a frequently cited optimal configuration for maximum minimum distance.
+4.  **Space Domain**:
+    *   **Unit Cube `[0,1]³`**: Points are constrained within a cube. Boundary effects can be significant.
+    *   **Unit Sphere (surface or interior)**: Placing points on the surface of a unit sphere is a common approach for dispersion problems, as it intrinsically normalizes the maximum distance (dmax is bounded by the sphere's diameter). If points are on the surface, dmax = 2. If points can be inside, dmax is also bounded. For N=14, optimizing on the surface of a sphere is a strong candidate strategy. This reduces the search space for each point from 3 independent coordinates to 2 (e.g., spherical coordinates, then converting to Cartesian).
+5.  **Objective Function Properties**: The `dmin/dmax` ratio is scale-invariant. This means scaling all points by a constant factor does not change the ratio. This property can be exploited by normalizing points (e.g., scaling them to fit within a unit sphere after initial placement, or constraining them to the surface of a sphere).
+
+**Recommended implementation patterns:**
+1.  **Objective Function Definition**:
+    *   Create a function `objective_function(coords_flat: np.ndarray) -> float` that takes a flattened array of 42 coordinates (14 points * 3 dimensions).
+    *   Inside this function:
+        *   Reshape `coords_flat` back to `(14, 3)`.
+        *   Calculate the pairwise Euclidean distances between all points. `scipy.spatial.distance.pdist` is highly optimized for this.
+        *   Determine `dmin` and `dmax` from the distance matrix.
+        *   Return `-dmin/dmax` (negative because `scipy.optimize` functions typically minimize). Handle the case where `dmax` might be zero or `dmin` might be zero (e.g., if points coincide) to avoid division by zero; return a large negative number or `np.inf`.
+2.  **Distance Calculation**: Use `scipy.spatial.distance.pdist(points, metric='euclidean')` to get a condensed distance matrix, then `np.min` and `np.max` on this array. `scipy.spatial.distance.squareform` can convert to a full square matrix if needed, but `pdist` output is often sufficient.
+3.  **Boundary Constraints**:
+    *   For a unit cube `[0,1]³`, define bounds for `scipy.optimize.minimize` or `dual_annealing` as `[(0,1)] * 42`.
+    *   For a unit sphere, points `(x,y,z)` must satisfy `x²+y²+z²=1`. This can be handled by:
+        *   Optimizing in spherical coordinates (2 variables per point) and converting to Cartesian for distance calculation.
+        *   Using a constrained optimization method or projecting points back onto the sphere after each step.
+        *   Normalizing points to the sphere's surface after initialization or after an optimization step (e.g., `points = points / np.linalg.norm(points, axis=1, keepdims=True)`). This effectively constrains `dmax` to 2.0 if points are on opposite sides.
+4.  **Reproducibility**: Ensure `np.random.seed()` is set at the beginning and any other stochastic components (e.g., `random.seed()`) are also fixed.
+5.  **Numba Acceleration**: For performance-critical loops within the objective function (if any hand-written loops are used, though `pdist` is already C-optimized), `numba.jit` can be considered.
+
+VALIDATION FRAMEWORK:
+The `min_max_ratio` and `benchmark_ratio` depend on accurately computing `dmin` and `dmax`.
+
+1.  **Distance Matrix Computation**:
+    *   Input: `points` (np.ndarray of shape `(N, 3)`).
+    *   Use `scipy.spatial.distance.pdist(points, metric='euclidean')` to get all unique pairwise distances.
+2.  **Minimum Distance `dmin`**: `np.min(pairwise_distances)`. Ensure `pairwise_distances` does not include distances of a point to itself (which would be 0). `pdist` naturally excludes these.
+3.  **Maximum Distance `dmax`**: `np.max(pairwise_distances)`.
+4.  **Ratio Calculation**: `dmin / dmax`.
+5.  **Edge Cases**:
+    *   If `dmax` is zero (all points are coincident), the ratio is undefined. This should ideally not happen with a good optimization strategy.
+    *   If `dmin` is zero (at least two points are coincident), the ratio becomes zero. The objective is to avoid this.
+6.  **Bounding Box / Sphere Check**: After optimization, it's good practice to verify that all points still lie within the specified domain (e.g., `[0,1]³` or on the unit sphere).
+  
+PROBLEM-SPECIFIC 3D CONSIDERATIONS:
+1.  **High-Dimensional Search Space**: For 14 points in 3D, the search space has `14 * 3 = 42` dimensions. This makes exhaustive search impossible and increases the difficulty for local optimizers. Global optimization techniques are essential.
+2.  **Symmetry Breaking**: While optimal solutions often exhibit symmetry, the optimization process itself might get stuck in asymmetric local optima. Multi-start strategies or robust global optimizers are needed.
+3.  **Choice of Domain**:
+    *   **Unit Cube `[0,1]³`**: Simpler boundary conditions, but might lead to points congregating near corners or edges. The maximum distance can be `sqrt(3)`.
+    *   **Unit Sphere (surface)**: A natural domain for dispersion problems. The `dmax` is inherently bounded by 2 (diameter). This simplifies the problem by fixing `dmax` to a known value if points are strictly on the surface, effectively turning it into a "maximize `dmin`" problem. This is a highly recommended approach.
+    *   **Unit Sphere (interior)**: Points can be anywhere within a sphere. This adds complexity as `dmax` is not fixed, but it might offer more flexibility. For N=14, surface is often preferred.
+4.  **Computational Cost**: Calculating the distance matrix for N=14 is `O(N^2)`, which is very fast (`14*13/2 = 91` distances). The bottleneck will be the number of objective function evaluations required by the optimizer. Efficient objective function calculation (leveraging NumPy) is key.
+5.  **Visualization**: While not directly part of the code generation, visualizing the final point arrangement (e.g., using `matplotlib.pyplot.scatter` in 3D, or `open3d`) can be invaluable for debugging and understanding the solution's geometry.
+
+# PROMPT-BLOCK-END
+    

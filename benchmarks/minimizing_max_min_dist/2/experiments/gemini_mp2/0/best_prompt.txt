@@ -1,0 +1,74 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on point dispersion problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 16 points in 2D space, maximizing the ratio of minimum distance to maximum distance between all point pairs.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of min/max ratio = 1/√12.889266112 ≈ 0.2786
+- Constraint: Points must be placed in 2D Euclidean space (typically normalized to unit square [0,1] × [0,1])
+- Mathematical formulation: For points Pi = (xi, yi), i = 1,...,16:
+  * Distance matrix: dij = √[(xi-xj)² + (yi-yj)²] for all i≠j
+  * Minimum distance: dmin = min{dij : i≠j}
+  * Maximum distance: dmax = max{dij : i≠j}
+  * Objective: maximize dmin/dmax subject to spatial constraints
+
+PERFORMANCE METRICS:
+1. **min_max_ratio**: dmin/dmax ratio (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: min_max_ratio / 0.2786 (progress toward beating AlphaEvolve benchmark)
+3. **eval_time**: Execution time in seconds (balance accuracy vs. efficiency)
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas
+**Additional useful packages**:
+- **3D optimization**: `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)
+- **3D geometric computing**: 
+  * `scipy.spatial` (3D distance matrices, ConvexHull, SphericalVoronoi)
+  * `trimesh` (3D mesh operations), `open3d` (3D data processing)
+- **Specialized 3D algorithms**: 
+  * `spherical-geometry` for spherical arrangements
+  * `quaternion` package for 3D rotations
+- **Performance**: `numba` (3D JIT compilation), `joblib`
+
+TECHNICAL REQUIREMENTS:
+- **Reproducibility**: Fixed random seeds for all stochastic components
+
+# PROMPT-BLOCK-START
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+*   **Global Optimization**: Given the non-convex nature of the objective function and the likelihood of many local optima, global optimization algorithms are essential.
+    *   `scipy.optimize.dual_annealing`: This algorithm is a robust choice for global optimization, combining a generalized simulated annealing approach with local search. It is well-suited for functions with numerous local minima.
+    *   `scipy.optimize.basinhopping`: Another powerful global minimizer that repeatedly perturbs the current solution and applies a local optimizer to find the minimum in the new basin.
+    *   Evolutionary Algorithms: Libraries like `deap` or `pymoo` offer genetic algorithms and differential evolution, which are also effective for global search in complex landscapes.
+*   **Local Optimization (Refinement)**: After a global search identifies a promising region, a local optimizer (e.g., `scipy.optimize.minimize` with `method='L-BFGS-B'` or `SLSQP`) can be used to fine-tune the solution and achieve higher precision.
+*   **Objective Function Transformation**: To maximize the `dmin/dmax` ratio using `scipy.optimize` (which performs minimization), the objective function should return the *negative* of this ratio: `-(dmin / dmax)`.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+*   **Point Dispersion Problem**: This is a classic problem in computational geometry, aiming to arrange points within a given space such that they are "as far apart as possible." It is closely related to sphere packing (in higher dimensions) or circle packing (in 2D).
+*   **Optimal Configurations**: For a small number of points like N=16, optimal or near-optimal configurations often exhibit significant symmetry. These arrangements frequently involve points being pushed towards the boundaries of the containing region (the unit square in this case) to maximize overall distances. A simple 4x4 grid arrangement, for instance, yields a `dmin/dmax` ratio of approximately `0.2357` (calculated as `(1/3) / sqrt(2)`). The target benchmark of `0.2786` requires a solution that significantly improves upon such a basic grid. Solutions performing worse than a simple grid are considered failures.
+*   **Boundary Effects**: Maximizing `dmax` often means placing points at extreme corners or edges of the unit square. Conversely, maximizing `dmin` tries to spread points out evenly. The objective `dmin/dmax` seeks a balance.
+*   **Normalization**: Points are constrained within the `[0,1]x[0,1]` unit square. This implies that the maximum possible distance `dmax` can be at most `sqrt(2)` (the diagonal of the square).
+*   **Distance Metric**: Standard Euclidean distance in 2D is used. Efficient calculation of all pairwise distances is critical (e.g., using `scipy.spatial.distance.pdist`).
+
+IMPLEMENTATION GUIDELINES:
+*   **Objective Function Definition**: Create a Python function, e.g., `objective(flat_points: np.ndarray) -> float`, that takes a 1D NumPy array representing the flattened coordinates `[x1, y1, x2, y2, ..., x16, y16]`. For optimal performance, especially given the `eval_time` constraint, strongly consider decorating this function with `@numba.jit(nopython=True)` to enable JIT compilation, which can significantly speed up numerical computations.
+    *   Inside this function:
+        1.  Reshape `flat_points` back into a `(16, 2)` array of `(x, y)` coordinates.
+        2.  Calculate all unique pairwise Euclidean distances using `scipy.spatial.distance.pdist`.
+        3.  Identify the minimum distance (`dmin`) and maximum distance (`dmax`) from the calculated distances.
+        4.  Return `-(dmin / dmax)`. Include robust handling for cases where `dmax` might be zero (e.g., if all points are coincident, return a very large positive number to penalize such configurations).
+*   **Bounds Specification**: Define bounds for each coordinate to keep points within `[0,1]x[0,1]`. For 16 points, this means 32 bounds, each being `(0.0, 1.0)`.
+*   **Initial Guess**: Start the optimization with a randomly initialized set of points within the `[0,1]x[0,1]` square. Using `np.random.seed(42)` is mandatory for reproducibility. Multiple initializations or a grid-based start can be considered for exploration.
+*   **Optimizer Application**: Employ `scipy.optimize.dual_annealing` as the primary global optimizer. Pass the `objective` function, `bounds`, and the `seed` parameter for reproducibility. When providing a strong initial guess (`x0`, e.g., a uniform grid), carefully consider the `initial_temp` parameter: a very high initial temperature can cause the optimizer to aggressively perturb and potentially degrade an already good starting configuration, moving away from promising regions. For refining a strong `x0`, a moderately lower `initial_temp` or a more gradual annealing schedule might be more effective than the default, allowing for focused refinement without losing the initial quality. Also, consider tuning `maxiter` for a balance between thoroughness and `eval_time`.
+*   **Coordinate Handling**: Ensure seamless conversion between the 1D array format required by optimizers and the `(N, 2)` point array format for distance calculations.
+
+VALIDATION FRAMEWORK:
+*   The `min_max_ratio` and `benchmark_ratio` metrics provided in the problem description are the primary means of validating the solution.
+*   Verify that the returned point configuration adheres to the `[0,1]x[0,1]` spatial constraints.
+
+PROBLEM-SPECIFIC CONSIDERATIONS:
+*   **Computational Cost**: Global optimization algorithms can be computationally intensive. The `eval_time` constraint necessitates a balance between search thoroughness (e.g., `maxiter` in `dual_annealing`) and execution speed.
+*   **Numerical Robustness**: Ensure that distance calculations and ratio computations are numerically stable, especially when `dmin` or `dmax` are very small.
+*   **Symmetry**: While not explicitly enforced, the search for optimal configurations should implicitly explore symmetric point arrangements, as these often yield high `dmin/dmax` ratios for N=16.
+*   **Reproducibility**: Adhere strictly to the `np.random.seed(42)` requirement for all stochastic components, including initial point generation and any internal randomness of the optimizer.
+
+# PROMPT-BLOCK-END
+    

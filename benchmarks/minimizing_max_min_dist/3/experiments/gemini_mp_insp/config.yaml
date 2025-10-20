@@ -1,0 +1,135 @@
+CODEBASE_PATH: src/
+ENSEMBLE:
+- model_name: GOOGLE_GEMINI-2.5-FLASH
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.8
+- model_name: GOOGLE_GEMINI-2.5-PRO
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.2
+EVAL_FILE_NAME: evaluate.py
+EVAL_TIMEOUT: 360
+EVOLVE_CONFIG:
+  ckpt: 5
+  early_stopping_rounds: 100
+  exploration_rate: 0.3
+  fitness_key: benchmark_ratio
+  init_pop: 6
+  max_size: 40
+  meta_prompting: true
+  num_islands: 5
+  migration_topology: 'ring'
+  migration_interval: 40
+  migration_rate: 0.1
+  num_epochs: 100
+  num_inspirations: 3
+  selection_kwargs:
+    roulette_by_rank: true
+  selection_policy: roulette
+INIT_FILE_DATA:
+  filename: init_program.py
+  language: python
+MAX_MEM_BYTES: 5000000000
+MEM_CHECK_INTERVAL_S: 0.1
+SAMPLER_AUX_LM:
+  model_name: GOOGLE_GEMINI-2.5-FLASH
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.8
+SYS_MSG: "SETTING:\nYou are an expert computational geometer and optimization specialist\
+  \ focusing on 3D point dispersion problems.\nYour task is to evolve a constructor\
+  \ function that generates an optimal arrangement of exactly 14 points in 3D space,\
+  \ maximizing the ratio of minimum distance to maximum distance between all point\
+  \ pairs.\n\nPROBLEM CONTEXT:\n- Target: Beat the current state-of-the-art benchmark\
+  \ of min/max ratio = 1/\u221A4.165849767 \u2248 0.4898\n- Constraint: Points must\
+  \ be placed in 3D Euclidean space (typically normalized to unit cube [0,1]\xB3 or\
+  \ unit sphere)\n- Mathematical formulation: For points Pi = (xi, yi, zi), i = 1,...,14:\n\
+  \  * Distance matrix: dij = \u221A[(xi-xj)\xB2 + (yi-yj)\xB2 + (zi-zj)\xB2] for\
+  \ all i\u2260j\n  * Minimum distance: dmin = min{dij : i\u2260j}\n  * Maximum distance:\
+  \ dmax = max{dij : i\u2260j}\n  * Objective: maximize dmin/dmax subject to spatial\
+  \ constraints\n\nPERFORMANCE METRICS:\n1. **min_max_ratio**: dmin/dmax ratio (PRIMARY\
+  \ OBJECTIVE - maximize)\n2. **benchmark_ratio**: min_max_ratio / 0.4898 (progress\
+  \ toward beating AlphaEvolve benchmark)\n3. **eval_time**: Execution time in seconds\
+  \ (balance accuracy vs. efficiency)\n\nCOMPUTATIONAL RESOURCES:\n**Core packages**:\
+  \ numpy, scipy, sympy, pandas\n**Additional useful packages**:\n- **3D optimization**:\
+  \ `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)\n- **3D geometric\
+  \ computing**: \n  * `scipy.spatial` (3D distance matrices, ConvexHull, SphericalVoronoi)\n\
+  \  * `trimesh` (3D mesh operations), `open3d` (3D data processing)\n- **Specialized\
+  \ 3D algorithms**: \n  * `spherical-geometry` for spherical arrangements\n  * `quaternion`\
+  \ package for 3D rotations\n- **Performance**: `numba` (3D JIT compilation), `joblib`\n\
+  \nTECHNICAL REQUIREMENTS:\n- **Reproducibility**: Fixed random seeds for all stochastic\
+  \ components\n\n# PROMPT-BLOCK-START\n  \nOPTIMIZATION STRATEGIES TO CONSIDER:\n\
+  - **3D geometric symmetries**: Exploit rotational symmetries of Platonic/Archimedean\
+  \ solids and point groups\n- **Polyhedral foundations**: \n  * Start with vertices\
+  \ of regular polyhedra (tetrahedron, cube, octahedron, dodecahedron, icosahedron)\n\
+  \  * Truncated polyhedra and compound solids as initialization seeds\n  * Spherical\
+  \ arrangements and geodesic subdivisions\n- **Multi-scale 3D approaches**: \n  *\
+  \ Spherical shell placement (surface points + interior points)\n  * Layered optimization\
+  \ (convex hull vertices first, then interior)\n  * Radial distance constraints for\
+  \ structured placement\n- **3D-specific algorithms**: \n  * Spherical coordinate\
+  \ parameterization with constrained optimization\n  * Quaternion-based rotational\
+  \ search operators\n  * 3D Voronoi tessellation-guided placement\n- **Advanced metaheuristics**:\n\
+  \  * Evolution Strategies (ES) with correlated mutations in 3D\n  * Differential\
+  \ Evolution with 3D-aware crossover operators\n  * Particle Swarm Optimization with\
+  \ 3D velocity constraints\n  * Simulated Annealing with adaptive 3D perturbation\
+  \ schemes\n- **Hybrid optimization**:\n  * Multi-objective approach balancing min/max\
+  \ ratio with geometric regularity\n  * Gradient-free global search + local gradient\
+  \ descent refinement\n  * Basin-hopping with 3D-specific local minimization\n- **Force-based\
+  \ methods**:\n  * N-body simulation with repulsive potentials\n  * Molecular dynamics\
+  \ with Lennard-Jones or Coulomb interactions\n  * Spring-embedding algorithms in\
+  \ 3D space\n  \nGEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:\n- **3D dispersion\
+  \ theory**: Extension of 2D maximin designs to three dimensions with increased complexity\n\
+  - **Spherical vs. cubic domains**: \n  * Unit sphere: Natural for isotropic dispersion,\
+  \ simpler distance analysis\n  * Unit cube: More complex boundary effects but computationally\
+  \ convenient\n- **Dimensional scaling**: 3D adds significant complexity compared\
+  \ to 2D - exponentially larger search space\n- **Critical 3D configurations**: \n\
+  \  * Regular tetrahedron (4 points): Perfect symmetry, ratio = 1/\u221A3 \u2248\
+  \ 0.577\n  * Cube vertices (8 points): Body diagonal vs. face diagonal ratio = 1/\u221A\
+  3 \u2248 0.577\n  * Icosahedral arrangements: High symmetry for 12 points, adaptable\
+  \ to 14\n  * Cuboctahedral geometry: 14 points naturally fit cuboctahedron + center\
+  \ configurations\n- **Theoretical considerations**:\n  * Upper bounds from sphere\
+  \ packing theory in 3D\n  * Lower bounds from random point processes\n  * Current\
+  \ SOTA (0.4898) suggests room for improvement toward theoretical limits\n- **3D\
+  \ symmetry groups**: Optimal solutions may respect cubic (Oh), icosahedral (Ih),\
+  \ or other point group symmetries\n- **Coordination number effects**: 3D allows\
+  \ higher coordination numbers, affecting optimal clustering patterns\n\n**Recommended\
+  \ implementation patterns:**\n- **3D distance computation**: \n  * `scipy.spatial.distance.pdist()`\
+  \ with 3D coordinate arrays\n  * Efficient broadcasting for 3D coordinate differences\n\
+  \  * GPU acceleration for large-scale 3D operations\n- **Constraint handling**:\n\
+  \  * Spherical constraints: ||pi|| \u2264 1 for unit sphere domain\n  * Cubic constraints:\
+  \ 0 \u2264 xi, yi, zi \u2264 1 for unit cube domain\n  * Projection operators for\
+  \ feasible 3D regions\n- **3D-specific optimization**:\n  * Spherical coordinate\
+  \ parameterization (r, \u03B8, \u03C6)\n  * Quaternion-based rotation operators\
+  \ for symmetry exploration\n  * 3D convex hull analysis for boundary point identification\n\
+  - **Advanced 3D techniques**:\n  * Multi-resolution optimization (coarse \u2192\
+  \ fine 3D grids)\n  * Symmetry-constrained optimization using group theory\n  *\
+  \ 3D mesh-based adaptive sampling\n\nVALIDATION FRAMEWORK:\n- **3D geometric validation**:\n\
+  \  * Verify exactly 14 distinct points in 3D space\n  * Check coordinate bounds\
+  \ for chosen domain (cube/sphere)\n  * Validate 3D distance matrix properties (symmetry,\
+  \ triangle inequality)\n  * Ensure no collinear or coplanar degeneracies\n- **Data\
+  \ validation**:\n  * All coordinates must be finite 3D floats\n  * Minimum separation\
+  \ threshold to avoid numerical issues\n  * Proper handling of 3D floating-point\
+  \ precision\n- **3D solution quality assessment**:\n  * 3D symmetry analysis using\
+  \ point group theory\n  * Stability under 3D rotations and perturbations\n  * Comparison\
+  \ with known optimal 3D configurations\n  * Convex hull analysis and geometric properties\n\
+  - **Optimization diagnostics**:\n  * 3D convergence visualization and history tracking\n\
+  \  * Multi-start consistency in 3D landscape\n  * Sensitivity analysis for 3D parameter\
+  \ variations\n  \nPROBLEM-SPECIFIC 3D CONSIDERATIONS:\n- **Domain selection**:\n\
+  \  * Unit sphere: Natural isotropy, simpler theoretical analysis\n  * Unit cube:\
+  \ Computational convenience, anisotropic boundary effects\n  * Other domains: Cylinders,\
+  \ ellipsoids for specialized applications\n- **3D initialization strategies**:\n\
+  \  * Platonic solid vertices with perturbations\n  * Spherical Fibonacci spirals\
+  \ for uniform sphere coverage\n  * 3D Latin hypercube sampling for space-filling\
+  \ designs\n  * Crystallographic point arrangements\n- **3D objective function challenges**:\n\
+  \  * Higher dimensionality increases local optima density\n  * 3D rotation invariance\
+  \ requirements\n  * Balance between global dispersion and local regularity\n- **Symmetry\
+  \ considerations**:\n  * Icosahedral symmetry (suitable for 12 points, adaptable\
+  \ to 14)\n  * Cubic symmetry with additional points\n  * Lower-order symmetries\
+  \ (tetrahedral, octahedral)\n\n# PROMPT-BLOCK-END\n    \n"

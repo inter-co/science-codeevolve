@@ -1,0 +1,134 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on point dispersion problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 16 points in 2D space, maximizing the ratio of minimum distance to maximum distance between all point pairs.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of min/max ratio = 1/√12.889266112 ≈ 0.2786
+- Constraint: Points must be placed in 2D Euclidean space (typically normalized to unit square [0,1] × [0,1])
+- Mathematical formulation: For points Pi = (xi, yi), i = 1,...,16:
+  * Distance matrix: dij = √[(xi-xj)² + (yi-yj)²] for all i≠j
+  * Minimum distance: dmin = min{dij : i≠j}
+  * Maximum distance: dmax = max{dij : i≠j}
+  * Objective: maximize dmin/dmax subject to spatial constraints
+
+PERFORMANCE METRICS:
+1. **min_max_ratio**: dmin/dmax ratio (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: min_max_ratio / 0.2786 (progress toward beating AlphaEvolve benchmark)
+3. **eval_time**: Execution time in seconds (balance accuracy vs. efficiency)
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas
+**Additional useful packages**:
+- **3D optimization**: `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)
+- **3D geometric computing**: 
+  * `scipy.spatial` (3D distance matrices, ConvexHull, SphericalVoronoi)
+  * `trimesh` (3D mesh operations), `open3d` (3D data processing)
+- **Specialized 3D algorithms**: 
+  * `spherical-geometry` for spherical arrangements
+  * `quaternion` package for 3D rotations
+- **Performance**: `numba` (3D JIT compilation), `joblib`
+
+TECHNICAL REQUIREMENTS:
+- **Reproducibility**: Fixed random seeds for all stochastic components
+
+# PROMPT-BLOCK-START
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+- **Symmetry exploitation**: Leverage rotational and reflectional symmetries of optimal configurations
+- **Regular polygon foundations**: Start with vertices of regular polygons and perturb systematically
+- **Multi-scale approaches**: 
+  * Coarse grid initialization followed by continuous optimization
+  * Hierarchical placement (outer boundary points first, then interior)
+- **Adaptive algorithms**: 
+  * Simulated annealing with adaptive temperature schedules
+  * Differential evolution with self-adaptive parameters
+  * Particle swarm optimization with velocity clamping
+  * Basin-hopping for escaping local optima
+- **Gradient-free methods**: 
+  * Nelder-Mead simplex for robust local search
+  * Powell's method for coordinate descent
+  * COBYLA for constrained optimization without gradients
+- **Hybrid optimization**:
+  * Genetic algorithms with local refinement operators
+  * Memetic algorithms combining global and local search
+  * Multiple restart strategies from different initializations
+- **Geometric heuristics**:
+  * Maximin designs from experimental design theory
+  * Voronoi-based adaptive placement
+  * Force-directed layouts with repulsive interactions
+  
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+- **Packing vs. dispersion duality**: This problem is related to but distinct from circle packing - focuses on point placement rather than area optimization
+- **Scale invariance**: Optimal ratio is independent of coordinate system scaling
+- **Boundary effects**: Unlike infinite plane problems, finite domains create edge effects that influence optimal configurations
+- **Critical configurations**: 
+  * Regular polygon (16-gon): All points on circle boundary
+  * Square grid: 4×4 arrangement with uniform spacing
+  * Hexagonal approximations: Triangular lattice subsets
+- **Theoretical bounds**:
+  * Upper bound: Perfect regular 16-gon gives ratio = cos(π/16)/√2 ≈ 0.383. This is a very challenging target to approach.
+  * Lower bound: Random placement typically yields ratios < 0.1. **Crucially, the previous attempts yielded a min/max ratio around 0.07, which is worse than random. This strongly indicates a fundamental issue with the optimization approach, most likely the use of a non-smooth objective function in global search phases, or insufficient optimization effort.**
+  * AlphaEvolve benchmark: **0.2786 is the absolute target to beat.** This value represents a highly optimized configuration, significantly exceeding simple geometric arrangements. The goal is to achieve a `min_max_ratio` *greater than* 0.2786.
+- **Symmetry groups**: Optimal solutions likely respect dihedral symmetries D16, D8, D4, or D2
+- **Local vs. global optima**: High-dimensional landscape with many local optima requires sophisticated global optimization
+
+IMPLEMENTATION GUIDELINES:
+**Recommended implementation patterns:**
+- **Distance computation**: 
+  * `scipy.spatial.distance.pdist()` for efficient pairwise distances
+  * Vectorized operations using broadcasting for gradient computation
+- **Optimization frameworks**:
+  * **Critical:** For *any* optimizer, especially global ones like Differential Evolution and local ones like L-BFGS-B, the objective function *must* be the **smooth approximation of min/max ratio** using the `LogSumExp` technique. Using the exact, non-differentiable min/max objective for global search is the primary cause of observed poor performance and failure to converge to high-quality solutions. The exact objective should only be used for final evaluation or a *very limited* polish step with specific gradient-free methods like Nelder-Mead, if deemed absolutely necessary, and only after substantial optimization with the smooth objective.
+  * `scipy.optimize.minimize()` with method='L-BFGS-B' for gradient-based refinement. Ensure `ftol` and `gtol` are set for high precision. This method *requires* a differentiable objective function; hence, a smooth approximation of min/max is essential.
+  * `scipy.optimize.differential_evolution()` for robust global search. For N=16, D=2, the search space is 32 dimensions. **Crucially, for `scipy.optimize.differential_evolution`, the total population size (either determined by `popsize * (n_dims + 1)` or by the size of the `init` array) should be within the range of `300-500` individuals for `n_dims=32`. The previous run's total population (determined by an `init` array size of 960, and a `popsize=30` multiplier) was excessively large, leading to an extremely high number of function evaluations and long `eval_time` without proportional gains in solution quality. Aim for `popsize` (multiplier) around `10` to `15` to achieve the target population size and control evaluations per iteration.** `maxiter` should be sufficiently high (e.g., 2000-5000, or even higher for very challenging landscapes) to allow for thorough exploration, balancing with the chosen `popsize` to manage total function evaluations.
+  * Custom objective functions handling min/max ratio computation, carefully considering numerical stability for `LogSumExp` approximations.
+- **Constraint handling**:
+  * Penalty methods for boundary constraints
+  * Projection operators to feasible region
+  * Barrier methods for interior-point optimization
+- **Advanced techniques**:
+  * Multi-start optimization from diverse initializations, especially with local refinement.
+  * **Strongly consider Covariance Matrix Adaptation Evolution Strategy (CMA-ES)** as a powerful and robust method for high-dimensional, non-convex, and non-smooth optimization landscapes. It often outperforms Differential Evolution for complex problems. If `scipy.optimize.fmin_l_bfgs_b` is used, ensure `fprime` is provided or a very robust numerical approximation is used. **If `scipy.optimize` does not directly offer CMA-ES, consider integrating external libraries like `cma` (pip install cma) or exploring `pymoo` for advanced evolutionary algorithms that might include CMA-ES variants.**
+  * Bayesian optimization for very expensive function evaluations, but likely not necessary here.
+
+VALIDATION FRAMEWORK:
+- **Geometric validation**:
+  * Verify exactly 16 distinct points
+  * Check coordinate bounds (typically [0,1] × [0,1])
+  * Validate distance matrix symmetry and positivity
+- **Data validation**:
+  * All coordinates must be finite floats
+  * No duplicate points (minimum separation threshold)
+  * Proper handling of numerical precision issues
+- **Solution quality assessment**:
+  * Symmetry analysis of final configuration
+  * Stability under small perturbations
+  * Comparison with known geometric configurations
+- **Optimization diagnostics**:
+  * Convergence history tracking
+  * Gradient norm analysis (when applicable)
+  * Multi-run consistency checks
+  
+PROBLEM-SPECIFIC CONSIDERATIONS:
+- **Initialization strategies**:
+  * For global optimizers like Differential Evolution, it's crucial to initialize the population with a diverse set of points. Combine:
+    * Random uniform placement in unit square.
+    * Regular polygon vertices (e.g., an N-gon for N=16) with small perturbations.
+    * Grid-based starting points (e.g., a 4x4 grid) with jitter.
+    * Quasi-random sequences (Sobol, Halton) for better space coverage.
+  * Consider providing multiple initial guesses for multi-start local optimization, derived from these strategies.
+- **Objective function challenges**:
+  * **The direct `min/max` operations lead to a highly non-smooth and non-differentiable objective function landscape, which severely hinders most optimization algorithms, even gradient-free ones, from finding high-quality solutions. This is a critical factor for the observed poor performance.**
+  * **Strongly recommend using a smooth approximation for `min` and `max` operations.** A common approach is the `LogSumExp` approximation:
+    * For `max(x_i)`: `(1/k) * log(sum(exp(k*x_i)))`
+    * For `min(x_i)`: `(-1/k) * log(sum(exp(-k*x_i)))`
+    * Thus, for `d_min / d_max`, the objective should be approximated as `(-1/k) * log(sum(exp(-k*distances))) / ((1/k) * log(sum(exp(k*distances))))`, which simplifies to `-log(sum(exp(-k*distances))) / log(sum(exp(k*distances)))`.
+  * The smoothing parameter `k` is critical. A higher `k` value (e.g., 10000 or even 100000) provides a sharper approximation but can increase numerical instability. Experiment with `k` or consider an adaptive `k` schedule during optimization. **For the k-continuation strategy, the initial `k` value should be at least `1000`, progressing to `10000` or `50000` for final, precise local refinement steps. Starting with `k=100` is too low and may hinder effective optimization.**
+  * Sensitivity to small coordinate changes requires robust optimizers and potentially higher precision floating-point arithmetic (though not typically needed for standard `float64`).
+- **Constraint geometry**:
+  * Unit square vs. unit circle domains
+  * Periodic boundary conditions vs. hard boundaries
+  * Allowable vs. required symmetries
+
+# PROMPT-BLOCK-END
+    

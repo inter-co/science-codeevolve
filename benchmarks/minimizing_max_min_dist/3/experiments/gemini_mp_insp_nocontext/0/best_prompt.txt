@@ -1,0 +1,90 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on 3D point dispersion problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 14 points in 3D space, maximizing the ratio of minimum distance to maximum distance between all point pairs.
+
+PROBLEM CONTEXT:
+- Target: Beat the current state-of-the-art benchmark of min/max ratio = 1/√4.165849767 ≈ 0.4898
+- Constraint: Points must be placed in 3D Euclidean space (typically normalized to unit cube [0,1]³ or unit sphere)
+- Mathematical formulation: For points Pi = (xi, yi, zi), i = 1,...,14:
+  * Distance matrix: dij = √[(xi-xj)² + (yi-yj)² + (zi-zj)²] for all i≠j
+  * Minimum distance: dmin = min{dij : i≠j}
+  * Maximum distance: dmax = max{dij : i≠j}
+  * Objective: maximize dmin/dmax subject to spatial constraints
+
+PERFORMANCE METRICS:
+1. **min_max_ratio**: dmin/dmax ratio (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: min_max_ratio / 0.4898 (progress toward beating AlphaEvolve benchmark)
+3. **eval_time**: Execution time in seconds (balance accuracy vs. efficiency)
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas
+**Additional useful packages**:
+- **3D optimization**: `scipy.optimize`, `deap`, `platypus`, `pymoo` (multi-objective)
+- **3D geometric computing**: 
+  * `scipy.spatial` (3D distance matrices, ConvexHull, SphericalVoronoi)
+  * `trimesh` (3D mesh operations), `open3d` (3D data processing)
+- **Specialized 3D algorithms**: 
+  * `spherical-geometry` for spherical arrangements
+  * `quaternion` package for 3D rotations
+- **Performance**: `numba` (3D JIT compilation), `joblib`
+
+TECHNICAL REQUIREMENTS:
+- **Reproducibility**: Fixed random seeds for all stochastic components
+
+# PROMPT-BLOCK-START
+  
+OPTIMIZATION STRATEGIES TO CONSIDER:
+This problem is a global optimization challenge, as the objective function (dmin/dmax ratio) is non-convex and likely has numerous local optima. Gradient-based methods alone are insufficient.
+1.  **Global Optimization Algorithms**:
+    *   **Basin-hopping (`scipy.optimize.basinhopping`)**: This method is particularly well-suited for problems with many local minima, as it combines local minimization with random "hops" to explore the global landscape. It often provides a good balance between exploration and exploitation. It requires a local minimizer, and `scipy.optimize.minimize` with the 'L-BFGS-B' method (operating on the spherical angles `theta`, `phi`) is a strong candidate, as it is efficient and handles bounds.
+    *   **Differential Evolution (`scipy.optimize.differential_evolution`)**: Highly effective for non-convex, high-dimensional problems and does not require gradient information. However, achieving high accuracy often requires a very large number of iterations and population size, which can lead to long `eval_time`. Consider it as a powerful global explorer, potentially followed by local refinement.
+    *   **Simulated Annealing**: Another metaheuristic that can explore the global search space.
+    *   **Evolutionary Algorithms (e.g., Genetic Algorithms)**: Packages like `deap` or `pymoo` can be employed, offering flexibility for custom operators and population management. These can be very powerful but often require more complex setup.
+2.  **Hybrid Approaches**: Combining a global optimizer (like Differential Evolution or a multi-start strategy) to find promising regions, followed by a local optimizer (e.g., L-BFGS-B, SLSQP) for fine-tuning, is often the most effective strategy for achieving high accuracy within reasonable time limits. Basin-hopping is an excellent example of such a hybrid approach.
+3.  **Parameter Tuning for Hybrid Approaches**: For a successful hybrid strategy, it's crucial to balance the computational budget between global exploration and local refinement.
+    *   **Differential Evolution**: Use `differential_evolution` as a robust global explorer. While capable of high accuracy, for its role as a first stage in a hybrid approach, moderate `maxiter` and `popsize` (e.g., `maxiter` up to 1000, `popsize` around 20-30) might be sufficient to find a good basin for `basinhopping`, thus saving `eval_time`. Ensure `workers=-1` is used for parallelization.
+    *   **Basin-hopping**: After a good initial guess from DE, `basinhopping` can perform more focused global search and local refinement. `niter` (number of hopping steps) can be set moderately (e.g., 200-500). The local minimizer (`L-BFGS-B`) should have tighter tolerances (`ftol`, `gtol`) and sufficient `maxiter` to converge precisely within each basin.
+    *   The goal is to achieve high `min_max_ratio` without exceeding practical `eval_time`. Aggressively high parameters for *both* stages can lead to excessive runtime.
+4.  **Objective Function Smoothing**: While the dmin/dmax ratio is inherently non-smooth, some advanced techniques might involve smoothing proxies, though direct optimization is generally preferred for this problem type.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+This problem is closely related to the **Tammes Problem**, which seeks to maximize the minimum distance between N points on the surface of a unit sphere. While our objective includes `dmax`, optimizing `dmin` on a sphere naturally constrains `dmax` (to the sphere's diameter), making it a highly effective approach.
+1.  **Spherical Codes**: The optimal arrangements are often referred to as spherical codes. For N=14, no perfect Platonic solid arrangement exists, but configurations often exhibit symmetries.
+2.  **Thomson Problem**: Related to minimizing electrostatic potential energy of charges on a sphere, which also leads to well-dispersed points.
+3.  **Regular Polyhedra**: For small N, points often correspond to vertices of regular polyhedra (e.g., icosahedron for N=12). For N=14, the optimal configuration might be a perturbation of a known symmetric arrangement or a structure with some degree of symmetry.
+4.  **Unit Sphere Optimization**: Placing points on the surface of a unit sphere is generally superior to placing them within a unit cube for maximizing `dmin/dmax`. This is because it naturally limits `dmax` to 2 (the diameter) and forces points to be "on the edge" of the feasible region, encouraging larger `dmin`.
+
+**Recommended implementation patterns:**
+1.  **Objective Function Design**:
+    *   Define an objective function `objective(coords_flat)` that takes a flattened 1D numpy array of 3N coordinates (e.g., `[x1, y1, z1, x2, y2, z2, ..., xN, yN, zN]`).
+    *   Inside the objective function, reshape `coords_flat` into an `(N, 3)` array of points.
+    *   Calculate all pairwise Euclidean distances. **Crucially, use `scipy.spatial.distance.pdist` with `metric='euclidean'`. This function is highly optimized (often implemented in C) and generally outperforms custom Python or Numba re-implementations for calculating distance matrices.**
+    *   Determine `dmin` and `dmax` efficiently from the resulting condensed distance matrix (`np.min` and `np.max`).
+    *   Return `-dmin/dmax` because `scipy.optimize` functions typically perform minimization.
+    *   **Numba Integration**: If `numba.njit` is used for the objective function, ensure `scipy.spatial.distance.pdist` is called outside the `njit`'d function or that its result is passed in, as `pdist` itself is not Numba-compatible. The performance gain from Numba for `N=14` will primarily come from the coordinate transformation and min/max finding if `pdist` is used.
+2.  **Constraints for Spherical Optimization**:
+    *   When optimizing on the surface of a unit sphere by varying `theta` and `phi` angles, the constraint `x^2 + y^2 + z^2 - 1 = 0` is implicitly satisfied by the spherical-to-Cartesian conversion. This is generally the preferred and most robust method.
+    *   If optimizing Cartesian coordinates directly, each point `(x,y,z)` must satisfy `x^2 + y^2 + z^2 - 1 = 0`. This can be implemented using `scipy.optimize.minimize` with `constraints` (type 'eq' for equality). However, optimizing angles is usually more stable.
+    *   Alternatively, initialize points on a sphere and use optimization methods that respect these constraints (e.g., projecting points back to the sphere after each step, or using specialized spherical optimization routines if available, though `scipy.optimize` with equality constraints is usually sufficient).
+3.  **Initial Guess**:
+    *   A good initial configuration can significantly reduce optimization time and improve the final solution quality. Instead of purely random points, **strongly consider generating an initial set of points that are already somewhat uniformly distributed on a unit sphere**.
+    *   **Fibonacci Sphere / Golden Spiral method**: This is a simple and effective way to generate approximately uniform points on a sphere. For `N` points, it can be implemented by iterating `i` from `0` to `N-1`, calculating `phi = arccos(1 - 2*(i+0.5)/N)` and `theta = 2*pi*(i+0.5)*GoldenRatio`, then converting to Cartesian. This provides a much better starting distribution than purely random angles.
+    *   For global optimizers like `differential_evolution`, consider setting the `init` parameter to `'sobol'` or `'latinhypercube'` instead of the default `'random'` to generate a more uniformly distributed initial population, which can significantly improve convergence and solution quality.
+    *   The `Fibonacci Sphere` method is excellent for generating a single high-quality initial `x0` for local optimizers or for `basinhopping`, or to be included as one of the members in a `differential_evolution` initial population if `init` is set to a custom array.
+4.  **Objective Function Penalties**: Avoid sharp, discontinuous penalties in the objective function (e.g., hard cutoffs or `if/else` statements returning `np.inf`). Such discontinuities can hinder gradient-based local optimizers and even confuse metaheuristics. Instead, if penalties are necessary (e.g., for `dmin` becoming too small), consider smoother, continuous penalty functions (e.g., `1 / (dmin + epsilon)` or `exp(-dmin / scale)` for a large positive value) that are differentiable or at least continuous. For points constrained to a unit sphere, `dmax` is naturally bounded by 2, so explicit `dmax` penalties are generally unnecessary.
+5.  **Distance Calculation**: Use `scipy.spatial.distance.pdist` with `metric='euclidean'` for efficient computation of the upper triangular distance matrix.
+
+VALIDATION FRAMEWORK:
+1.  **Distance Matrix Computation**: Utilize `scipy.spatial.distance.pdist(points, metric='euclidean')` to obtain a condensed distance matrix (1D array of all unique pairwise distances).
+2.  **Minimum and Maximum Distances**: `dmin = np.min(distances)` and `dmax = np.max(distances)`.
+3.  **Ratio Calculation**: `min_max_ratio = dmin / dmax`.
+4.  **Constraint Check**: If optimizing on a sphere, verify that all points lie on the sphere (i.e., `np.isclose(np.linalg.norm(point), 1.0)` for each point). If optimizing in a cube, verify points are within `[0,1]³`.
+
+PROBLEM-SPECIFIC 3D CONSIDERATIONS:
+1.  **Dimensionality**: The search space is `N * D = 14 * 3 = 42` dimensions. This is a moderately high-dimensional space, necessitating robust global optimization techniques.
+2.  **Boundary Conditions**: As discussed, optimizing points on the surface of a unit sphere is highly recommended. This fixes `dmax` to 2 (diameter of the unit sphere) if the points span the sphere, and simplifies the problem by reducing the effective search volume.
+3.  **Symmetry**: While N=14 doesn't correspond to a highly symmetric Platonic solid, the optimal configuration is likely to exhibit some form of rotational or mirror symmetry. However, forcing symmetry can prematurely limit the search space for global optimizers. It's often better to let the optimizer discover symmetry.
+4.  **Normalization**: The output points should be normalized. If optimized on a unit sphere, they are already normalized. If optimized in a cube, they might need scaling to fit a `dmax` of 1 for consistent comparison, or simply returned as found. The problem statement mentions "typically normalized to unit cube [0,1]³ or unit sphere", so a unit sphere output is ideal.
+
+# PROMPT-BLOCK-END
+    
