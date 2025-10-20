@@ -1,19 +1,29 @@
 # CodeEvolve
-CodeEvolve is an open-source evolutionary coding agent, designed to iteratively improve an initial codebase against a set of user-defined metrics.
+CodeEvolve is an open-source evolutionary coding agent, designed to iteratively improve an initial codebase against a set of user-defined metrics. This project was originally created as an attempt to replicate the results of [AlphaEvolve](https://arxiv.org/abs/2506.13131), a closed-source coding agent announced by Google DeepMind in 2025.
 
-CodeEvolve was originally created as an attempt to replicate [AlphaEvolve's](https://storage.googleapis.com/deepmind-media/DeepMind.com/Blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/AlphaEvolve.pdf) results on mathematical problems. AlphaEvolve is a closed-source coding agent, announced in a whitepaper by Google Deepmind in 2025.
-
-Our main goal for this project is as follows: implement a transparent algorithm that can replicate/surpass AlphaEvolve on their list of mathematical problems. Out of the 13 problems listed in [Appendix B of AlphaEvolve's whitepaper](https://storage.googleapis.com/deepmind-media/DeepMind.com/Blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/AlphaEvolve.pdf), CodeEvolve has been able to obtain better results in 4 of them. We have made significant progress on the remaining 9 problems, as strive to contiue to incrementally improve our algorithm.
+Our primary goal is to implement a transparent, reproducible, and community-driven framework for LLM-driven algorithm discovery. We evaluate CodeEvolve on the same mathematical benchmarks as AlphaEvolve. CodeEvolve has surpassed the reported state-of-the-art performance on 4 of its 13 problems (see the jupyter notebook with our [results](notebooks/results.ipynb)). We are actively working to improve our method on the remaining benchmarks.
 
 ## Overview
 
+TODO
+
 ## Usage
+
+TODO
 
 ## Next steps
 
+We are actively developing CodeEvolve to be a more powerful and robust framework. Our immediate roadmap is focused on incorporating more sophisticated evolutionary mechanisms mentioned in our future work:
+
+1. **MAP-Elites**: We plan to integrate the MAP-Elites algorithm. This will help us move beyond optimizing a single fitness metric and instead maintain a diverse archive of high-performing solutions across different "features" or "behaviors" of the code.
+2. **Dynamic Exploration/Exploitation**: Currently, the choice between exploration (meta-prompting) and exploitation (depth) is set by a fixed probability (exploration_rate). A major planned feature is to implement a more dynamic scheduling, potentially using Reinforcement Learning methods, to adapt this trade-off based on the state of the evolutionary search.
+
+We plan on working on performance improvements, e.g. faster sampling, asynchronous islands algorithm, etc. We also intend on implementing more benchmark problems to test CodeEvolve.
 ## Project background and inspirations
 
-This project began approximately four months ago, when we decided to attempt to implement our own version of an evolutionary coding agent to try and surpass AlphaEvolve's results. During the initial steps of the project, our main source of inspiration was [OpenEvolve](https://github.com/codelion/openevolve), the first large open source project to attempt to replicate AlphaEvolve's algorithm. The many talented contributors from OpenEvolve inspired us to pursue our project, and we are deeply thankful to this community for their hard work on this field of research.
+This project was initiated as an effort to replicate and build upon the work presented in Google DeepMind's AlphaEvolve whitepaper. The closed-source nature of that project  presented a barrier to community-driven progress. Our goal is to provide a transparent, open-source framework that implements the high-level concepts of LLM-driven evolution, allowing for reproducible research and collective innovation.
+
+During the initial stages, we drew inspiration from other open-source efforts like [OpenEvolve](https://github.com/codelion/openevolve), which validated the community's interest in this domain. We are grateful to the contributors of such projects for paving the way and demonstrating the viability of open-source research in this field.
 
 ## Contributing
 
@@ -22,7 +32,7 @@ We are not accepting pull requests at this time, as we are still actively develo
 ## Citation
 
 ```bibtex
-@misc{assumpção2025codeevolveopensourceevolutionary,
+@article{assumpção2025codeevolveopensourceevolutionary,
       title={CodeEvolve: An open source evolutionary coding agent for algorithm discovery and optimization}, 
       author={Henrique Assumpção and Diego Ferreira and Leandro Campos and Fabricio Murai},
       year={2025},
