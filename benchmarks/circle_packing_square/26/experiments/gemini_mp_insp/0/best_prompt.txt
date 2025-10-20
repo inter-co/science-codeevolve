@@ -1,0 +1,125 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on circle packing problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 26 non-overlapping circles within a unit square [0,1] × [0,1], maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.6358627564136983
+- Constraint: All circles must be fully contained within the unit square with no overlaps
+- Mathematical formulation: For circle i at position (xi, yi) with radius ri:
+  * Containment: ri ≤ xi ≤ 1-ri and ri ≤ yi ≤ 1-ri
+  * Non-overlap: √[(xi-xj)² + (yi-yj)²] ≥ ri + rj for all i≠j
+  * Objective: maximize Σri subject to above constraints
+
+COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)
+- **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)
+- **Performance**: `cython`, `joblib` (parallelization)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 26 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.6358627564136983 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+The circle packing problem is a complex, non-linear, constrained optimization challenge, often characterized by many local optima. Given the objective to maximize the sum of radii, and the explicit mention of `deap`, an evolutionary algorithm approach is highly recommended, potentially combined with local optimization.
+
+1.  **Evolutionary Algorithms (e.g., Genetic Algorithms with `deap`):**
+    *   **Strengths**: Excellent for exploring vast, rugged search spaces and escaping local optima.
+    *   **Representation**: An individual in the population should represent the `(x, y, r)` coordinates and radii for all 26 circles. A flattened `numpy` array of `(x1, y1, r1, x2, y2, r2, ...)` is a common approach.
+    *   **Fitness Function**: Maximize `Σri`. Crucially, this must incorporate penalties for constraint violations (containment and non-overlap). A common approach is `fitness = Σri - C1 * (sum_containment_violations) - C2 * (sum_overlap_violations)`, where C1 and C2 are large penalty coefficients.
+    *   **Operators**:
+        *   **Initialization**: Random placement of circles with small initial radii, ensuring they are initially within bounds.
+        *   **Crossover**: Blend or average circle parameters from parent individuals.
+        *   **Mutation**: Apply Gaussian noise to `x`, `y`, and `r` values. Ensure mutations keep circles within sensible bounds (e.g., `r` > 0).
+    *   **Selection**: Tournament selection or similar.
+
+2.  **Local Optimization (e.g., `scipy.optimize.minimize`):**
+    *   **Strengths**: Efficiently finds local optima given a good starting point. Can be used as a refinement step after an evolutionary algorithm has found a promising region.
+    *   **Method**: `SLSQP`, `COBYLA`, or `trust-constr` are suitable for constrained optimization.
+    *   **Objective Function**: `-np.sum(radii)` (to maximize sum of radii).
+    *   **Constraints**:
+        *   **Bounds**: `0 < x < 1`, `0 < y < 1`, `0 < r < 0.5`. More precisely, `r <= x <= 1-r`, `r <= y <= 1-r`.
+        *   **Inequality Constraints**: Non-overlap `(xi-xj)² + (yi-yj)² - (ri + rj)² >= 0`. Containment can also be expressed as `x - r >= 0`, `1 - x - r >= 0`, `y - r >= 0`, `1 - y - r >= 0`.
+
+3.  **Hybrid Approach**: Use evolutionary algorithms to find good candidate solutions, then apply local optimization to fine-tune these candidates.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+1.  **Constraint Formulation**:
+    *   **Containment**: For each circle `i` with `(xi, yi, ri)`:
+        *   `xi - ri >= 0`
+        *   `1 - xi - ri >= 0`
+        *   `yi - ri >= 0`
+        *   `1 - yi - ri >= 0`
+        These imply that `ri` cannot exceed 0.5.
+    *   **Non-overlap**: For every distinct pair of circles `i` and `j`:
+        *   `dist_sq = (xi - xj)² + (yi - yj)²`
+        *   `min_dist_sq = (ri + rj)²`
+        *   Constraint: `dist_sq - min_dist_sq >= 0`
+        It's often safer to use squared distances to avoid `sqrt` for performance and numerical stability.
+
+2.  **Initial Placement**: The initial configuration is critical for non-convex problems.
+    *   **Random**: Place centers `(x, y)` uniformly in `[0,1]x[0,1]` and assign small, random radii (e.g., `0.01` to `0.05`).
+    *   **Grid-based**: Arrange circles in a rough grid pattern, then perturb slightly.
+    *   **Boundary-aware**: Place some circles near the boundaries, as optimal packings often involve circles touching the square's edges.
+
+3.  **Optimal Packing Characteristics**:
+    *   Circles in optimal packings tend to be "tight": many circles will be touching other circles or the boundaries of the square.
+    *   There's no single known analytical solution for 26 circles; numerical optimization is necessary.
+    *   The problem is related to finding the densest packing, but here we maximize the sum of radii, which is slightly different but often leads to similar dense configurations.
+
+4.  **Numerical Stability**: Use a small epsilon for floating-point comparisons in constraints (e.g., `dist_sq >= (ri + rj)² - 1e-9`).
+
+**Recommended implementation patterns:**
+1.  **Circle Representation**: Store circles as a `numpy` array of shape `(26, 3)`, where each row is `[x, y, r]`. This allows for vectorized operations.
+2.  **Vectorized Constraint Checks**:
+    *   **Containment**: Can be checked for all circles simultaneously using `numpy` array operations: `(circles[:, 0] - circles[:, 2] >= 0).all()` etc.
+    *   **Non-overlap**:
+        *   Calculate all pairwise squared distances between centers:
+            `dx = circles[:, np.newaxis, 0] - circles[np.newaxis, :, 0]`
+            `dy = circles[:, np.newaxis, 1] - circles[np.newaxis, :, 1]`
+            `dist_sq = dx**2 + dy**2`
+        *   Calculate all pairwise sums of radii squared:
+            `radii_sum_sq = (circles[:, np.newaxis, 2] + circles[np.newaxis, :, 2])**2`
+        *   Check `dist_sq >= radii_sum_sq` for all `i != j`. Be careful to exclude `i == j` cases, where `dist_sq` is 0.
+3.  **Fitness/Objective Function Structure**:
+    *   The main function `circle_packing26()` should encapsulate the optimization logic.
+    *   Define helper functions: `calculate_overlap_violation(circles)`, `calculate_containment_violation(circles)`, `fitness_function(circles_flat_array)`.
+    *   The `fitness_function` will take a flattened array (for `deap` or `scipy.optimize`), reshape it, calculate total radii sum, and apply penalties.
+4.  **`deap` Specifics**:
+    *   Use `deap.base`, `deap.creator`, `deap.tools`, `deap.algorithms`.
+    *   Define `creator.FitnessMax` with `weights=(1.0,)` and `creator.Individual` as a list of floats (the flattened circle parameters).
+    *   Register `toolbox` functions for `attr_float`, `individual`, `population`, `evaluate`, `mate`, `mutate`, `select`.
+    *   The `evaluate` function will call your `fitness_function`.
+    *   Ensure `mutate` operations respect the `r > 0` and general `x,y,r` bounds, or let the penalty function handle violations.
+5.  **Performance Acceleration with `numba`**:
+    *   For computationally intensive functions that are called repeatedly (e.g., the `fitness_function` for DEAP, and the constraint functions for `scipy.optimize.minimize`), consider decorating them with `@numba.jit(nopython=True, fastmath=True)`.
+    *   `numba` can significantly speed up Python code, especially numerical operations and loops, by compiling them to machine code.
+    *   Ensure that functions decorated with `numba.jit(nopython=True)` primarily use `numpy` functions and Python constructs that `numba` supports. This is generally compatible with the vectorized `numpy` operations already recommended, and `numba` can often further optimize these.
+
+VALIDATION FRAMEWORK:
+Implement a `validate_packing(circles: np.ndarray) -> tuple[bool, str]` function that checks all constraints and returns `(True, "Valid")` or `(False, "Reason for invalidity")`.
+
+1.  **Input**: A `numpy` array `circles` of shape `(26, 3)`.
+2.  **Checks**:
+    *   **Positive Radii**: All `r_i > 0`.
+    *   **Containment**: For each circle `i`: `r_i <= x_i <= 1-r_i` and `r_i <= y_i <= 1-r_i`.
+    *   **Non-overlap**: For every unique pair of circles `i, j`: `(x_i - x_j)² + (y_i - y_j)² >= (r_i + r_j)²`. Use a small tolerance (e.g., `1e-9`) for floating-point comparisons.
+3.  **Output**: Return `True` if all conditions are met, `False` otherwise, along with a descriptive string.
+4.  **Final Result**: The `circle_packing26` function should return the `circles` array, and the validation function should be called on this result to confirm its validity before reporting the `sum_radii`.
+=======
+
+# PROMPT-BLOCK-END
+    

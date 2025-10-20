@@ -1,0 +1,91 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on circle packing problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 32 non-overlapping circles within a unit square [0,1] × [0,1], maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.937
+- Constraint: All circles must be fully contained within the unit square with no overlaps
+- Mathematical formulation: For circle i at position (xi, yi) with radius ri:
+  * Containment: ri ≤ xi ≤ 1-ri and ri ≤ yi ≤ 1-ri
+  * Non-overlap: √[(xi-xj)² + (yi-yj)²] ≥ ri + rj for all i≠j
+  * Objective: maximize Σri subject to above constraints
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)
+- **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)
+- **Performance**: `cython`, `joblib` (parallelization)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 32 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.937 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+**Recommended implementation patterns:**
+The problem is a continuous optimization problem with non-linear constraints. A common and effective pattern is to use an iterative optimization approach. This typically involves:
+1.  **Initialization**: Generate an initial set of circle positions and radii. This could be random or heuristic (e.g., a grid-like arrangement, or placing large circles first).
+2.  **Objective Function**: Define a function to maximize (sum of radii), potentially incorporating penalties for constraint violations.
+3.  **Constraint Handling**: Explicitly define and manage the containment and non-overlap constraints. This can be done via penalty methods (adding a large cost to the objective for violations) or by using optimization algorithms that natively support constraints.
+4.  **Iterative Refinement**: Employ an optimizer to adjust circle parameters (x, y, r) over many iterations, gradually improving the objective while satisfying constraints.
+5.  **Hybrid Approach**: Often, a combination of a global search heuristic (to find promising regions) followed by a local, gradient-based optimizer (to fine-tune the solution) yields the best results.
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+Given the complexity and non-convex nature of the problem, a robust optimization strategy is crucial.
+1.  **Formulate as a Constrained Optimization Problem**:
+    *   **Decision Variables**: A flattened array representing `[x1, y1, r1, x2, y2, r2, ..., x32, y32, r32]`.
+    *   **Objective Function**: Maximize `sum(r_i)`. This can be converted to minimization by `f(vars) = -sum(r_i)`.
+    *   **Bounds**: `0 <= r_i <= 0.5` (max radius in unit square), `0 <= x_i <= 1`, `0 <= y_i <= 1`.
+    *   **Inequality Constraints (g(vars) >= 0)**:
+        *   **Containment**:
+            *   `x_i - r_i >= 0`
+            *   `1 - x_i - r_i >= 0`
+            *   `y_i - r_i >= 0`
+            *   `1 - y_i - r_i >= 0`
+        *   **Non-overlap**: For every unique pair `(i, j)` where `i < j`:
+            *   `(x_i - x_j)^2 + (y_i - y_j)^2 - (r_i + r_j)^2 >= 0`
+2.  **Local Optimization (`scipy.optimize.minimize`)**:
+    *   Methods like `SLSQP` or `L-BFGS-B` (with bounds and constraints) are suitable for continuous, differentiable problems.
+    *   These methods require a good initial guess, as they can get stuck in local optima.
+    *   The objective function and constraint functions (and their Jacobians/gradients if possible) need to be carefully defined.
+3.  **Global Optimization (Metaheuristics)**:
+    *   **Evolutionary Algorithms (`deap`, `platypus`)**: Can explore a wider search space and are less prone to local optima. Represent individuals as arrays of `(x, y, r)` for all circles. Fitness function would be `sum(radii)` with heavy penalties for constraint violations.
+    *   **Simulated Annealing**: Start with a random configuration and iteratively make small changes, accepting worse solutions with a decreasing probability, allowing escape from local minima.
+    *   **Hybrid Approaches**: A common strategy is to use a global search method (like an evolutionary algorithm) to find a few promising initial configurations, and then refine each of these using a local optimizer (like `SLSQP`) to achieve high precision.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+-   **NP-Hard Problem**: Circle packing is a notoriously difficult NP-hard problem. This implies that finding the *absolute* global optimum is computationally intractable for large N, necessitating heuristic and metaheuristic approaches.
+-   **Optimal Density**: For N=32, the optimal packing is known to be very dense, meaning many circles will be touching each other and/or the boundaries. The AlphaEvolve benchmark of 2.937 is a high bar, suggesting a very efficient packing.
+-   **Boundary Effects**: Circles near the edges or corners of the square are more constrained than those in the interior. Their radii and positions are influenced heavily by the square's boundaries.
+-   **Symmetry**: While the problem (32 circles in a unit square) is symmetric, the optimal solution for N=32 doesn't necessarily exhibit perfect rotational or reflectional symmetry, though some patterns might emerge.
+-   **Force-Directed Analogy**: Conceptually, one can imagine circles as particles that repel each other (non-overlap) and are attracted to the center of the square, or grow until they hit a barrier (containment or other circles). This intuition can guide heuristic adjustments.
+-   **Penalty Method for Constraints**: When using optimizers that don't natively handle complex non-linear constraints, a common approach is to incorporate constraint violations into the objective function as penalty terms. For example, `f_penalized = -sum(radii) + C_overlap * sum(max(0, (r_i+r_j)^2 - distance_sq_ij)) + C_containment * sum(max(0, r_i - x_i, r_i - y_i, x_i+r_i - 1, y_i+r_i - 1))`, where `C` are large penalty coefficients.
+
+VALIDATION FRAMEWORK:
+After any optimization process, it is critical to validate the proposed solution to ensure all constraints are met within an acceptable tolerance.
+1.  **Containment Check**: For each circle `(x_i, y_i, r_i)`:
+    *   `x_i - r_i >= -epsilon`
+    *   `x_i + r_i <= 1 + epsilon`
+    *   `y_i - r_i >= -epsilon`
+    *   `y_i + r_i <= 1 + epsilon`
+    Where `epsilon` is a small positive tolerance (e.g., `1e-9`) to account for floating-point inaccuracies.
+2.  **Non-Overlap Check**: For every unique pair of circles `(i, j)`:
+    *   Calculate squared distance: `dist_sq = (x_i - x_j)^2 + (y_i - y_j)^2`
+    *   Calculate minimum squared separation: `min_sep_sq = (r_i + r_j)^2`
+    *   Check: `dist_sq >= min_sep_sq - epsilon`
+    If any check fails, the solution is invalid. The `sum_radii` should only be considered valid if all constraints pass.
+3.  **Report Violations**: If any constraint is violated, log or raise an error indicating which constraint and by how much it was violated.
+
+# PROMPT-BLOCK-END
+    

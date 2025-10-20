@@ -1,0 +1,63 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on circle packing problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 26 non-overlapping circles within a unit square [0,1] × [0,1], maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.6358627564136983
+- Constraint: All circles must be fully contained within the unit square with no overlaps
+- Mathematical formulation: For circle i at position (xi, yi) with radius ri:
+  * Containment: ri ≤ xi ≤ 1-ri and ri ≤ yi ≤ 1-ri
+  * Non-overlap: √[(xi-xj)² + (yi-yj)²] ≥ ri + rj for all i≠j
+  * Objective: maximize Σri subject to above constraints
+
+COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)
+- **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)
+- **Performance**: `cython`, `joblib` (parallelization)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 26 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.6358627564136983 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+- The circle packing problem is highly non-convex, meaning local optimization methods (like `SLSQP`) are prone to finding suboptimal local minima. To beat the benchmark, a more robust global search strategy is essential.
+- **Global Optimization**: Consider using `scipy.optimize.basinhopping`. This method is explicitly designed for global optimization by combining a local optimizer (e.g., `SLSQP`) with stochastic "hops" to escape local minima, significantly increasing the chance of finding a better global or near-global optimum.
+- **Evolutionary Algorithms (EAs)**: Packages like `deap` or `platypus` are well-suited for exploring complex, non-convex search spaces. They can be used as a primary optimization method, to generate diverse, high-quality initial guesses for local optimizers, or as part of a multi-objective optimization approach.
+- **Hybrid Approaches**: A powerful strategy is to combine a global search method (e.g., EAs or `basinhopping`) for broad exploration with a local optimizer (`SLSQP`) for fine-tuning the best candidate solutions to high precision. This can balance exploration and exploitation.
+- **Parameter Tuning**: Pay close attention to optimizer parameters (e.g., `maxiter`, `ftol` for `minimize`; `niter`, `T`, `stepsize` for `basinhopping`). Overly high `maxiter` can lead to excessive computation time without significant improvement in `sum_radii`. Experimentation is key for efficiency.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+- **Dense Packing Characteristics**: Optimal circle packings in a square typically feature many circles touching each other and/or the boundaries of the unit square. This implies that many of the non-overlap and containment constraints will be "active" (i.e., equal to zero within a small tolerance) at the optimal solution.
+- **Energy Minimization Analogy**: The problem can be conceptualized as an energy minimization problem, where circles repel each other, and boundary forces push them inward. Physics-based simulation libraries like `pymunk` or `pybullet` could inspire initial guess generation or even be adapted for a simulation-based optimization approach to find stable configurations.
+- **Symmetry**: While not always perfectly symmetric for 26 circles, initial guesses that exploit some degree of grid-like or mirrored placement can sometimes lead to better starting points, especially when combined with perturbations.
+
+**Recommended implementation patterns:**
+- **Analytical Derivatives**: Continue to use analytical Jacobians for both the objective and constraints. This is crucial for the efficiency and accuracy of gradient-based local optimizers (like `SLSQP` used within `minimize` or `basinhopping`). Numerical approximations of gradients can be slow and less accurate.
+- **Robust Initial Guesses**: The quality and diversity of initial guesses are paramount for non-convex problems. Strategies include:
+    - **Grid-based placement with random perturbations**: As currently implemented, but consider varying grid densities, perturbation strengths, or even randomizing the grid center to generate more diverse starting points.
+    - **Continuation Method**: Start with a simpler problem (e.g., smaller radii, or fewer circles), optimize it, and then use that solution as an initial guess for a more complex version (e.g., gradually increasing radii to their target size or adding more circles). This helps navigate complex search spaces.
+    - **Evolutionary Population Initialization**: Use an EA to generate a diverse set of promising initial guesses that are then refined by a local optimizer.
+- **Parallelization**: For multi-start optimization, `basinhopping` (if `niter` is high), or population-based EAs, leverage `joblib` to execute independent trials or population evaluations in parallel. This can significantly reduce the overall `eval_time` without sacrificing solution quality.
+- **Pre-computation and Vectorization**: Continue to pre-compute constant indices (e.g., `_triu_indices`) and use `numpy`'s vectorized operations to minimize redundant calculations and maintain computational efficiency, especially within the frequently called objective and constraint functions.
+
+VALIDATION FRAMEWORK:
+- **Post-optimization Constraint Check**: Implement a separate, explicit validation function `validate_packing(circles)` that takes the final `circles` array and rigorously verifies that *all* containment and non-overlap constraints are satisfied within a small numerical tolerance (e.g., `1e-6`). This ensures the returned solution is truly feasible, regardless of the optimizer's `success` flag.
+- **Numerical Robustness**: When checking constraints, remember to account for floating-point inaccuracies. A constraint `f(x) >= 0` should be checked as `f(x) >= -tolerance` to avoid false negatives due to precision issues.
+- **Visualization**: While not part of the code, a robust visualization tool (e.g., using `matplotlib`) for the final packing can provide quick insights into its quality, identify any obvious constraint violations, and aid in debugging.
+
+# PROMPT-BLOCK-END
+    

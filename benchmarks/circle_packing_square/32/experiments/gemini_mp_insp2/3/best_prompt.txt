@@ -1,0 +1,109 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on circle packing problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 32 non-overlapping circles within a unit square [0,1] × [0,1], maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.937
+- Constraint: All circles must be fully contained within the unit square with no overlaps
+- Mathematical formulation: For circle i at position (xi, yi) with radius ri:
+  * Containment: ri ≤ xi ≤ 1-ri and ri ≤ yi ≤ 1-ri
+  * Non-overlap: √[(xi-xj)² + (yi-yj)²] ≥ ri + rj for all i≠j
+  * Objective: maximize Σri subject to above constraints
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)
+- **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)
+- **Performance**: `cython`, `joblib` (parallelization)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 32 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.937 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+**Recommended implementation patterns:**
+1.  **Representation**: Represent the state of the system as a flattened 1D NumPy array `x` of shape `(3 * N,)`, where `N=32`. The array `x` should contain `[x1, y1, r1, x2, y2, r2, ..., xN, yN, rN]`.
+2.  **Objective Function**: Define an objective function `f(x)` that returns the negative sum of radii (`-sum(r_i)`) since most optimization routines perform minimization. The radii are `x[2::3]`.
+3.  **Constraint Functions**:
+    *   **Containment**: For each circle `i`, `r_i <= x_i <= 1-r_i` and `r_i <= y_i <= 1-r_i`. These translate to 4 inequality constraints per circle:
+        *   `x_i - r_i >= 0`
+        *   `1 - x_i - r_i >= 0`
+        *   `y_i - r_i >= 0`
+        *   `1 - y_i - r_i >= 0`
+    *   **Non-overlap**: For each unique pair of circles `i` and `j` (i < j), the squared distance between centers must be greater than or equal to the squared sum of their radii: `(x_i - x_j)^2 + (y_i - y_j)^2 - (r_i + r_j)^2 >= 0`.
+    *   **Positive Radii**: `r_i > 0`. This can be handled by bounds or as an explicit constraint.
+4.  **Bounds**: Define bounds for each `x_k` in the flattened array. `0 <= x_i <= 1`, `0 <= y_i <= 1`, and `1e-6 <= r_i <= 0.5` (a circle with radius 0.5 can fit in the unit square, but two cannot). Use a small positive lower bound for `r_i` to avoid degenerate solutions.
+5.  **Initial Guess**: A good initial guess can significantly impact convergence. Consider a random placement within the bounds, or a more structured grid-like placement, possibly with small initial radii.
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+Given the highly non-convex nature of the circle packing problem and the benchmark target, a multi-start local optimization approach alone (as implemented in the previous attempt) is unlikely to be sufficient or efficient enough to find the global optimum within the given time limits. The problem space requires more robust exploration.
+
+The **primary recommendation** is a **Hybrid Approach** combining global search with local refinement.
+
+1.  **Hybrid Approach: Evolutionary Algorithms (`deap`) for Global Search + Local Refinement (`scipy.optimize.minimize`)**
+    This strategy is generally most effective for complex, multi-modal optimization problems like circle packing, offering a balance between exploration and exploitation.
+
+    *   **Phase 1: Global Search using a Genetic Algorithm (GA) with `deap`**
+        *   **Representation**: Individual `x` as the flattened 1D NumPy array `[x1, y1, r1, ..., xN, yN, rN]`.
+        *   **Fitness Function**: Define a fitness function `evaluate(individual)` that returns the sum of radii (`sum(r_i)`). Crucially, this function must **heavily penalize constraint violations**. For example:
+            *   If any containment constraint is violated: subtract a large penalty proportional to the degree of violation.
+            *   If any non-overlap constraint is violated: subtract a large penalty proportional to the squared overlap distance `(r_i + r_j)^2 - ((x_i - x_j)^2 + (y_i - y_j)^2)`.
+            *   Ensure `r_i > 0` (can be handled by bounds in `deap` or as a penalty).
+            *   The goal is to guide the GA towards feasible regions while maximizing radii.
+        *   **`deap` setup**:
+            *   `toolbox.register` for `attr_float` (for x, y, r), `individual`, `population`.
+            *   `toolbox.register` for `mate` (e.g., `cxBlend`, `cxUniform`), `mutate` (e.g., `mutGaussian` with appropriate `mu` and `sigma` for x, y, r components, ensuring bounds are respected or clipped), `select` (e.g., `selTournament`).
+            *   Define a suitable `POPULATION_SIZE` (e.g., 100-500) and `NUM_GENERATIONS` (e.g., 500-2000).
+        *   **Pros**: Excellent at exploring the search space and finding promising regions, less prone to local optima than pure local search.
+
+    *   **Phase 2: Local Refinement using `scipy.optimize.minimize`**
+        *   Take the `K` best individuals (e.g., `K=5` to `10`) from the final population of the GA. These individuals serve as excellent initial guesses.
+        *   For each of these `K` individuals, apply `scipy.optimize.minimize` (e.g., `SLSQP` or `trust-constr`) using the objective and constraint functions (and their analytical Jacobians if available, as defined in `_objective_gradient` and `_constraints_jacobian`).
+        *   **Considerations**: `trust-constr` is robust but computationally intensive due to its handling of Hessians and Jacobians. For refinement from a good starting point, `SLSQP` might be faster and sufficient, especially if the GA has already done most of the heavy lifting to find near-feasible, near-optimal regions.
+        *   **Pros**: Efficiently converges to a precise local optimum from a good starting point.
+
+2.  **Standalone Global Optimization (e.g., `deap` Genetic Algorithm)**
+    *   If the hybrid approach is too complex initially, a well-tuned `deap` GA running for more generations can sometimes achieve good results on its own.
+    *   The fitness function must accurately reflect the objective and penalize constraints as described above.
+    *   **Cons**: Might require a very large number of generations to achieve the precision of local optimizers, potentially exceeding time limits.
+
+3.  **Local Optimization (`scipy.optimize.minimize` with Multiple Starts)**
+    *   **Methods**: `SLSQP`, `COBYLA`, `trust-constr`.
+    *   **Pros**: Efficient for refining solutions if a *very good* starting point is found.
+    *   **Cons**: As demonstrated by the timeout, relying solely on multiple random/grid starts for a highly non-convex problem with many variables is often insufficient to find the global optimum within reasonable time, as it frequently gets trapped in sub-optimal local minima. This approach is generally discouraged as the primary strategy for this problem and benchmark.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+1.  **Non-convexity**: The circle packing problem is highly non-convex, meaning there are many local optima. This is why global optimization strategies are often preferred or necessary.
+2.  **Contact Points**: Optimal packings frequently feature circles touching each other and/or the boundaries of the square. This suggests that the inequality constraints often become active (equal to zero) at optimality.
+3.  **Symmetry**: While not always strictly symmetric for 32 circles, considering symmetric initial configurations or enforcing partial symmetry might guide the search.
+4.  **Distance Calculations**: Efficiently calculating squared Euclidean distances `(x_i - x_j)^2 + (y_i - y_j)^2` is fundamental. Using NumPy's vectorized operations is crucial.
+5.  **Spatial Indexing**: For larger numbers of circles, using `rtree` or `scipy.spatial.KDTree` could speed up overlap checks by quickly identifying potential overlapping pairs, rather than checking all `N*(N-1)/2` pairs. For `N=32`, a brute-force `O(N^2)` check might be acceptable, but keep this in mind for scalability.
+
+VALIDATION FRAMEWORK:
+Implement a separate function, `validate_circles(circles: np.ndarray) -> bool`, which takes the `(N, 3)` array of circles and performs the following checks:
+1.  **Shape and Count**: Ensure `circles.shape == (32, 3)`.
+2.  **Positive Radii**: All `r_i > 0`.
+3.  **Containment**: For each circle `(x_i, y_i, r_i)`:
+    *   `x_i - r_i >= 0`
+    *   `1 - x_i - r_i >= 0`
+    *   `y_i - r_i >= 0`
+    *   `1 - y_i - r_i >= 0`
+4.  **Non-overlap**: For every unique pair `(i, j)` where `i != j`:
+    *   `sqrt((x_i - x_j)^2 + (y_i - y_j)^2) >= r_i + r_j` (or squared version to avoid `sqrt` for efficiency: `(x_i - x_j)^2 + (y_i - y_j)^2 >= (r_i + r_j)^2`).
+
+This function should return `True` if all checks pass, and `False` otherwise. It can also return a detailed report of violated constraints for debugging purposes.
+
+# PROMPT-BLOCK-END
+    

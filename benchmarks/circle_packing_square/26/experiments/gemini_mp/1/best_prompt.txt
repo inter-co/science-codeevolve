@@ -1,0 +1,111 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on circle packing problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 26 non-overlapping circles within a unit square [0,1] × [0,1], maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.6358627564136983
+- Constraint: All circles must be fully contained within the unit square with no overlaps
+- Mathematical formulation: For circle i at position (xi, yi) with radius ri:
+  * Containment: ri ≤ xi ≤ 1-ri and ri ≤ yi ≤ 1-ri
+  * Non-overlap: √[(xi-xj)² + (yi-yj)²] ≥ ri + rj for all i≠j
+  * Objective: maximize Σri subject to above constraints
+
+COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)
+- **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)
+- **Performance**: `cython`, `joblib` (parallelization)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 26 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.6358627564136983 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+The problem of circle packing is a notoriously difficult global optimization challenge due to its non-convexity, high dimensionality (26 circles * 3 variables = 78 continuous variables), and complex non-linear constraints. Finding the absolute global optimum is often intractable, so heuristic and metaheuristic approaches are highly effective.
+
+Recommended approaches include:
+
+1.  **Evolutionary Algorithms (EAs)**: Genetic Algorithms (GAs) or Differential Evolution (DE) are excellent for exploring large, complex search spaces and escaping local optima. The `deap` library is highly recommended for implementing these.
+    *   **Computational Budget for EAs**: Be mindful of the total number of fitness evaluations, which is `POP_SIZE * NGEN`. Even with `numba.jit` speeding up the fitness function, excessive population sizes or generations are the primary cause of timeouts. Given the previous timeout and the current long execution time (e.g., 60+ seconds), it is critical to balance exploration (diversity) and exploitation (convergence) *strictly within a tighter time budget (e.g., aiming for < 30 seconds total runtime)*. For this problem, `POP_SIZE` in the range of `100-300` and `NGEN` in the range of `300-600` are more appropriate starting points. **If the timeout or excessive runtime persists, these values MUST be reduced further.** Prioritize lower values (e.g., `POP_SIZE=100`, `NGEN=300`) to ensure completion, then incrementally increase if time allows. Remember that a higher `POP_SIZE` allows more diversity per generation, while a higher `NGEN` allows more convergence; choose a balanced combination to fit the time budget.
+    *   **Phenotype representation**: Each individual in the population would represent a set of 26 circles, typically encoded as a flat array of `[x1, y1, r1, x2, y2, r2, ..., x26, y26, r26]`.
+    *   **Fitness function**: Must incorporate both the objective (sum of radii) and penalties for constraint violations (overlaps, out-of-bounds circles).
+    *   **Operators**: Standard genetic operators (selection, crossover, mutation) should be adapted for continuous variables (e.g., polynomial mutation, simulated binary crossover).
+2.  **Physics-based Simulation**: Treat circles as physical objects with repulsive forces (when overlapping) and attractive forces (or growth mechanisms) that encourage packing, along with boundary forces. Simulate their movement until a stable, packed configuration is reached.
+    *   `pymunk` or `pybullet` can be used to model this. This often provides excellent heuristic solutions and can be used for generating initial populations for EAs or for local refinement.
+    *   A common strategy is to start with small radii and gradually grow them while maintaining non-overlap and containment.
+3.  **Stochastic Gradient Descent / Basin Hopping**: While direct gradient ascent on the sum of radii subject to hard constraints is difficult, "soft" constraint formulations (e.g., using a barrier method) or global optimization methods like Basin Hopping (available in `scipy.optimize`) could be explored, though EAs are generally more robust for this type of problem.
+4.  **Hybrid Approaches**: Combine the strengths of different methods. For example, use a physics simulation to generate a diverse initial population for an EA, or use local search (e.g., `scipy.optimize.minimize` with methods like `SLSQP` or `trust-constr`) to refine solutions found by an EA. This often yields the best results by balancing exploration and exploitation. Be mindful that local optimization with a large number of constraints (especially for N=26, leading to O(N^2) overlap constraints) can be computationally intensive. If used, it should be applied judiciously (e.g., only to the best few individuals) and potentially with a limited number of iterations to avoid exceeding time limits.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+1.  **Contact Points**: In optimal packings, circles tend to be "tightly packed." This means many circles will be in contact with other circles or with the boundaries of the unit square. Maximizing radii implies minimizing empty space.
+2.  **Symmetry**: While simple circle packings often exhibit hexagonal or square lattice symmetries, the optimal packing for 26 circles within a square boundary is complex and may not have obvious overall symmetries. However, local symmetries or patterns might emerge.
+3.  **Boundary Interaction**: Circles near the edges or corners of the unit square will have their radii constrained by the boundary. It's often beneficial for these circles to be as large as possible while respecting boundary limits.
+4.  **"Rattlers"**: A "rattler" is a circle that is not constrained by its neighbors or the boundary, meaning it could be moved slightly without disturbing other circles. Optimal packings generally do not contain rattlers, as their radii could typically be increased to fill space, or they could be repositioned to allow other circles to grow.
+5.  **Distance Geometry**: The non-overlap constraint `√[(xi-xj)² + (yi-yj)²] ≥ ri + rj` can be rewritten as `(xi-xj)² + (yi-yj)² ≥ (ri + rj)²`. This quadratic form is fundamental for constraint checking.
+6.  **Spatial Data Structures**: For efficient checking of overlaps, especially if N were much larger, spatial indexing structures like R-trees (`rtree` package) or KD-trees (`scipy.spatial.KDTree`) can drastically reduce the number of pairwise distance calculations by quickly identifying potential neighbors. For N=26, a brute-force N^2 check is feasible but good practice for scalability.
+
+**Recommended implementation patterns:**
+1.  **Circle Representation**: Represent each circle as a tuple or list `(x, y, r)`. An `np.ndarray` of shape `(N, 3)` for all circles is efficient for vectorized operations.
+2.  **Fitness Function (for EAs)**: A compound fitness function is crucial for guiding the optimization:
+    `fitness = Σri - C_overlap * Σ(overlap_violations) - C_boundary * Σ(boundary_violations)`
+    *   **Objective**: Maximize `Σri`.
+    *   **`overlap_violations`**: For each unique pair `i, j`, calculate `violation_sq = max(0, (ri + rj)**2 - ((xi-xj)**2 + (yi-yj)**2))`. The sum of these squared violations is the penalty. This approach avoids computationally expensive square root operations and aligns with the "Distance Geometry" insight, significantly improving performance.
+    *   **`boundary_violations`**: For each circle `i`, calculate `violation = max(0, ri - xi) + max(0, xi - (1 - ri)) + max(0, ri - yi) + max(0, yi - (1 - ri))`. The sum of these violations (or sum of squared violations) is the penalty.
+    *   `C_overlap` and `C_boundary` are penalty coefficients. They should be chosen large enough (e.g., 100-1000 times the expected maximum radius) to strongly penalize infeasible solutions.
+3.  **Local Optimization Refinement**: If using `scipy.optimize.minimize` for local refinement, it is crucial to manage the computational cost. For N=26, this step involves hundreds of constraints (O(N^2) for overlaps, O(N) for boundaries), which can be extremely computationally intensive for methods like SLSQP.
+    *   **Strict `max_iter` limit**: Set a **VERY LOW and STRICT** `max_iter` (e.g., **30 to 80**) for the `scipy.optimize.minimize` call. A value higher than `~100` is highly likely to cause timeouts given the previous performance. The local optimization should serve as a *quick polish* for the best GA solution, not a deep search.
+    *   **Overhead of Constraint Setup**: Be aware that setting up the constraints for `scipy.optimize.minimize` can also incur a noticeable overhead, especially for N=26.
+    *   **Prioritize Completion over Marginal Accuracy**: Given the tight time budget, it is imperative to prioritize completion. This means sacrificing a small amount of local optimum accuracy for significantly faster execution.
+    *   **Conditional Application**: Apply this refinement only to the single best individual found by the EA. Consider making its execution conditional: for instance, only run local optimization if the GA's best individual has a very low (or zero) penalty score, indicating a nearly feasible solution that is ripe for polishing. If the GA solution is still highly infeasible, local optimization might consume valuable time without significant benefit.
+3.  **Initialization**:
+    *   Random placement of circle centers `(x,y)` within `[0,1]x[0,1]`.
+    *   Initial radii `r` can be set to a small positive value (e.g., `0.01`) to ensure all circles are initially valid, then grown during optimization.
+    *   Consider a "density-based" initialization where circles are initially placed in a grid-like fashion and then slightly perturbed to introduce diversity.
+4.  **Constraint Enforcement/Repair**:
+    *   **Soft Constraints (Penalty Method)**: As described in the fitness function. This is generally easier to implement with EAs and allows the optimizer to explore infeasible regions to find paths to better solutions.
+    *   **Hard Constraints (Repair Mechanisms)**: After a mutation or crossover, adjust `x,y,r` values to immediately satisfy constraints (e.g., shrink overlapping circles, push circles back into bounds). This can be complex but ensures valid individuals throughout the evolutionary process.
+5.  **Efficient Distance Calculation**: Use NumPy's vectorized operations to compute pairwise squared distances between circle centers to avoid explicit Python loops.
+    *   `dx = X[:, np.newaxis, 0] - X[np.newaxis, :, 0]`
+    *   `dy = X[:, np.newaxis, 1] - X[np.newaxis, :, 1]`
+    *   `dist_sq = dx**2 + dy**2`
+6.  **Performance Optimization**:
+    *   Utilize `numpy` for all array operations.
+    *   The fitness function (`_evaluate_packing` or equivalent) is called repeatedly (potentially millions of times) by the evolutionary algorithm. It is therefore the most critical component for overall performance. **Strongly recommend using `numba.jit` to compile this function for significant speedups.**
+    *   For other computationally intensive parts (e.g., local refinement steps or constraint functions), consider `numba.jit` as well.
+    *   `joblib` can be used to parallelize the evaluation of individuals in an EA population across multiple CPU cores.
+7.  **Reproducibility**: Ensure `np.random.seed()` is set at the beginning of the program for deterministic results, especially when employing stochastic methods like EAs.
+
+VALIDATION FRAMEWORK:
+A robust validation function is essential to confirm that the final arrangement of circles is indeed valid and meets all constraints. This function should be separate from the fitness function used for optimization, providing a definitive check.
+
+1.  **`validate_packing(circles: np.ndarray, tolerance: float = 1e-6) -> bool` function**:
+    *   **Input**: An `np.ndarray` of shape `(N, 3)` where each row is `(x, y, r)`.
+    *   **Containment Check**: For each circle `i` at `(xi, yi)` with radius `ri`:
+        *   Verify `ri > 0 - tolerance` (radii must be positive).
+        *   Verify `xi - ri >= -tolerance` (left edge `x - r >= 0`).
+        *   Verify `(1 - ri) - xi >= -tolerance` (right edge `1 - r - x >= 0`).
+        *   Verify `yi - ri >= -tolerance` (bottom edge `y - r >= 0`).
+        *   Verify `(1 - ri) - yi >= -tolerance` (top edge `1 - r - y >= 0`).
+        These checks ensure `ri <= xi <= 1-ri` and `ri <= yi <= 1-ri` within tolerance.
+    *   **Non-overlap Check**: For every unique pair of circles `(i, j)` where `i ≠ j`:
+        *   Calculate the squared distance between centers: `d_sq = (xi-xj)² + (yi-yj)²`.
+        *   Calculate the required minimum squared distance for non-overlap: `min_d_sq = (ri + rj)²`.
+        *   Verify `d_sq >= min_d_sq - tolerance`.
+    *   The function should return `True` only if *all* circles satisfy both containment and non-overlap constraints. If any constraint is violated, it should return `False`.
+2.  **Visualization Function (Optional but highly recommended)**: A function to plot the circles within the unit square (e.g., using `matplotlib`) can provide immediate visual confirmation of the packing quality and constraint adherence. This helps debug and understand the solutions.
+
+# PROMPT-BLOCK-END
+    

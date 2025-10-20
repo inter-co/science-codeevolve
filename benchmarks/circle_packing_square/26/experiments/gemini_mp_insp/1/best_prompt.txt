@@ -1,0 +1,114 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on circle packing problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 26 non-overlapping circles within a unit square [0,1] × [0,1], maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.6358627564136983
+- Constraint: All circles must be fully contained within the unit square with no overlaps
+- Mathematical formulation: For circle i at position (xi, yi) with radius ri:
+  * Containment: ri ≤ xi ≤ 1-ri and ri ≤ yi ≤ 1-ri
+  * Non-overlap: √[(xi-xj)² + (yi-yj)²] ≥ ri + rj for all i≠j
+  * Objective: maximize Σri subject to above constraints
+
+COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)
+- **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)
+- **Performance**: `cython`, `joblib` (parallelization)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 26 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.6358627564136983 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+This is a challenging non-convex global optimization problem with many local optima. A robust approach will likely involve a combination of global search heuristics and local refinement.
+
+1.  **Global Optimization Metaheuristics**:
+    *   **Evolutionary Algorithms (EA)**: Given `deap` and `platypus` are available, Genetic Algorithms (GA) or Differential Evolution (DE) are strong candidates. They are robust to local optima and can explore a vast search space.
+        *   Represent each circle as `(x, y, r)`. The genome would be a flattened array of `(x1, y1, r1, ..., xN, yN, rN)`.
+        *   Fitness function: `sum_radii` (to maximize).
+        *   Constraint handling: Use penalty methods (subtract a large value from fitness for violated constraints) or repair mechanisms (adjusting invalid circle positions/radii).
+    *   **Simulated Annealing**: Another metaheuristic that can escape local optima by occasionally accepting worse solutions.
+    *   **Particle Swarm Optimization (PSO)**: Can be effective for continuous optimization.
+
+2.  **Local Optimization (Gradient-based)**:
+    *   `scipy.optimize.minimize`: Functions like `SLSQP`, `COBYLA`, or `trust-constr` can be used for constrained optimization.
+        *   Requires an objective function `f(params)` to minimize (so `f = -sum_radii`).
+        *   Requires bounds for `x_i, y_i, r_i`.
+        *   Requires non-linear inequality constraint functions `g_k(params) >= 0` for non-overlap.
+    *   **Challenge**: Highly sensitive to initial guess and prone to getting stuck in local optima. Often used as a refinement step after a global search.
+
+3.  **Physics-based Simulation**:
+    *   `pymunk`: Can model circles as particles with repulsive forces. An initial configuration can be "relaxed" by simulating physics, allowing circles to push away from each other and the boundaries. This can quickly find valid, non-overlapping configurations, which can then be inflated/optimized.
+
+4.  **Hybrid Approaches**:
+    *   Combine a global search (e.g., GA) to find a promising initial configuration, then use a local optimizer (e.g., `scipy.optimize.minimize`) to fine-tune and converge to a local optimum. Repeat this process multiple times with different random seeds.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+1.  **Contact Points**: Optimal packings often involve many circles touching each other and/or the boundaries of the square. This means many non-overlap constraints will be "active" (i.e., `√[(xi-xj)² + (yi-yj)²] = ri + rj`).
+2.  **Density**: Maximizing `Σr_i` is closely related to maximizing the total area covered by the circles (`Σπr_i²`), which is a measure of packing density.
+3.  **Symmetry**: While not guaranteed for all `N`, optimal packings for some `N` exhibit high degrees of symmetry. For N=26, a perfectly symmetric arrangement might not be the global optimum but could provide good starting points.
+4.  **Reformulation of Constraints**:
+    *   Containment: `r_i <= x_i <= 1-r_i` and `r_i <= y_i <= 1-r_i`. These define the valid range for `(x_i, y_i)` given `r_i`.
+    *   Non-overlap: `(xi-xj)² + (yi-yj)² >= (ri + rj)²`. Using squared distances avoids `sqrt` for efficiency during optimization, but remember to take `sqrt` for validation if `ri+rj` is not squared.
+5.  **Smallest Enclosing Circle / Largest Empty Circle**: Concepts from computational geometry that can inform strategies for placing new circles or assessing the "tightness" of a packing.
+
+**Recommended implementation patterns:**
+1.  **Data Structure**: Represent the circles as a NumPy array of shape `(N, 3)`, where each row is `[x, y, r]`. For optimization, it's often convenient to flatten this into a 1D array `[x1, y1, r1, x2, y2, r2, ...]` and then reshape it within objective/constraint functions.
+2.  **Objective Function**:
+    *   `def objective(params: np.ndarray) -> float:`
+    *   `circles = params.reshape(-1, 3)`
+    *   `radii = circles[:, 2]`
+    *   Return `-np.sum(radii)` (for minimization algorithms).
+3.  **Constraint Functions**:
+    *   **Bounds**: For `scipy.optimize.minimize`, define `bounds` as a list of `(min, max)` tuples for each parameter.
+        *   For `r_i`: `(1e-6, 0.5)` (radius must be positive and cannot exceed 0.5 to fit in the square).
+        *   For `x_i, y_i`: `(0, 1)`. These will be further constrained by `r_i` in the non-linear constraints.
+    *   **Non-linear Inequality Constraints**:
+        *   `def non_overlap_constraints(params: np.ndarray) -> np.ndarray:`
+        *   `circles = params.reshape(-1, 3)`
+        *   Iterate through all unique pairs `(i, j)` of circles.
+        *   Calculate `dist_sq = (circles[i,0]-circles[j,0])**2 + (circles[i,1]-circles[j,1])**2`
+        *   Calculate `min_dist_sq = (circles[i,2] + circles[j,2])**2`
+        *   The constraint for this pair is `dist_sq - min_dist_sq`. All such values must be `>= 0`.
+        *   Return a 1D array of all `dist_sq - min_dist_sq` values.
+        *   **Containment constraints**: `def containment_constraints(params: np.ndarray) -> np.ndarray:`
+            *   For each circle `i`: `x_i - r_i >= 0`, `1 - x_i - r_i >= 0`, `y_i - r_i >= 0`, `1 - y_i - r_i >= 0`.
+            *   Return a 1D array of all these values, which must be `>= 0`.
+4.  **Initial Configuration**:
+    *   Start with random valid circles (small radii, random positions).
+    *   Use a grid-based initial guess, then perturb.
+    *   Consider a "greedy" approach where circles are placed one by one in available space.
+5.  **Vectorization**: Utilize NumPy's vectorized operations for distance calculations to improve performance, especially for the `N*(N-1)/2` pairwise constraints.
+
+VALIDATION FRAMEWORK:
+Implement a separate function to rigorously check the validity of a given circle arrangement.
+
+`def _validate_circles(circles: np.ndarray, tol: float = 1e-6) -> bool:`
+    *   Input: `circles` array of shape `(N, 3)` where `N=26`.
+    *   **1. Radius Validity**: All `r_i` must be `> tol`.
+    *   **2. Containment Check**: For each circle `(x_i, y_i, r_i)`:
+        *   `r_i <= x_i <= 1 - r_i` (allowing for `tol` at boundaries, e.g., `x_i >= r_i - tol` and `x_i <= 1 - r_i + tol`)
+        *   `r_i <= y_i <= 1 - r_i`
+    *   **3. Non-overlap Check**: For every unique pair of circles `(i, j)`:
+        *   Calculate `distance = np.sqrt((circles[i,0]-circles[j,0])**2 + (circles[i,1]-circles[j,1])**2)`
+        *   Verify `distance >= circles[i,2] + circles[j,2] - tol`
+    *   Return `True` if all checks pass, `False` otherwise. Print specific violations for debugging.
+    *   The `tol` (tolerance) is crucial for floating-point comparisons.
+=======
+
+# PROMPT-BLOCK-END
+    

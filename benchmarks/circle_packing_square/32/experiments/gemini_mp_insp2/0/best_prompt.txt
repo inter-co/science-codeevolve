@@ -1,0 +1,81 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on circle packing problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 32 non-overlapping circles within a unit square [0,1] × [0,1], maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.937
+- Constraint: All circles must be fully contained within the unit square with no overlaps
+- Mathematical formulation: For circle i at position (xi, yi) with radius ri:
+  * Containment: ri ≤ xi ≤ 1-ri and ri ≤ yi ≤ 1-ri
+  * Non-overlap: √[(xi-xj)² + (yi-yj)²] ≥ ri + rj for all i≠j
+  * Objective: maximize Σri subject to above constraints
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)
+- **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)
+- **Performance**: `cython`, `joblib` (parallelization)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 32 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.937 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+**Recommended implementation patterns:**
+1.  **Decision Variables**: Represent the 32 circles as a single 1D array `p` of length `3 * 32 = 96`. The structure should be `[x1, y1, r1, x2, y2, r2, ..., x32, y32, r32]`.
+2.  **Objective Function**: Define a function `objective(p)` that takes the `p` array and returns the negative sum of radii (`-np.sum(p[2::3])`), as `scipy.optimize.minimize` is used for minimization.
+3.  **Constraints**:
+    *   **Containment Constraints**: For each circle `i` with `(xi, yi, ri)`:
+        *   `xi - ri >= 0`
+        *   `1 - xi - ri >= 0`
+        *   `yi - ri >= 0`
+        *   `1 - yi - ri >= 0`
+        These should be defined as `{'type': 'ineq', 'fun': lambda p: ...}` for `scipy.optimize.minimize`.
+    *   **Non-overlap Constraints**: For every distinct pair of circles `(i, j)`:
+        *   `sqrt((xi-xj)² + (yi-yj)²) - (ri + rj) >= 0`
+        Again, these should be `{'type': 'ineq', 'fun': lambda p: ...}`.
+    *   **Radius Positivity**: `ri >= 0` for all `i`. This can be handled by bounds in `scipy.optimize.minimize` or as inequality constraints.
+4.  **Optimization Solver**: Utilize `scipy.optimize.minimize` for local optimization. Given the number of variables and constraints, `method='SLSQP'` or `method='COBYLA'` are good candidates for constrained optimization. However, for global search, relying solely on `scipy.optimize.basinhopping` or `dual_annealing` might be computationally expensive and may not achieve the desired `sum_radii` within practical time limits for problems of this complexity (as indicated by the 87s runtime for a suboptimal solution). Consider using these for initial exploration but be prepared to switch to more specialized global optimizers if performance is insufficient.
+5.  **Initial Guess**: The choice of initial guess `p0` is crucial for non-convex problems. For local optimizers or as starting points for global heuristics, consider:
+    *   Random placement within the square (e.g., `x, y` uniformly in `[0,1]`, `r` small, e.g., `0.01`). Ensure initial guess satisfies `ri > 0` and containment.
+    *   A grid-based initial placement, potentially perturbed.
+    *   A "grow and jiggle" approach: start with small radii, optimize, then slightly increase radii and re-optimize. This iterative refinement can be very effective.
+    *   **Phased Initialization**: For global optimizers, a diverse set of initial guesses or even pre-optimized smaller packings can serve as better starting points.
+6.  **Vectorization**: Use NumPy for efficient, vectorized computation of distances and constraint values to avoid slow Python loops. For larger numbers of circles, consider `rtree` (spatial indexing) to speed up non-overlap constraint checks, as pairwise distance calculations can become a bottleneck.
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+1.  **Multi-start Optimization**: Since the problem is highly non-convex, run local optimizers (`scipy.optimize.minimize`) multiple times with different random initial guesses. Select the best result. This can be a good baseline.
+2.  **Global Optimization Heuristics (Scipy)**: Explore `scipy.optimize.basinhopping` or `scipy.optimize.dual_annealing` for a more robust global search. Be mindful of the computational cost (`eval_time`) associated with `niter` and `maxiter` parameters, as these can quickly lead to long runtimes without guaranteeing optimal solutions for this specific problem instance.
+3.  **Evolutionary Algorithms (Strongly Recommended)**: Given the problem's high dimensionality, non-convexity, and the observed difficulty of `scipy.optimize` methods in achieving the benchmark within reasonable time, implementing a genetic algorithm or other evolutionary strategies (e.g., using `deap` or `platypus`) is **highly recommended** for global optimization. These methods are often more robust and effective for exploring complex search spaces in packing problems. Focus on efficient population management and mutation/crossover operators.
+4.  **Progressive Refinement**: Start with a simpler problem (e.g., fewer circles or relaxed constraints) and gradually increase complexity. This can also involve starting with smaller radii and progressively growing them.
+5.  **Penalty Methods**: During early search phases, an objective function could include penalty terms for constraint violations, before switching to strict constraint handling. This can help guide the search away from infeasible regions.
+6.  **Hybrid Approaches**: Combine different strategies. For instance, an evolutionary algorithm could be used to find promising regions, followed by a local optimizer (`scipy.optimize.minimize`) to fine-tune the solution.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+1.  **Contact Graph**: Optimal circle packings often feature a "contact graph" where many circles are tangent to each other and to the boundaries. Maximizing radii implies minimizing wasted space.
+2.  **Packing Density**: This is a direct problem in maximizing 2D packing density for a fixed number of identical objects (if radii were fixed) or variable objects (as here). The maximum sum of radii directly relates to the packing efficiency.
+3.  **Symmetry**: While 32 circles might not lead to obvious perfect symmetry, optimal solutions often exhibit underlying symmetric arrangements or patterns.
+4.  **Hard Sphere Model**: The constraints effectively model hard spheres (circles) that cannot overlap.
+
+VALIDATION FRAMEWORK:
+1.  **Constraint Verification**: After obtaining a solution `p_opt`, rigorously check all containment and non-overlap constraints. Due to floating-point arithmetic, use a small tolerance `epsilon` (e.g., `1e-6`).
+    *   For containment: `xi - ri >= -epsilon`, `1 - xi - ri >= -epsilon`, etc.
+    *   For non-overlap: `sqrt((xi-xj)² + (yi-yj)²) - (ri + rj) >= -epsilon`.
+2.  **Radii Positivity**: Ensure all `ri >= 0 - epsilon`.
+3.  **Visualization**: Plot the resulting circles using `matplotlib.patches.Circle` to visually inspect the packing and confirm validity. This can help identify issues not caught by numerical checks.
+4.  **Sum of Radii Check**: Calculate `sum_radii` and `benchmark_ratio` based on the validated radii.
+
+# PROMPT-BLOCK-END
+    

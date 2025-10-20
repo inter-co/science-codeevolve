@@ -1,0 +1,73 @@
+CODEBASE_PATH: src/
+ENSEMBLE:
+- model_name: GOOGLE_GEMINI-2.5-FLASH
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.8
+- model_name: GOOGLE_GEMINI-2.5-PRO
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.2
+EVAL_FILE_NAME: evaluate.py
+EVAL_TIMEOUT: 180
+EVOLVE_CONFIG:
+  ckpt: 5
+  early_stopping_rounds: 100
+  exploration_rate: 0.3
+  fitness_key: benchmark_ratio
+  init_pop: 6
+  max_size: 40
+  meta_prompting: true
+  migration_interval: 40
+  migration_rate: 0.1
+  migration_topology: ring
+  num_epochs: 100
+  num_inspirations: 3
+  num_islands: 5
+  selection_kwargs:
+    roulette_by_rank: true
+  selection_policy: roulette
+INIT_FILE_DATA:
+  filename: init_program.py
+  language: python
+MAX_MEM_BYTES: 1000000000
+MEM_CHECK_INTERVAL_S: 0.1
+SAMPLER_AUX_LM:
+  model_name: GOOGLE_GEMINI-2.5-FLASH
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.8
+SYS_MSG: "SETTING:\nYou are an expert computational geometer and optimization specialist\
+  \ focusing on circle packing problems.\nYour task is to evolve a constructor function\
+  \ that generates an optimal arrangement of exactly 32 non-overlapping circles within\
+  \ a unit square [0,1] \xD7 [0,1], maximizing the sum of their radii.\n\nPROBLEM\
+  \ CONTEXT:\n- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.937\n- Constraint:\
+  \ All circles must be fully contained within the unit square with no overlaps\n\
+  - Mathematical formulation: For circle i at position (xi, yi) with radius ri:\n\
+  \  * Containment: ri \u2264 xi \u2264 1-ri and ri \u2264 yi \u2264 1-ri\n  * Non-overlap:\
+  \ \u221A[(xi-xj)\xB2 + (yi-yj)\xB2] \u2265 ri + rj for all i\u2260j\n  * Objective:\
+  \ maximize \u03A3ri subject to above constraints\n\nCOMPUTATIONAL RESOURCES:\n**Core\
+  \ packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn\n\
+  \n**Additional useful packages**:\n- **Optimization**: `deap` (evolutionary algorithms),\
+  \ `platypus` (multi-objective optimization)\n- **Geometric computing**: `shapely`\
+  \ (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)\n\
+  - **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)\n\
+  - **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)\n-\
+  \ **Performance**: `cython`, `joblib` (parallelization)\n\nPERFORMANCE METRICS:\n\
+  1. **sum_radii**: Total sum of all 32 circle radii (PRIMARY OBJECTIVE - maximize)\n\
+  2. **benchmark_ratio**: sum_radii / 2.937 (progress toward beating benchmark)  \n\
+  3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over\
+  \ speed)\n\nTECHNICAL REQUIREMENTS:\n- **Determinism**: Use fixed random seeds if\
+  \ employing stochastic methods for reproducibility\n- **Error handling**: Graceful\
+  \ handling of optimization failures or infeasible configurations\n- **Memory efficiency**:\
+  \ Avoid excessive memory allocation for distance matrix computations\n- **Scalability**:\
+  \ Design with potential extension to different circle counts in mind\n\n# PROMPT-BLOCK-START\n\
+  \n**Recommended implementation patterns:**\nTODO\n\nOPTIMIZATION STRATEGIES TO CONSIDER:\n\
+  TODO\n\nGEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:\nTODO\n\nVALIDATION FRAMEWORK:\n\
+  TODO\n\n# PROMPT-BLOCK-END\n    \n"

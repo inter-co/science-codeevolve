@@ -1,0 +1,81 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on circle packing problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 32 non-overlapping circles within a unit square [0,1] × [0,1], maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.937
+- Constraint: All circles must be fully contained within the unit square with no overlaps
+- Mathematical formulation: For circle i at position (xi, yi) with radius ri:
+  * Containment: ri ≤ xi ≤ 1-ri and ri ≤ yi ≤ 1-ri
+  * Non-overlap: √[(xi-xj)² + (yi-yj)²] ≥ ri + rj for all i≠j
+  * Objective: maximize Σri subject to above constraints
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)
+- **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)
+- **Performance**: `cython`, `joblib` (parallelization)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 32 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.937 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+**Recommended implementation patterns:**
+The problem should be formulated as a non-linear optimization problem.
+1.  **Variable Representation**: Represent the `N=32` circles as a flattened 1D array of `[x1, y1, r1, x2, y2, r2, ..., xN, yN, rN]`. This array will be the input to the optimizer.
+2.  **Objective Function**: The objective function `f(variables)` will take this flattened array and return `-sum(radii)`. We minimize this function to maximize the sum of radii.
+3.  **Constraints**:
+    *   **Bounds**: Each `xi, yi` must be within `[0, 1]`. Each `ri` must be `> 0`. A practical lower bound for `ri` can be a small positive epsilon (e.g., `1e-6`). The upper bound for `ri` is `0.5`.
+    *   **Containment**: For each circle `i`, `ri <= xi <= 1-ri` and `ri <= yi <= 1-ri`. These are `4N` inequality constraints.
+    *   **Non-overlap**: For each unique pair of circles `(i, j)` where `i != j`, the distance between their centers must be greater than or equal to the sum of their radii: `(xi-xj)² + (yi-yj)² >= (ri + rj)²`. These are `N*(N-1)/2` inequality constraints.
+4.  **Optimizer Choice**: `scipy.optimize.minimize` is a suitable general-purpose interface. Given the non-convexity, global optimization methods are highly recommended.
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+The circle packing problem is highly non-convex with many local optima. Therefore, global optimization strategies are crucial.
+1.  **Global Optimization (Primary Approach)**:
+    *   `scipy.optimize.differential_evolution`: A robust global optimization algorithm. It takes bounds and can handle complex objective functions.
+    *   `scipy.optimize.basinhopping`: Combines a global stepping algorithm with local minimization. This can be very effective for exploring the search space.
+    *   Consider `deap` or `platypus` if `scipy`'s global optimizers prove insufficient, but start with `scipy` for simplicity.
+2.  **Local Optimization (Refinement)**: After a global search provides a good starting point, a local optimizer can refine the solution.
+    *   `scipy.optimize.minimize` with methods like `SLSQP` or `COBYLA` are suitable for constrained problems. `SLSQP` handles bounds and inequality constraints well.
+3.  **Constraint Handling**:
+    *   **Penalty Method**: A common approach for complex constraints is to incorporate them into the objective function as penalty terms. If a constraint is violated, add a large positive value to the objective (which we are minimizing). For example, if `(xi-xj)² + (yi-yj)² < (ri + rj)²`, add `K * ((ri + rj)² - ((xi-xj)² + (yi-yj)²))` to the objective, where `K` is a large penalty coefficient.
+    *   **Direct Constraint Handling**: `scipy.optimize.minimize` allows passing `constraints` as a list of dictionaries for `{'type': 'ineq', 'fun': constraint_function}`. This is generally preferred over penalty methods if the optimizer supports it efficiently.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+1.  **Optimal Configurations**: Optimal circle packings often feature "kissing circles" (circles touching each other) and circles touching the boundaries. This implies that many constraints will be active at the optimum.
+2.  **Initial Guess**: The quality of the initial guess significantly impacts the performance and outcome of non-convex optimization.
+    *   **Random Initialization**: Generate `x, y` uniformly in `[0, 1]` and `r` uniformly in `[epsilon, 0.5]`. This is simple but often leads to poor starting points.
+    *   **Grid Initialization**: Place circles in a regular grid pattern (e.g., `sqrt(N) x sqrt(N)` grid), and assign a small initial radius. Then perturb these positions slightly.
+    *   **Hexagonal Lattice**: For dense packing, a hexagonal arrangement is often optimal in an infinite plane. Seed circles in a hexagonal-like pattern within the square.
+    *   **"Growing" Strategy**: Start with all circles at a very small radius (e.g., `r=1e-6`) and optimize their positions. Then, gradually increase the radii and re-optimize.
+3.  **Distance Calculation**: Efficiently compute pairwise distances. `scipy.spatial.distance.pdist` can be useful, or vectorized NumPy operations to avoid explicit Python loops.
+
+VALIDATION FRAMEWORK:
+Implement helper functions to verify the validity of a given set of circles `(N, 3)`:
+1.  `_check_containment(circles: np.ndarray) -> bool`:
+    *   For each circle `(x, y, r)`, verify `r <= x <= 1-r` and `r <= y <= 1-r`.
+    *   Return `True` if all circles satisfy this, `False` otherwise.
+2.  `_check_overlap(circles: np.ndarray) -> bool`:
+    *   For every unique pair of circles `(i, j)`, calculate the distance `d = sqrt((xi-xj)² + (yi-yj)²)`.
+    *   Verify `d >= ri + rj`.
+    *   Return `True` if no overlaps, `False` otherwise.
+3.  `_calculate_sum_radii(circles: np.ndarray) -> float`:
+    *   Simply sum all `r` values from the `circles` array.
+These functions can also be adapted to return the magnitude of violations, which is useful for penalty functions.
+
+# PROMPT-BLOCK-END
+    

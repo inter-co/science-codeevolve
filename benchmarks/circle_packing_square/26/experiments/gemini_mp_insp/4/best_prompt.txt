@@ -1,0 +1,77 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on circle packing problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 26 non-overlapping circles within a unit square [0,1] × [0,1], maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.6358627564136983
+- Constraint: All circles must be fully contained within the unit square with no overlaps
+- Mathematical formulation: For circle i at position (xi, yi) with radius ri:
+  * Containment: ri ≤ xi ≤ 1-ri and ri ≤ yi ≤ 1-ri
+  * Non-overlap: √[(xi-xj)² + (yi-yj)²] ≥ ri + rj for all i≠j
+  * Objective: maximize Σri subject to above constraints
+
+COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)
+- **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)
+- **Performance**: `cython`, `joblib` (parallelization)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 26 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.6358627564136983 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+*   **Global Optimization**: Given the non-convex nature of the problem and the likelihood of multiple local optima, global optimization algorithms are essential.
+    *   **Evolutionary Algorithms (EAs)**: Genetic Algorithms (GAs), Differential Evolution (DE), or Particle Swarm Optimization (PSO) are highly suitable for exploring the complex, high-dimensional search space. The `deap` library is explicitly recommended for implementing EAs.
+    *   **Basin Hopping**: `scipy.optimize.basinhopping` combines a global stepping algorithm with local optimization, offering a robust approach to finding global optima in functions with many local minima.
+*   **Local Optimization**: Once a global search identifies promising regions, local optimizers (e.g., `scipy.optimize.minimize` with methods like SLSQP, L-BFGS-B for bounded problems, or COBYLA for constraint handling) can be used to refine solutions to a precise local optimum.
+*   **Physics-based Simulation**: As a heuristic for generating initial configurations, consider modeling circles as particles with repulsive forces or using a physics engine like `pymunk`. This can help circles naturally settle into non-overlapping arrangements, providing good starting points for more rigorous optimization.
+*   **Hybrid Approaches**: The most effective strategy often involves combining a global search method (e.g., an EA or Basin Hopping) to explore the search space, followed by a local optimization step to fine-tune the best candidates found.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+*   **Optimal Packings are 'Tight'**: In optimal solutions, circles frequently touch each other and/or the boundaries of the square. This implies that many of the non-overlap constraints will be active (i.e., `√[(xi-xj)² + (yi-yj)²] ≈ ri + rj`).
+*   **Symmetry**: While an arrangement of 26 circles might not exhibit perfect overall symmetry, optimal packings often feature local symmetries or hexagonal packing patterns within clusters of circles.
+*   **Radius Distribution**: Optimal packings for a fixed number of circles in a square typically involve circles of varying radii, rather than all identical sizes.
+*   **Voronoi Diagrams / Delaunay Triangulation**: These geometric structures can be valuable for analyzing the spatial distribution of circle centers, identifying empty regions, or understanding the connectivity and adjacency of circles. `scipy.spatial` offers relevant tools.
+*   **Boundary Effects**: Circles positioned near the edges or corners of the unit square will have their radii more significantly constrained by the square's boundaries than by other circles.
+
+**Recommended implementation patterns:**
+*   **Solution Representation**: Represent the state of the system as a flat 1D NumPy array `[x1, y1, r1, x2, y2, r2, ..., xN, yN, rN]`. This format is convenient for passing parameters to most optimization routines.
+*   **Objective Function**: Define a Python function `objective_function(params)` that takes this 1D array, reshapes it into an `(N, 3)` array of `(x, y, r)` tuples, calculates the sum of radii (or negative sum for minimization), and importantly, incorporates penalty terms for any constraint violations.
+*   **Constraint Handling**:
+    *   **Bounds**: `x`, `y`, and `r` values must respect the unit square boundaries. Specifically, `r_i` must be positive, and `x_i, y_i` must satisfy `r_i <= x_i <= 1-r_i` and `r_i <= y_i <= 1-r_i`. These can be handled using parameter bounds in `scipy.optimize.minimize` or by penalizing violations in the objective function for EAs.
+    *   **Non-overlap**: The non-overlap constraint `√[(xi-xj)² + (yi-yj)²] >= ri + rj` should be implemented for all unique pairs `i != j`. This can be done as a set of inequality constraints for `scipy.optimize.minimize` or by adding a penalty to the objective function proportional to the degree of overlap.
+    *   **Vectorization**: Leverage NumPy's broadcasting and vectorized operations (e.g., `scipy.spatial.distance.pdist` or direct array arithmetic) to efficiently compute pairwise distances and check all non-overlap constraints, avoiding slow explicit Python loops.
+*   **Initialization**: Start the optimization process with multiple diverse initial configurations (e.g., fully random placements, a regular grid of small circles, or configurations derived from physics simulations) to increase the likelihood of discovering a global optimum.
+*   **`numba`**: For performance-critical sections of code, such as the objective function, constraint evaluation, or penalty calculations, consider using `numba.jit` to compile these parts to highly optimized machine code.
+
+VALIDATION FRAMEWORK:
+To rigorously verify the correctness and feasibility of a proposed solution `circles` (which should be an `(N, 3)` NumPy array where N=26):
+1.  **Objective Value**: Calculate `sum_radii = np.sum(circles[:, 2])`.
+2.  **Positive Radii Check**: Ensure all radii are strictly positive: `np.all(circles[:, 2] > 0)`.
+3.  **Containment Check**:
+    *   For each circle `i`, verify its x-coordinate: `circles[i, 0] >= circles[i, 2]` and `circles[i, 0] <= 1 - circles[i, 2]`.
+    *   For each circle `i`, verify its y-coordinate: `circles[i, 1] >= circles[i, 2]` and `circles[i, 1] <= 1 - circles[i, 2]`.
+    *   A solution fails validation if any containment condition is violated.
+4.  **Non-overlap Check**:
+    *   Compute the squared Euclidean distances between the centers of all unique pairs of circles: `dist_sq = (x_i - x_j)² + (y_i - y_j)²`.
+    *   Compute the squared sum of radii for all unique pairs: `radii_sum_sq = (r_i + r_j)²`.
+    *   For all `i < j`, verify that `dist_sq[i, j] >= radii_sum_sq[i, j] - epsilon`, where `epsilon` is a small tolerance (e.g., `1e-9`) to account for potential floating-point inaccuracies.
+    *   A solution fails validation if any overlap is detected (i.e., `dist_sq < radii_sum_sq - epsilon`).
+5.  **Overall Validity**: A solution is considered valid only if it passes all positive radii, containment, and non-overlap checks.
+
+# PROMPT-BLOCK-END
+    

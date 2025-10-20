@@ -1,0 +1,75 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on circle packing problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 32 non-overlapping circles within a unit square [0,1] × [0,1], maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.937
+- Constraint: All circles must be fully contained within the unit square with no overlaps
+- Mathematical formulation: For circle i at position (xi, yi) with radius ri:
+  * Containment: ri ≤ xi ≤ 1-ri and ri ≤ yi ≤ 1-ri
+  * Non-overlap: √[(xi-xj)² + (yi-yj)²] ≥ ri + rj for all i≠j
+  * Objective: maximize Σri subject to above constraints
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)
+- **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)
+- **Performance**: `cython`, `joblib` (parallelization)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 32 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.937 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+**Recommended implementation patterns:**
+*   **State Representation**: The configuration of 32 circles should be represented as a `numpy.ndarray` of shape `(32, 3)`, where each row `[x_i, y_i, r_i]` defines the center coordinates and radius of circle `i`.
+*   **Optimization Paradigm**: Given the highly non-convex nature of circle packing, metaheuristic algorithms are most suitable. **Simulated Annealing (SA)** or **Genetic Algorithms (GA)** are excellent candidates for exploring the large search space and finding near-optimal global solutions.
+*   **Objective Function**: Design a composite objective function that combines the primary goal (maximizing the sum of radii) with penalty terms for constraint violations (overlaps, out-of-bounds circles). The optimizer will minimize the negative of this objective.
+*   **Constraint Handling**:
+    *   **Boundary Containment**: Can be enforced either by clamping `x_i, y_i` within `[r_i, 1-r_i]` or by adding a quadratic penalty to the objective function if `x_i, y_i` or `r_i` violate the `0 <= x_i - r_i`, `x_i + r_i <= 1`, etc. conditions.
+    *   **Non-Overlap**: This is critical and is best handled by adding a significant quadratic penalty term to the objective function for any overlapping pair of circles.
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+*   **Simulated Annealing (SA)**:
+    *   **Initial Configuration**: Start with circles randomly placed (e.g., small radii, centered) or in a grid-like fashion.
+    *   **Perturbation (Neighborhood Function)**: In each step, randomly select a circle and perturb its `(x, y, r)` coordinates slightly. Consider also perturbing multiple circles or swapping circles.
+    *   **Cooling Schedule**: An exponential or linear cooling schedule for the temperature parameter `T` is crucial. Start with a high `T` to allow broad exploration and gradually decrease it to enable convergence.
+    *   **Acceptance Probability**: Use the standard Boltzmann probability `exp(-ΔE / T)` for accepting worse solutions.
+    *   **Radius Growth Strategy**: It can be effective to start with small radii and allow them to grow during the annealing process, or to optimize `r_i` alongside `x_i, y_i`.
+*   **Genetic Algorithms (GA)**:
+    *   **Individual Representation**: Each individual in the population is a `(32, 3)` NumPy array representing a configuration of circles.
+    *   **Fitness Function**: The objective function (sum of radii minus penalties) would be maximized.
+    *   **Operators**: Implement selection (e.g., tournament, roulette wheel), crossover (e.g., single-point, two-point, uniform on circle properties), and mutation (e.g., perturbing `x, y, r` of a few circles).
+*   **Hybrid Approaches**: Combine a global search method (SA/GA) with a local optimization method (e.g., `scipy.optimize.minimize` with a gradient-based method like L-BFGS-B or SLSQP) applied to the best solutions found by the global search. This can refine solutions locally.
+*   **Force-Directed Layout**: Consider a physics-inspired approach where circles repel each other and are attracted to the center of the square or its boundaries. Radii can dynamically increase until constraints are met or a stable state is reached.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+*   **Distance Metric**: The squared Euclidean distance `d_ij² = (x_i-x_j)² + (y_i-y_j)²` is computationally cheaper than the Euclidean distance `d_ij` as it avoids square roots, and can be used for overlap checks: `d_ij² < (r_i + r_j)²` implies overlap.
+*   **Overlap Penalty**: A common and effective penalty for overlapping circles `i` and `j` is `max(0, (r_i + r_j) - d_ij)^2`. This penalizes the extent of the overlap. Sum these penalties over all unique pairs `(i, j)`.
+*   **Containment Penalty**: For a circle `i`, penalties for violating `r_i <= x_i <= 1-r_i` and `r_i <= y_i <= 1-r_i` can be `max(0, r_i - x_i)^2 + max(0, x_i - (1-r_i))^2 + max(0, r_i - y_i)^2 + max(0, y_i - (1-r_i))^2`.
+*   **Objective Function Structure**: `f(circles) = -sum(r_i) + C_overlap * P_overlap + C_containment * P_containment`. The coefficients `C_overlap` and `C_containment` are crucial and often need tuning; they can also be increased over time in SA to enforce constraints more strictly.
+*   **Computational Geometry**: For larger `N`, spatial indexing structures like `scipy.spatial.KDTree` or `rtree` could optimize neighbor search for overlap checks, reducing `O(N^2)` to `O(N log N)`. For `N=32`, `O(N^2)` is acceptable for the core loop.
+
+VALIDATION FRAMEWORK:
+The `circle_packing32` function should return a `(32, 3)` NumPy array representing the optimal circle configuration. The external validation will then verify:
+1.  All radii `r_i` are positive.
+2.  Each circle `i` is fully contained within the unit square: `r_i <= x_i <= 1-r_i` and `r_i <= y_i <= 1-r_i`.
+3.  No two circles `i` and `j` overlap: `sqrt((x_i-x_j)^2 + (y_i-y_j)^2) >= r_i + r_j` for all `i != j`.
+4.  The `sum_radii` is calculated as `sum(r_i)`.
+
+Your implementation should internally strive to satisfy these conditions by heavily penalizing violations in its objective function and potentially by clamping values during perturbation. Ensure the final returned configuration is as valid as possible while maximizing the sum of radii.
+
+# PROMPT-BLOCK-END
+    

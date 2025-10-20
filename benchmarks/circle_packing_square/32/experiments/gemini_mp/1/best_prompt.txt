@@ -1,0 +1,84 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on circle packing problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 32 non-overlapping circles within a unit square [0,1] × [0,1], maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.937
+- Constraint: All circles must be fully contained within the unit square with no overlaps
+- Mathematical formulation: For circle i at position (xi, yi) with radius ri:
+  * Containment: ri ≤ xi ≤ 1-ri and ri ≤ yi ≤ 1-ri
+  * Non-overlap: √[(xi-xj)² + (yi-yj)²] ≥ ri + rj for all i≠j
+  * Objective: maximize Σri subject to above constraints
+
+COMPUTATIONAL RESOURCES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)
+- **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)
+- **Performance**: `cython`, `joblib` (parallelization)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 32 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.937 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+**Recommended implementation patterns:**
+1.  **High-Performance Computing (HPC)**:
+    *   **Prioritize a fast overall `eval_time` (aim for under 10-20 seconds)**, recognizing that this is a benchmark problem where multiple runs or iterative improvements might be desired. Balance accuracy with speed, especially in the global search phase.
+    *   Leverage `numba` for JIT compilation of computationally intensive loops, especially the objective and constraint functions that involve `N^2` distance calculations.
+    *   Utilize `numpy` for vectorized operations wherever possible to avoid explicit Python loops, which can be slow.
+    *   Consider `cython` for critical sections if `numba` does not provide sufficient speedup or if more fine-grained control over C-level optimizations is desired.
+    *   For `differential_evolution`, use `workers=-1` to parallelize evaluations across CPU cores.
+2.  **Clear Separation of Concerns**:
+    *   Define distinct functions for the objective, penalty, and constraint calculations. This improves readability, testability, and allows for easier application of JIT compilation.
+    *   **Note on Numba and `scipy.optimize.minimize` constraints**: When using `numba.jit` for constraint functions passed to `scipy.optimize.minimize` (e.g., with `SLSQP`), ensure the jitted constraint function returns a NumPy array, as Numba does not support Python list methods like `extend` within nopython mode. Pre-allocate the NumPy array and fill it.
+    *   A separate validation function is essential to verify the final solution against the strict constraints, potentially with a small tolerance.
+3.  **Spatial Data Structures (for scalability)**:
+    *   While brute-force `N^2` checks for 32 circles might be acceptable with `numba`, for larger `N`, consider using spatial indexing structures like `rtree` or `scipy.spatial.KDTree` to efficiently find neighboring circles and check for overlaps. This can reduce the complexity of overlap checks from `O(N^2)` to `O(N log N)` or `O(N)` on average.
+4.  **Robust Initialization**: Given the complexity, providing a robust initial guess or generating diverse initial populations (for global optimizers) can significantly impact convergence speed and quality. This could involve placing circles in a grid, randomly with small radii, or using a deterministic 'seed' pattern. This is particularly important for the `init` parameter of global optimizers like `differential_evolution`.
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+The problem of circle packing is known to be NP-hard, implying that finding the global optimum for a large number of circles is computationally very challenging. Therefore, a robust optimization strategy is crucial.
+
+1.  **Hybrid Optimization Approach**: A common and effective strategy is a two-stage process:
+    *   **Global Search**: Use a global optimization algorithm (e.g., Differential Evolution, Basin-Hopping, Simulated Annealing) to explore the vast search space and find promising regions. This helps avoid local optima.
+        *   For `scipy.optimize.differential_evolution`, the `popsize` parameter (population size) and `maxiter` are critical. While `10*D` to `20*D` is a common heuristic for full convergence, for a warm-start strategy, a smaller `popsize` (e.g., `5*D` to `10*D`) and a reduced `maxiter` (e.g., `100-300`) might be more appropriate to quickly find a decent starting point for the local optimizer, respecting the overall `eval_time` constraint. The goal here is efficient exploration, not exhaustive search.
+        *   **Crucially, utilize the `init` parameter of `differential_evolution` to provide a custom initial population.** Instead of `init='random'`, generate a diverse and semi-feasible initial population. For example, place circles in a regular grid, or randomly with small radii that are guaranteed not to overlap initially. This significantly improves the starting quality and speeds up convergence, especially for non-linear constraints. Aim for a population where most individuals are at least partially valid or close to valid to give the optimizer a better starting landscape.
+        *   Consider using specialized libraries like `deap` for more customizable evolutionary algorithms, allowing for tailored selection, crossover, and mutation operators.
+    *   **Local Refinement**: Once a good candidate solution is found by the global search, use a local gradient-based optimizer (e.g., SLSQP, L-BFGS-B, trust-constr from `scipy.optimize.minimize`) to fine-tune the solution. These methods are much faster for local convergence.
+        *   Employ multi-start local search: run the local optimizer from several of the best solutions found by the global search, or from perturbed versions of the best global solution, to further improve the chances of finding a better local optimum.
+
+2.  **Constraint Handling**:
+    *   For global optimizers that don't directly handle complex inequality constraints (like `differential_evolution`), a **penalty method** is often used. The penalty function should be carefully designed to guide the search effectively, penalizing both containment and overlap violations. The weight of the penalty term is crucial; too low, and violations persist; too high, and the optimization landscape becomes too steep, hindering exploration. **Experiment with the fixed `penalty_weight` (e.g., from `1e4` to `1e7`) to find a sweet spot, or consider implementing a simple adaptive penalty scheme where the weight increases over iterations.**
+    *   For local optimizers (like SLSQP), **explicit constraint handling** is generally preferred as it guarantees feasibility during the optimization process (within numerical tolerances).
+
+3.  **Exploration vs. Exploitation**: Balance the need for wide exploration (to find the global optimum) with focused exploitation (to refine solutions). This is often controlled by parameters like `popsize`, `maxiter`, `mutation`, and `recombination` in evolutionary algorithms.
+
+4.  **Warm-starting**: If implementing iterative or multi-stage optimization, use the best solution from a previous stage or iteration as the starting point for the next.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+1.  **Dense Packing Principles**: Optimal circle packings typically involve circles being tangent to each other and/or to the boundaries of the container. This means many of the non-overlap and containment constraints will be "active" (i.e., satisfied as equalities) in a tight packing.
+2.  **Contact Graph**: The arrangement of tangent circles can be represented as a contact graph, where circles are nodes and tangencies are edges. While not directly implemented as an optimization method, understanding this structure helps conceptualize optimal arrangements.
+3.  **"Rattlers"**: In some packings, "rattler" circles might exist – these are circles that are not tightly constrained by their neighbors or the boundary and could be moved slightly without disturbing the other circles. In a maximization problem of total radii, rattlers typically indicate a suboptimal solution (they could usually be expanded or rearranged to fill space better).
+4.  **Symmetry**: While not always the case for arbitrary numbers of circles, optimal packings often exhibit some degree of symmetry, especially for smaller numbers of circles or specific container shapes. For 32 circles in a square, complex symmetries or quasi-symmetries might emerge.
+5.  **Voronoi Diagrams / Delaunay Triangulations**: These concepts from computational geometry can be useful for analyzing the empty space between circles or for generating initial, non-overlapping configurations. While not strictly necessary for the optimization itself, they provide tools for understanding the geometry.
+
+VALIDATION FRAMEWORK:
+1.  **Strict Constraint Checking**: Implement a dedicated validation function that rigorously checks all containment and non-overlap constraints with a small numerical tolerance (e.g., `1e-9`). This function should return boolean flags indicating validity and the sum of radii.
+2.  **Visualization**: Plot the final circle arrangement within the unit square. This visual inspection is invaluable for quickly identifying obvious errors (e.g., overlaps, circles outside bounds, or highly suboptimal arrangements) and understanding the packing structure. Use `matplotlib` for this.
+3.  **Edge Case Testing**: Consider how the solution behaves for very small radii, or if it handles scenarios where circles are extremely close to the boundaries or each other.
+=======
+
+# PROMPT-BLOCK-END
+    

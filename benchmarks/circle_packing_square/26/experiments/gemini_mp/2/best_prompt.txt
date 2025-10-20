@@ -1,0 +1,86 @@
+SETTING:
+You are an expert computational geometer and optimization specialist focusing on circle packing problems.
+Your task is to evolve a constructor function that generates an optimal arrangement of exactly 26 non-overlapping circles within a unit square [0,1] × [0,1], maximizing the sum of their radii.
+
+PROBLEM CONTEXT:
+- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.6358627564136983
+- Constraint: All circles must be fully contained within the unit square with no overlaps
+- Mathematical formulation: For circle i at position (xi, yi) with radius ri:
+  * Containment: ri ≤ xi ≤ 1-ri and ri ≤ yi ≤ 1-ri
+  * Non-overlap: √[(xi-xj)² + (yi-yj)²] ≥ ri + rj for all i≠j
+  * Objective: maximize Σri subject to above constraints
+
+COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+**Additional useful packages**:
+- **Optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization)
+- **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (KDTree, Voronoi)
+- **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools)
+- **Physics simulation**: `pymunk` (2D physics), `pybullet` (physics engine)
+- **Performance**: `cython`, `joblib` (parallelization)
+
+PERFORMANCE METRICS:
+1. **sum_radii**: Total sum of all 26 circle radii (PRIMARY OBJECTIVE - maximize)
+2. **benchmark_ratio**: sum_radii / 2.6358627564136983 (progress toward beating benchmark)  
+3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+- **Error handling**: Graceful handling of optimization failures or infeasible configurations
+- **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+- **Scalability**: Design with potential extension to different circle counts in mind
+
+# PROMPT-BLOCK-START
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+This problem is a highly non-convex, non-linear constrained optimization problem with many local optima. Therefore, global optimization techniques are crucial. Given the high dimensionality (78 parameters for 26 circles), a multi-stage optimization approach is highly recommended to balance exploration and exploitation, and to achieve a good solution within reasonable time limits.
+
+1.  **Recommended Multi-stage Approach (Global Search + Local Refinement)**:
+    *   **Stage 1: Global Search (Exploration)**: Use a robust global optimizer to find promising regions of the solution space and escape local minima.
+        *   **Simulated Annealing (SA) / Dual Annealing**: `scipy.optimize.dual_annealing` is highly effective. For the initial global search, **prioritize extensive exploration to find a high-quality initial guess for the subsequent local refinement**.
+            The previous attempt with `maxiter=100` for `dual_annealing` resulted in an `eval_time` of ~14 seconds. This indicates there is ample computational budget to significantly increase `maxiter` for the global search phase. A value in the range of `maxiter=500` to `maxiter=1000` is more appropriate to find a robust initial guess within a reasonable time. `dual_annealing` is generally faster per iteration than `minimize` with many non-linear constraints, so allocating more time to this global stage is beneficial. The goal here is to find a *high-quality initial guess* that significantly improves the starting point for local optimization, not just a good one.
+        *   **Evolutionary Algorithms (EAs)**: `deap` or `platypus` can also be used for global exploration. Represent the arrangement as a vector of `[x1, y1, r1, ..., x26, y26, r26]`. The fitness function should be `sum_radii` (to be maximized), incorporating penalty terms for constraint violations.
+    *   **Stage 2: Local Refinement (Exploitation)**: Use a constrained local optimizer, initialized with the best solution found by the global search, to converge rapidly to a precise local optimum.
+        *   **Constrained Local Optimization**: `scipy.optimize.minimize` with methods like `SLSQP`, `COBYLA`, or `trust-constr` are suitable for problems with bounds and non-linear inequality constraints. This stage will significantly refine the solution. For this local refinement, set `maxiter` (maximum number of iterations) to a value that ensures convergence within the remaining time, considering the number of constraints. A starting point like `maxiter=500` to `1000` is often reasonable, but this needs careful tuning.
+
+2.  **Physics-based Simulation (for Initialization)**:
+    *   Consider treating circles as particles that repel each other and are confined by the unit square boundaries. Gradually expanding radii under these forces can generate reasonable initial configurations for either the global search or the local refinement stage. `pymunk` could be explored, or a custom force-directed simulation. This can potentially accelerate convergence in later stages.
+
+GEOMETRIC INSIGHTS & MATHEMATICAL FOUNDATIONS:
+1.  **High-Dimensionality**: The problem involves 26 circles, each defined by 3 parameters (x, y, r), leading to a 78-dimensional search space. This high dimensionality makes brute-force or exhaustive search infeasible and highlights the need for sophisticated optimization.
+2.  **Contact Network**: Optimal packings typically feature many circles in contact with each other and/or the square boundaries. The structure of these contacts can be viewed as a geometric graph, providing insights into potential arrangements.
+3.  **Symmetry**: While 26 is not a number that typically yields highly symmetric global optimal packings, local symmetries or patterns might exist and can sometimes be exploited to simplify the problem or generate better initial guesses.
+4.  **Tight Packing**: The objective of maximizing the sum of radii implicitly means minimizing the "dead space" or gaps between circles and the square boundaries.
+5.  **Radii Constraints**: Remember that `ri` must always be positive. The containment constraints `ri <= xi <= 1-ri` and `ri <= yi <= 1-ri` inherently imply `ri <= 0.5`.
+
+**Recommended implementation patterns:**
+1.  **State Representation**: Represent the configuration of `N` circles as a 1D `numpy` array `params = [x1, y1, r1, x2, y2, r2, ..., xN, yN, rN]`. This simplifies passing arguments to `scipy.optimize` functions.
+2.  **Objective Function**:
+    *   The primary objective for optimization is to maximize `np.sum(radii)`.
+    *   For optimizers that minimize (e.g., `scipy.optimize.minimize`, `dual_annealing`), the objective function should return the negative sum: `f(params) = -np.sum(radii)`.
+    *   For optimizers that maximize (e.g., some EAs), it should return `np.sum(radii)`.
+    *   **Penalty Terms for Constraints**: During the global search phase (e.g., `dual_annealing`), it is often necessary to incorporate a penalty term into the objective function for any constraint violations. A common approach is `f_penalized(params) = -np.sum(radii) + C * sum(violation_magnitudes)`, where `C` is a large penalty coefficient. The value of `C` is crucial: too small, and constraints are ignored; too large, and the search space becomes too steep. To encourage broader exploration and avoid premature convergence to suboptimal solutions, **start with a moderately lower penalty coefficient, e.g., `C=500` to `C=1000`**. This allows `dual_annealing` to explore configurations that might temporarily violate constraints but lead to better overall arrangements. If, after increasing `maxiter`, solutions *still* consistently violate constraints at the end of the global search, then a higher `C` (e.g., `C=2000` to `C=5000`) can be considered, but prioritize broad exploration initially. This parameter often requires careful tuning.
+    *   **For Local Refinement**: When using `scipy.optimize.minimize` with methods that directly handle non-linear inequality constraints (e.g., `SLSQP`, `trust-constr`), it is generally more robust to pass these constraints explicitly rather than relying solely on penalty terms in the objective function.
+3.  **Constraints Formulation**:
+    *   **Bounds**: Each `xi, yi, ri` must be within `[0, 1]`. Specifically, `0 <= ri`, `ri <= xi`, `xi <= 1-ri`, `ri <= yi`, `yi <= 1-ri`. These define the parameter search space. For global optimizers like `dual_annealing` that take simple rectangular bounds, these translate to `(0, 1)` for x/y and `(0.001, 0.5)` for r. While a tighter heuristic like `(0.001, 0.25)` might seem appealing to reduce the search space, for the initial global search phase, allowing `r` to go up to `0.5` enables `dual_annealing` to explore configurations with potentially much larger individual circles, which could be part of an optimal packing. Starting with `(0.001, 0.5)` is recommended for the global search to maximize exploration. The `r`-dependent bounds for `x` and `y` must then be handled by penalty functions or explicit constraints.
+    *   **Non-overlap**: For each pair of distinct circles `(i, j)`, the squared distance between their centers must be greater than or equal to the square of the sum of their radii. This translates to an inequality constraint: `(xi-xj)**2 + (yi-yj)**2 - (ri+rj)**2 >= 0`.
+    *   **Explicit Constraints for Local Optimizers**: For `scipy.optimize.minimize` (especially `SLSQP`, `COBYLA`, `trust-constr`), it is highly recommended to pass these non-linear inequalities as a list of dictionaries, e.g., `{'type': 'ineq', 'fun': lambda params: (x_i(params)-x_j(params))**2 + (y_i(params)-y_j(params))**2 - (r_i(params)+r_j(params))**2}`. There are `N*(N-1)/2` such non-overlap constraints. Additionally, the containment constraints (`xi >= ri`, `xi <= 1-ri`, etc.) can also be formulated as explicit inequality constraints for `minimize`.
+4.  **Efficient Distance Calculation**: Use `scipy.spatial.distance.pdist` or `scipy.spatial.distance.cdist` for vectorized pairwise distance calculations to efficiently compute all non-overlap constraints, avoiding slow explicit Python loops.
+5.  **Initialization**:
+    *   For the initial global search phase (e.g., `dual_annealing`), the optimizer will generate its own initial points within the specified bounds. Ensure these bounds are sensible (e.g., `x, y` within `[0, 1]`, `r` within `[0.001, 0.5]`).
+    *   For the subsequent local refinement phase (e.g., `scipy.optimize.minimize`), the `x0` (initial guess) should be the best solution found by the global search. This is crucial for efficient convergence.
+    *   Alternatively, a heuristic or physics-based simulation can generate a "pre-packed" initial state, which can be used as an initial guess for *either* the global search (if supported by the optimizer, like `basinhopping`) or directly for the local refinement stage.
+
+VALIDATION FRAMEWORK:
+1.  **`is_valid_configuration(circles_params)` helper function**:
+    *   This function should take the `params` array (or a `(N,3)` array of `(x,y,r)`).
+    *   It must rigorously check all containment constraints: `ri >= 0`, `xi >= ri`, `xi <= 1-ri`, `yi >= ri`, and `yi <= 1-ri` for all `i`.
+    *   It must rigorously check all non-overlap constraints: `√[(xi-xj)² + (yi-yj)²] >= ri + rj` for all `i≠j`.
+    *   Return `True` if all constraints are met within a small numerical tolerance (e.g., `epsilon = 1e-9`), `False` otherwise.
+    *   This function is crucial for verifying the final solution and potentially for penalty functions during optimization.
+2.  **Visualization**: After optimization, generate a plot using `matplotlib.pyplot` to visually inspect the arrangement of circles within the unit square. This helps catch subtle errors or visually confirm the packing quality.
+3.  **Reporting**: The final output should include the `sum_radii`, `benchmark_ratio`, and a clear indication whether the found configuration is valid according to the `is_valid_configuration` function.
+
+# PROMPT-BLOCK-END
+    

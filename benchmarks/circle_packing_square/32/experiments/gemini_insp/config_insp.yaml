@@ -1,0 +1,111 @@
+CODEBASE_PATH: src/
+ENSEMBLE:
+- model_name: GOOGLE_GEMINI-2.5-FLASH
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.8
+- model_name: GOOGLE_GEMINI-2.5-PRO
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.2
+EVAL_FILE_NAME: evaluate.py
+EVAL_TIMEOUT: 180
+EVOLVE_CONFIG:
+  ckpt: 5
+  early_stopping_rounds: 100
+  exploration_rate: 0.3
+  fitness_key: benchmark_ratio
+  init_pop: 6
+  max_chat_depth: 0
+  max_size: 40
+  meta_prompting: false
+  migration_interval: 40
+  migration_rate: 0.1
+  migration_topology: ring
+  num_epochs: 100
+  num_inspirations: 3
+  num_islands: 5
+  selection_kwargs:
+    roulette_by_rank: true
+  selection_policy: roulette
+INIT_FILE_DATA:
+  filename: init_program.py
+  language: python
+MAX_MEM_BYTES: 1000000000
+MEM_CHECK_INTERVAL_S: 0.1
+SAMPLER_AUX_LM:
+  model_name: GOOGLE_GEMINI-2.5-FLASH
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.8
+SYS_MSG: "SETTING:\nYou are an expert computational geometer and optimization specialist\
+  \ focusing on circle packing problems.\nYour task is to evolve a constructor function\
+  \ that generates an optimal arrangement of exactly 32 non-overlapping circles within\
+  \ a unit square [0,1] \xD7 [0,1], maximizing the sum of their radii.\n\nPROBLEM\
+  \ CONTEXT:\n- Target: Beat the AlphaEvolve benchmark of sum_radii = 2.937\n- Constraint:\
+  \ All circles must be fully contained within the unit square with no overlaps\n\
+  - Mathematical formulation: For circle i at position (xi, yi) with radius ri:\n\
+  \  * Containment: ri \u2264 xi \u2264 1-ri and ri \u2264 yi \u2264 1-ri\n  * Non-overlap:\
+  \ \u221A[(xi-xj)\xB2 + (yi-yj)\xB2] \u2265 ri + rj for all i\u2260j\n  * Objective:\
+  \ maximize \u03A3ri subject to above constraints\n\nCOMPUTATIONAL RESOURCES & IMPLEMENTATION\
+  \ GUIDELINES:\n**Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch,\
+  \ numba, scikit-learn\n\n**Additional useful packages**:\n- **Optimization**: `deap`\
+  \ (evolutionary algorithms), `platypus` (multi-objective optimization)\n- **Geometric\
+  \ computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial`\
+  \ (KDTree, Voronoi)\n- **Constraint programming**: `python-constraint`, `ortools`\
+  \ (Google OR-Tools)\n- **Physics simulation**: `pymunk` (2D physics), `pybullet`\
+  \ (physics engine)\n- **Performance**: `cython`, `joblib` (parallelization)\n\n\
+  PERFORMANCE METRICS:\n1. **sum_radii**: Total sum of all 32 circle radii (PRIMARY\
+  \ OBJECTIVE - maximize)\n2. **benchmark_ratio**: sum_radii / 2.937 (progress toward\
+  \ beating benchmark)  \n3. **eval_time**: Execution time in seconds (keep reasonable,\
+  \ prefer accuracy over speed)\n\nTECHNICAL REQUIREMENTS:\n- **Determinism**: Use\
+  \ fixed random seeds if employing stochastic methods for reproducibility\n- **Error\
+  \ handling**: Graceful handling of optimization failures or infeasible configurations\n\
+  - **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations\n\
+  - **Scalability**: Design with potential extension to different circle counts in\
+  \ mind\n\n# PROMPT-BLOCK-START\n\nOPTIMIZATION STRATEGIES TO CONSIDER:\n- **Hybrid\
+  \ approaches**: Combine analytical patterns (hexagonal, square lattice) with numerical\
+  \ optimization\n- **Multi-scale packing**: Strategic size hierarchies - large \"\
+  anchor\" circles (r~0.1-0.2) with small \"filler\" circles (r~0.01-0.05)\n- **Boundary\
+  \ optimization**: Exploit edge/corner advantages - corner circles can achieve theoretical\
+  \ max radius \u221A2/2 \u2248 0.707\n- **Adaptive algorithms**: \n  * Simulated\
+  \ annealing with temperature scheduling\n  * Genetic algorithms with crossover of\
+  \ circle positions/sizes\n  * Particle swarm optimization for continuous parameter\
+  \ spaces\n- **Local search refinement**: \n  * Gradient-based methods (L-BFGS-B,\
+  \ SLSQP) for fine-tuning\n  * Sequential quadratic programming for constrained optimization\n\
+  - **Physics-inspired methods**: \n  * Molecular dynamics with repulsive forces\n\
+  \  * Energy minimization (Lennard-Jones potentials)\n  * Spring-mass systems for\
+  \ dynamic relaxation\n- **Decomposition strategies**:\n  * Place largest circles\
+  \ first, then fill remaining space\n  * Recursive subdivision of the square into\
+  \ regions\n  * Voronoi-based adaptive placement\n\nGEOMETRIC INSIGHTS & MATHEMATICAL\
+  \ FOUNDATIONS:\n- **Packing density theory**: Optimal infinite plane density \u2248\
+  \ \u03C0/(2\u221A3) \u2248 0.907, but finite boundary effects reduce this significantly\n\
+  - **Boundary effects**: Perfect symmetry often suboptimal due to \"wasted\" boundary\
+  \ space\n- **Critical configurations**: \n  * Single large circle: max radius =\
+  \ 0.5, sum = 0.5\n  * Uniform grid: 32 circles in 5\xD76 grid gives r \u2248 0.083,\
+  \ sum \u2248 2.17\n  * Hexagonal approximation: theoretical estimate ~2.4-2.6 range\n\
+  - **Size distribution insights**: Optimal solutions likely feature 3-5 size classes\
+  \ rather than uniform radii\n- **Symmetry considerations**: Exploit reflectional\
+  \ symmetry across x=0.5, y=0.5 axes when beneficial\n\n**Recommended implementation\
+  \ patterns:**\n- **scipy.optimize**: \n  * `minimize()` with method='SLSQP' for\
+  \ constrained problems\n  * `differential_evolution()` for global optimization\n\
+  \  * Custom constraint functions for overlap detection\n- **numpy**: Vectorized\
+  \ distance calculations, constraint evaluation\n- **numba**: JIT compilation for\
+  \ performance-critical overlap checking\n- **JAX/PyTorch**: Automatic differentiation\
+  \ for gradient-based methods\n- **Advanced techniques**:\n  * KD-trees or spatial\
+  \ hashing for efficient neighbor queries\n  * Constraint satisfaction programming\
+  \ (CSP) formulations\n  * Multi-objective optimization (sum_radii vs. constraint\
+  \ violations)\n\nVALIDATION FRAMEWORK:\n- **Constraint checking**:\n  * Boundary\
+  \ violations: Verify ri \u2264 xi \u2264 1-ri and ri \u2264 yi \u2264 1-ri for all\
+  \ circles\n  * Overlap detection: Check \u221A[(xi-xj)\xB2 + (yi-yj)\xB2] \u2265\
+  \ ri + rj for all pairs\n  * Circle count: Ensure exactly 32 circles are provided\n\
+  - **Data validation**:\n  * All coordinates must be floats in [0,1]\n  * All radii\
+  \ must be positive floats\n  * No NaN or infinite values\n- **Solution quality assessment**:\n\
+  \  * Local optimality checks using gradient norms\n  * Convergence criteria evaluation\n\
+  \  * Robustness testing with small perturbations\n\n# PROMPT-BLOCK-END\n"
