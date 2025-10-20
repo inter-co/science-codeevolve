@@ -1,0 +1,79 @@
+CODEBASE_PATH: src/
+ENSEMBLE:
+- model_name: GOOGLE_GEMINI-2.5-FLASH
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.8
+- model_name: GOOGLE_GEMINI-2.5-PRO
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.2
+EVAL_FILE_NAME: evaluate.py
+EVAL_TIMEOUT: 360
+EVOLVE_CONFIG:
+  ckpt: 5
+  early_stopping_rounds: 100
+  exploration_rate: 0.3
+  fitness_key: c2_ratio
+  init_pop: 6
+  max_size: 40
+  meta_prompting: true
+  migration_interval: 40
+  migration_rate: 0.1
+  migration_topology: ring
+  num_epochs: 100
+  num_inspirations: 0
+  num_islands: 5
+  selection_kwargs:
+    roulette_by_rank: true
+  selection_policy: roulette
+INIT_FILE_DATA:
+  filename: init_program.py
+  language: python
+MAX_MEM_BYTES: 5000000000
+MEM_CHECK_INTERVAL_S: 0.1
+SAMPLER_AUX_LM:
+  model_name: GOOGLE_GEMINI-2.5-FLASH
+  retries: 3
+  temp: 0.7
+  top_p: 0.95
+  verify_ssl: false
+  weight: 0.8
+SYS_MSG: "SETTING:\nYou are a world-class expert in functional analysis, harmonic\
+  \ analysis, numerical optimization, and AI-driven mathematical discovery. Your mission\
+  \ is to push the boundaries of a fundamental mathematical constant by evolving and\
+  \ optimizing Python implementations that discover novel functions achieving better\
+  \ lower bounds for the second autocorrelation inequality constant C\u2082.\n\nMATHEMATICAL\
+  \ PROBLEM CONTEXT:\n**Core Problem**: Find a non-negative function f: \u211D \u2192\
+  \ \u211D that maximizes the constant C\u2082 in the second autocorrelation inequality:\n\
+  ||f \u2605 f||\u2082\xB2 \u2264 C\u2082 ||f \u2605 f||\u2081 ||f \u2605 f||_{\u221E\
+  }\n\n**Mathematical Framework**:\n- Objective: Maximize C\u2082 = ||f \u2605 f||\u2082\
+  \xB2 / (||f \u2605 f||\u2081 ||f \u2605 f||_{\u221E})\n- Key simplification: ||f\
+  \ \u2605 f||\u2081 = (\u222Bf)\xB2, reducing to C\u2082 = ||f \u2605 f||\u2082\xB2\
+  \ / ((\u222Bf)\xB2 ||f \u2605 f||_{\u221E})\n- Convolution definition: (f \u2605\
+  \ f)(x) = \u222B_{-\u221E}^{\u221E} f(t)f(x-t) dt\n- Norms: ||g||\u2081 = \u222B\
+  |g|, ||g||\u2082 = (\u222B|g|\xB2)^{1/2}, ||g||_{\u221E} = sup|g|\n- Constraints:\
+  \ f(x) \u2265 0 for all x \u2208 \u211D, \u222Bf > 0\n\n**Primary Objective**:\n\
+  - c2: The C\u2082 constant achieved (MAXIMIZE THIS - any value > 0.8962799441554086\
+  \ is groundbreaking)\n\nPERFORMANCE METRICS:\n- c2: The C2 constant achieved by\
+  \ the discovered function (PRIMARY OBJECTIVE - maximize this).\n- c2_ratio: c2_achieved\
+  \ / 0.8962799441554086 (current best lower bound).\n- loss: reported loss of loss\
+  \ function used in the optimization.\n- n_points: number of points used in the discretization.\n\
+  - eval_time: time of execution of the solution.\n\nCOMPUTATIONAL RESOURCES & IMPLEMENTATION\
+  \ STACK:\n**Core Mathematical Libraries**: \n- numpy, scipy (optimization, integration,\
+  \ FFT for convolutions)\n- sympy (symbolic computation, analytical derivatives)\n\
+  - jax (automatic differentiation, GPU acceleration)\n- torch (deep learning optimization,\
+  \ autograd)\n\n**Optimization & ML Libraries**:\n- optax (advanced optimizers),\
+  \ scikit-learn (preprocessing, clustering)\n- numba (JIT compilation for speed)\n\
+  \n**Suggested Advanced Packages**:\n- cvxpy (convex optimization), autograd, casadi\
+  \ (optimal control)\n- tensorflow-probability (probabilistic methods)\n- pymoo (multi-objective\
+  \ optimization)\n\nTECHNICAL REQUIREMENTS:\n- **Determinism & Reproducibility**:\
+  \ Fixed random seeds for ALL stochastic components: `numpy.random.seed(42)`, `torch.manual_seed(42)`.\n\
+  - f(x) \u2265 0 everywhere \n- \u222Bf > 0 (non-trivial function requirement)\n\
+  - Numerical stability: Avoid functions causing overflow in convolution computation\n\
+  \n# PROMPT-BLOCK-START\n\nMATHEMATICAL FOUNDATIONS:\nTODO\n\nOPTIMIZATION STRATEGIES\
+  \ TO CONSIDER:\nTODO\n\n**Recommended implementation patterns**:\nTODO\n\n# PROMPT-BLOCK-END\n"

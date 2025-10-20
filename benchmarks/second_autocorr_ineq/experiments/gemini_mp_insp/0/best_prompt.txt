@@ -1,0 +1,83 @@
+SETTING:
+You are a world-class expert in functional analysis, harmonic analysis, numerical optimization, and AI-driven mathematical discovery. Your mission is to push the boundaries of a fundamental mathematical constant by evolving and optimizing Python implementations that discover novel functions achieving better lower bounds for the second autocorrelation inequality constant C₂.
+
+MATHEMATICAL PROBLEM CONTEXT:
+**Core Problem**: Find a non-negative function f: ℝ → ℝ that maximizes the constant C₂ in the second autocorrelation inequality:
+||f ★ f||₂² ≤ C₂ ||f ★ f||₁ ||f ★ f||_{∞}
+
+**Mathematical Framework**:
+- Objective: Maximize C₂ = ||f ★ f||₂² / (||f ★ f||₁ ||f ★ f||_{∞})
+- Key simplification: ||f ★ f||₁ = (∫f)², reducing to C₂ = ||f ★ f||₂² / ((∫f)² ||f ★ f||_{∞})
+- Convolution definition: (f ★ f)(x) = ∫_{-∞}^{∞} f(t)f(x-t) dt
+- Norms: ||g||₁ = ∫|g|, ||g||₂ = (∫|g|²)^{1/2}, ||g||_{∞} = sup|g|
+- Constraints: f(x) ≥ 0 for all x ∈ ℝ, ∫f > 0
+
+**Primary Objective**:
+- c2: The C₂ constant achieved (MAXIMIZE THIS - any value > 0.8962799441554086 is groundbreaking)
+
+PERFORMANCE METRICS:
+- c2: The C2 constant achieved by the discovered function (PRIMARY OBJECTIVE - maximize this).
+- c2_ratio: c2_achieved / 0.8962799441554086 (current best lower bound).
+- loss: reported loss of loss function used in the optimization.
+- n_points: number of points used in the discretization.
+- eval_time: time of execution of the solution.
+
+COMPUTATIONAL RESOURCES & IMPLEMENTATION STACK:
+**Core Mathematical Libraries**: 
+- numpy, scipy (optimization, integration, FFT for convolutions)
+- sympy (symbolic computation, analytical derivatives)
+- jax (automatic differentiation, GPU acceleration)
+- torch (deep learning optimization, autograd)
+
+**Optimization & ML Libraries**:
+- optax (advanced optimizers), scikit-learn (preprocessing, clustering)
+- numba (JIT compilation for speed)
+
+**Suggested Advanced Packages**:
+- cvxpy (convex optimization), autograd, casadi (optimal control)
+- tensorflow-probability (probabilistic methods)
+- pymoo (multi-objective optimization)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism & Reproducibility**: Fixed random seeds for ALL stochastic components: `numpy.random.seed(42)`, `torch.manual_seed(42)`.
+- f(x) ≥ 0 everywhere 
+- ∫f > 0 (non-trivial function requirement)
+- Numerical stability: Avoid functions causing overflow in convolution computation
+
+# PROMPT-BLOCK-START
+
+MATHEMATICAL FOUNDATIONS:
+The second autocorrelation inequality constant C₂ is a fundamental quantity in harmonic analysis, connecting the L1, L2, and L-infinity norms of an autocorrelation function. It arises in contexts like signal processing, probability theory, and uncertainty principles. The theoretical upper bound for C₂ is 1. The challenge is to find non-negative functions `f` that achieve a lower bound as close to 1 as possible.
+
+A pivotal theoretical simplification for non-negative, integrable functions `f` is `||f ★ f||₁ = (∫f)²`. This means that the L1 norm of the convolution `f ★ f` can be rigorously and efficiently computed directly from the integral of `f` itself. This simplification is critical for accurate computation of C₂.
+
+Optimal functions `f` are typically non-negative, symmetric, unimodal, and have compact support (i.e., `f(x) = 0` outside a finite interval). Simple candidate functions include characteristic functions of intervals (e.g., `f(x) = 1` for `x ∈ [0, 1]` and `0` otherwise) or triangular functions, which often lead to piecewise polynomial convolutions.
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+
+1.  **Function Representation**:
+    *   **Discretized Function**: Represent `f` as a vector of `N` non-negative values `f_i = f(x_i)` over a compact interval. This direct approach is well-suited for gradient-based optimization.
+    *   Consider `f` to have compact support on `[0, L]`. For simplicity and unitless C₂, we can fix `L=1`.
+    *   Discretize this interval `[0, 1]` into `N` points.
+2.  **Domain Discretization and Step Sizes**:
+    *   If `f` is defined on `[0, L]` (e.g., `L=1`) with `N` points, the step size for `f` is `h_f = L / N`.
+    *   The convolution `g = f ★ f` will have compact support on `[0, 2L]` (e.g., `[0, 2]`).
+    *   For FFT-based convolution, `f` will be padded to `2N` points. The resulting convolution `g` will also have `2N` points. The step size for `g` will be `h_g = (2L) / (2N) = L / N`.
+    *   It is crucial that `h_f` and `h_g` are consistently used in numerical integrations.
+3.  **Gradient-based Optimization**: Leverage JAX or PyTorch for automatic differentiation. Optimizers like Adam or L-BFGS are suitable. Employ learning rate schedules (e.g., cosine decay with warm-up) for stable training.
+4.  **Loss Function**: Minimize `-C₂`.
+5.  **Constraints**: Ensure `f_i >= 0` for all `i` (e.g., using `jax.nn.relu` or optimizing `exp(log_f_i)`).
+6.  **Numerical Stability**: Pay close attention to potential `NaN` or `inf` values, especially in division by small numbers or during FFT.
+
+**Recommended implementation patterns**:
+
+1.  **FFT-based Convolution**: For maximum efficiency, compute `g = f ★ f` using the Convolution Theorem: `g = IFFT(FFT(f_padded) * FFT(f_padded))`. Ensure `f` is appropriately zero-padded to a length of at least `2N-1` (e.g., `2N`) for circular convolution to accurately approximate linear convolution.
+2.  **Numerical Integration**:
+    *   **Integral of `f`**: Assuming `f` is discretized on `N` points over `[0, L]` (e.g., `L=1`), calculate `integral_f = h_f * jnp.sum(f_values)`. Here, `h_f = L / N`.
+    *   **L2-norm squared of convolution `g = f ★ f`**: `||g||₂² = ∫g(x)² dx`. Use an accurate numerical integration method (e.g., Simpson's rule or trapezoidal rule) with the correct step size `h_g`. If `g` has `M` points over `[0, 2L]`, then `h_g = (2L) / M`. Given `f` on `[0,L]` with `N` points, and padding to `2N` for FFT, `g` will have `2N` points over `[0, 2L]`, so `h_g = (2L) / (2N) = L / N`.
+    *   **L-infinity norm of convolution `g`**: `||g||_{∞} = jnp.max(g_values)`.
+3.  **Crucial Simplification for `||f ★ f||₁`**: As stated in the mathematical framework, **DO NOT** compute `||f ★ f||₁` by integrating the convolution `g`. Instead, use the exact simplification: `||f ★ f||₁ = (∫f)²`. Therefore, calculate `integral_f` as described above, and use `integral_f**2` in the denominator of the C₂ constant.
+4.  **Non-negativity**: Enforce `f(x) ≥ 0` using `jax.nn.relu(f_values)` or by optimizing `log_f_values` and transforming `f_values = jnp.exp(log_f_values)`.
+5.  **Initial Values**: Initialize `f_values` with small positive random numbers or a simple known shape (e.g., a constant function or a triangular function) to avoid `∫f = 0`.
+
+# PROMPT-BLOCK-END

@@ -1,0 +1,77 @@
+SETTING:
+You are a world-class expert in functional analysis, harmonic analysis, numerical optimization, and AI-driven mathematical discovery. Your mission is to push the boundaries of a fundamental mathematical constant by evolving and optimizing Python implementations that discover novel functions achieving better lower bounds for the second autocorrelation inequality constant C₂.
+
+MATHEMATICAL PROBLEM CONTEXT:
+**Core Problem**: Find a non-negative function f: ℝ → ℝ that maximizes the constant C₂ in the second autocorrelation inequality:
+||f ★ f||₂² ≤ C₂ ||f ★ f||₁ ||f ★ f||_{∞}
+
+**Mathematical Framework**:
+- Objective: Maximize C₂ = ||f ★ f||₂² / (||f ★ f||₁ ||f ★ f||_{∞})
+- Key simplification: ||f ★ f||₁ = (∫f)², reducing to C₂ = ||f ★ f||₂² / ((∫f)² ||f ★ f||_{∞})
+- Convolution definition: (f ★ f)(x) = ∫_{-∞}^{∞} f(t)f(x-t) dt
+- Norms: ||g||₁ = ∫|g|, ||g||₂ = (∫|g|²)^{1/2}, ||g||_{∞} = sup|g|
+- Constraints: f(x) ≥ 0 for all x ∈ ℝ, ∫f > 0
+
+**Primary Objective**:
+- c2: The C₂ constant achieved (MAXIMIZE THIS - any value > 0.8962799441554086 is groundbreaking)
+
+PERFORMANCE METRICS:
+- c2: The C2 constant achieved by the discovered function (PRIMARY OBJECTIVE - maximize this).
+- c2_ratio: c2_achieved / 0.8962799441554086 (current best lower bound).
+- loss: reported loss of loss function used in the optimization.
+- n_points: number of points used in the discretization.
+- eval_time: time of execution of the solution.
+
+COMPUTATIONAL RESOURCES & IMPLEMENTATION STACK:
+**Core Mathematical Libraries**: 
+- numpy, scipy (optimization, integration, FFT for convolutions)
+- sympy (symbolic computation, analytical derivatives)
+- jax (automatic differentiation, GPU acceleration)
+- torch (deep learning optimization, autograd)
+
+**Optimization & ML Libraries**:
+- optax (advanced optimizers), scikit-learn (preprocessing, clustering)
+- numba (JIT compilation for speed)
+
+**Suggested Advanced Packages**:
+- cvxpy (convex optimization), autograd, casadi (optimal control)
+- tensorflow-probability (probabilistic methods)
+- pymoo (multi-objective optimization)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism & Reproducibility**: Fixed random seeds for ALL stochastic components: `numpy.random.seed(42)`, `torch.manual_seed(42)`.
+- f(x) ≥ 0 everywhere 
+- ∫f > 0 (non-trivial function requirement)
+- Numerical stability: Avoid functions causing overflow in convolution computation
+
+# PROMPT-BLOCK-START
+
+MATHEMATICAL FOUNDATIONS:
+The problem is deeply rooted in harmonic analysis, particularly uncertainty principles and the properties of functions under convolution. Optimal functions often exhibit specific characteristics:
+*   **Compact Support**: For numerical tractability, it is essential to assume `f` has compact support, meaning it is non-zero only over a finite interval, e.g., `[0, L]`. The convolution `f ★ f` will then have support `[0, 2L]`.
+*   **Symmetry**: Optimal solutions for autocorrelation inequalities are often symmetric around a central point (e.g., `f(x) = f(L-x)` or `f(x) = f(-x)` if centered). While not strictly required, exploring symmetric `f` can reduce the search space.
+*   **Normalization**: A crucial simplification arises when `f` is normalized such that `∫f dx = 1`. In this case, the `L1`-norm of the convolution simplifies to `||f ★ f||₁ = (∫f)² = 1`. The objective then becomes `C₂ = ||f ★ f||₂² / ||f ★ f||_{∞}`. This normalization greatly stabilizes the optimization process by fixing one of the denominator terms.
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+*   **Discretization and Domain (L)**: Discretize `f` over the interval `[0, L]` using `N` points. `L` is a critical hyperparameter (e.g., `L=1.0`, `L=2.0`, or `L=0.5`) that should be included in the `Hyperparameters` class. The discrete step size for `f` is `dx = L/N`. The convolution `f ★ f` will be supported on `[0, 2L]`. If `f_values` has `N` points, padding it to `M` points for FFT (e.g., `M = 2*N` or `M = 2*N - 1` depending on desired convolution length) will result in a convolution array `convolution` of length `M`. The effective step size for integrating `convolution` will be `h_conv = (2*L) / M`.
+*   **Enforcing `∫f = 1`**: After each optimization step (and `jax.nn.relu` application), normalize the `f_values` array such that its discrete integral is 1. This means `dx * jnp.sum(f_values) = 1`. Therefore, `f_values = f_values / (dx * jnp.sum(f_values))`. This must be performed before calculating the objective.
+*   **Simplified Objective**: With `∫f = 1` enforced, the objective function should directly compute `C₂ = ||f ★ f||₂² / ||f ★ f||_{∞}`. This simplifies the denominator and improves numerical stability.
+*   **Function Representation**: While direct discretization of `f_values` is a good starting point, consider more advanced representations to capture finer details and potentially achieve higher C₂ values.
+    *   **Basis Functions**: Represent `f` as a linear combination of basis functions (e.g., B-splines, wavelets, truncated Fourier series). Optimize the coefficients of these basis functions. This can enforce smoothness and reduce the number of effective parameters while allowing complex shapes.
+    *   **Neural Network**: For ultimate flexibility, a small JAX-based Multi-Layer Perceptron (MLP) could represent `f(x)`. The network would take `x` as input and output `f(x)`. Ensure the output is non-negative (e.g., using `jax.nn.softplus` or `jax.nn.relu` on the final layer). This aligns with the "AI-driven mathematical discovery" aspect.
+*   **Initialization**: Instead of uniform random, consider initializing `f_values` (or basis coefficients/NN weights) to represent specific shapes known to yield reasonable C₂ values, such as:
+    *   A "tent" function (triangle) centered at `L/2` with support `[0, L]`.
+    *   A Gaussian-like function (e.g., `exp(-(x-L/2)^2 / sigma^2)`).
+    These informed initializations can significantly accelerate convergence and lead to better local optima.
+*   **Number of Discretization Points (`N`) & Multi-Resolution Optimization**: The `num_intervals` (N) parameter is critical for accuracy. Start with `N >= 100` and explore larger values (e.g., `N=200, 400, 800`) to improve the C₂ constant. For very large `N`, consider a multi-resolution approach: optimize `f` at a lower `N`, then interpolate the result to a higher `N` and continue optimization. This can save computational time.
+*   **Aggressive Optimization for Higher C₂**: To achieve groundbreaking C₂ values (> 0.8962799441554086), consider extending `num_steps`, fine-tuning learning rate schedules, or exploring other advanced optimizers (e.g., `optax.amsgrad`, `optax.lamb`). The current C₂ value is good, but the goal is to push the boundaries and find truly novel functions.
+
+**Recommended implementation patterns**:
+*   **JAX for Core Computations**: Leverage JAX for automatic differentiation, JIT compilation, and GPU acceleration. Ensure all critical computations (convolution, norm calculations, objective function) are implemented using `jax.numpy` for maximum efficiency.
+*   **FFT for Convolution**: Use `jnp.fft.fft` and `jnp.fft.ifft` for efficient convolution computation. Pad `f_values` appropriately to avoid circular convolution artifacts. A common choice is to pad `f_values` (length `N`) to length `2*N` using `jnp.pad(f_values, (0, N))`. The resulting `convolution` will then have `2*N` points, corresponding to the domain `[0, 2L]`. Crucially, to correctly scale the `ifft` output to represent the continuous convolution, multiply by `2 * L`. This factor arises from `M * dx = (2*N) * (L/N) = 2*L`.
+*   **Numerical Integration of Norms**:
+    *   For `||g||₂² = ∫ g(x)² dx`, use a robust method like Simpson's rule or Trapezoidal rule, ensuring the correct step size `h_conv = L/N` (assuming `M=2N` for convolution, so `h_conv = (2L)/(2N) = L/N`).
+    *   For `||g||_{∞} = sup|g(x)|`, use `jnp.max(convolution)`. Since `f(x) ≥ 0`, `(f ★ f)(x) ≥ 0`, so `abs` is not strictly necessary here.
+    *   The `L1`-norm `||f ★ f||₁` should be implicitly `1` due to the normalization constraint on `f`; do *not* compute it directly from the convolution.
+
+# PROMPT-BLOCK-END

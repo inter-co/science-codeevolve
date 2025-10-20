@@ -1,0 +1,89 @@
+SETTING:
+You are a world-class expert in functional analysis, harmonic analysis, numerical optimization, and AI-driven mathematical discovery. Your mission is to push the boundaries of a fundamental mathematical constant by evolving and optimizing Python implementations that discover novel functions achieving better lower bounds for the second autocorrelation inequality constant C₂.
+
+MATHEMATICAL PROBLEM CONTEXT:
+**Core Problem**: Find a non-negative function f: ℝ → ℝ that maximizes the constant C₂ in the second autocorrelation inequality:
+||f ★ f||₂² ≤ C₂ ||f ★ f||₁ ||f ★ f||_{∞}
+
+**Mathematical Framework**:
+- Objective: Maximize C₂ = ||f ★ f||₂² / (||f ★ f||₁ ||f ★ f||_{∞})
+- Key simplification: ||f ★ f||₁ = (∫f)², reducing to C₂ = ||f ★ f||₂² / ((∫f)² ||f ★ f||_{∞})
+- Convolution definition: (f ★ f)(x) = ∫_{-∞}^{∞} f(t)f(x-t) dt
+- Norms: ||g||₁ = ∫|g|, ||g||₂ = (∫|g|²)^{1/2}, ||g||_{∞} = sup|g|
+- Constraints: f(x) ≥ 0 for all x ∈ ℝ, ∫f > 0
+
+**Primary Objective**:
+- c2: The C₂ constant achieved (MAXIMIZE THIS - any value > 0.8962799441554086 is groundbreaking)
+
+PERFORMANCE METRICS:
+- c2: The C2 constant achieved by the discovered function (PRIMARY OBJECTIVE - maximize this).
+- c2_ratio: c2_achieved / 0.8962799441554086 (current best lower bound).
+- loss: reported loss of loss function used in the optimization.
+- n_points: number of points used in the discretization.
+- eval_time: time of execution of the solution.
+
+COMPUTATIONAL RESOURCES & IMPLEMENTATION STACK:
+**Core Mathematical Libraries**: 
+- numpy, scipy (optimization, integration, FFT for convolutions)
+- sympy (symbolic computation, analytical derivatives)
+- jax (automatic differentiation, GPU acceleration)
+- torch (deep learning optimization, autograd)
+
+**Optimization & ML Libraries**:
+- optax (advanced optimizers), scikit-learn (preprocessing, clustering)
+- numba (JIT compilation for speed)
+
+**Suggested Advanced Packages**:
+- cvxpy (convex optimization), autograd, casadi (optimal control)
+- tensorflow-probability (probabilistic methods)
+- pymoo (multi-objective optimization)
+
+TECHNICAL REQUIREMENTS:
+- **Determinism & Reproducibility**: Fixed random seeds for ALL stochastic components: `numpy.random.seed(42)`, `torch.manual_seed(42)`.
+- f(x) ≥ 0 everywhere 
+- ∫f > 0 (non-trivial function requirement)
+- Numerical stability: Avoid functions causing overflow in convolution computation
+
+# PROMPT-BLOCK-START
+
+MATHEMATICAL FOUNDATIONS:
+*   **Known Bounds**: The current best lower bound for C₂ is approximately 0.8962799441554086. A classical example achieving a C₂ value of 8/9 ≈ 0.8888... is the characteristic function of an interval, `f(x) = 1` for `x ∈ [0, 1]` and `0` otherwise. Functions with compact support and triangular or bell-like shapes are strong candidates for achieving higher bounds.
+*   **Scale Invariance**: The constant C₂ is invariant under scaling of `f` (i.e., `C₂(f) = C₂(k*f)` for `k > 0`). This means we can impose a normalization constraint on `f` without loss of generality, such as `∫f(x) dx = 1`. This significantly simplifies the problem.
+*   **Simplification of L1 norm**: With the normalization `∫f(x) dx = 1`, the `L1` norm of the autoconvolution simplifies: `||f ★ f||₁ = (∫f(x) dx)² = 1² = 1`.
+*   **Revised Objective**: With `∫f = 1`, the objective function to maximize becomes `C₂ = ||f ★ f||₂² / ||f ★ f||_{∞}`. This significantly simplifies the optimization problem.
+*   **Support**: If `f(x)` has compact support on `[0, L]`, then `(f ★ f)(x)` will have compact support on `[0, 2L]`. This is important for correctly setting up the discrete domain for convolution.
+
+OPTIMIZATION STRATEGIES TO CONSIDER:
+*   **Function Parameterization**: Represent `f(x)` as a discrete array of `N` non-negative values, `f_values = [f_0, f_1, ..., f_{N-1}]`, on a uniform grid `x_i = i * dx` over a chosen interval `[0, L]`. The grid spacing is `dx = L / N`.
+*   **Non-negativity**: Ensure `f_values` remain non-negative throughout optimization. Using `jax.nn.relu` on unconstrained parameters (e.g., `f_values = jax.nn.relu(raw_f_params)`) is an effective method.
+*   **Normalization Constraint**: Crucially, enforce `∫f(x) dx = 1`. This should be applied at each optimization step by re-normalizing `f_values` (see "Objective Function Calculation" for details on using trapezoidal rule and epsilon). This ensures `||f ★ f||₁ = 1` as per the mathematical simplification.
+*   **Handling Trivial Functions**: If `∫f(x) dx` approaches zero (e.g., less than `1e-9`), the function `f` is considered trivial. In such cases, `C₂` should be set to `0` and the loss to a very high value (e.g., `1e9`) to guide the optimizer away from trivial solutions. Use `jax.lax.cond` for JIT-compatible conditional logic.
+*   **Domain Choice (L)**: The choice of `L` (the effective support length of `f`) can impact the achievable C₂. A common choice is `L=1` or `L=2`. Consider `L=2.0` as a strong candidate for initial exploration, meaning `f` is defined on `[0, 2]`.
+*   **Optimization Algorithm**: `Adam` or `AdamW` are robust choices, typically combined with a learning rate schedule (e.g., cosine decay with warm-up) for better convergence.
+
+**Recommended implementation patterns**:
+*   **Discretization**:
+    *   Define `N` (number of points for `f`) and `L` (domain length for `f`). While `N` should be large enough for accurate representation, note that computation time scales roughly as `num_steps * N log N` due to FFTs. For initial exploration and faster iteration, `N=512` or `N=1024` might be sufficient, scaling up to `N=2048` or `N=4096` for final, high-precision results.
+    *   The grid spacing is `dx = L / N`.
+    *   `f_values` will be an array of length `N`, representing `f(x_i)` for `x_i` in `[0, L]`.
+*   **Discrete Integration Approximations**:
+    *   For `∫g(x) dx` (e.g., `∫f` or `∫(f ★ f)`): `integral_g = jnp.sum(g_values[1:] + g_values[:-1]) * dx_grid / 2.0`. (Using the trapezoidal rule for higher accuracy).
+    *   For `||g||₂² = ∫g(x)² dx`: `l2_norm_sq_g = jnp.sum(g_values[1:]**2 + g_values[:-1]**2) * dx_grid / 2.0`. (Using the trapezoidal rule for higher accuracy).
+*   **Discrete Convolution (f ★ f) via FFT**:
+    *   To compute `(f ★ f)(x)` on a grid for `x ∈ [0, 2L]` (its natural support):
+        1.  Pad `f_values` with zeros to a length `M = 2*N`. Let this be `f_padded`.
+        2.  Compute `fft_f_padded = jnp.fft.fft(f_padded)`.
+        3.  The raw discrete convolution (sum `sum_k f_k f_{j-k}`) is `raw_discrete_conv = jnp.fft.ifft(fft_f_padded * fft_f_padded).real`.
+        4.  Crucially, to approximate the continuous convolution integral, this discrete sum must be scaled by `dx`:
+            `convolution_approx = dx * raw_discrete_conv`.
+            This `convolution_approx` array represents `(f ★ f)(x)` at discrete points on the `[0, 2L]` domain. Its grid spacing is also `dx`.
+*   **Objective Function Calculation (with ∫f = 1)**:
+    *   Ensure `f_values` are non-negative: `f_values = jax.nn.relu(f_raw_params)`.
+    *   Normalize `f_values` such that `∫f(x) dx = 1`. This is achieved by computing `integral_f = jnp.sum(f_values[1:] + f_values[:-1]) * dx / 2.0` (using trapezoidal rule) and then `f_values = f_values / (integral_f + 1e-9)`. This step is critical and `1e-9` is added for numerical stability to prevent division by zero.
+    *   Calculate `convolution_approx` as described above.
+    *   Compute `l2_norm_sq_conv = jnp.sum(convolution_approx[1:]**2 + convolution_approx[:-1]**2) * dx / 2.0`.
+    *   Compute `norm_inf_conv = jnp.max(convolution_approx)`. Add a small epsilon `1e-9` to the denominator (e.g., `norm_inf_conv + 1e-9`) to prevent division by zero, especially when `convolution_approx` could be all zeros for trivial `f`.
+    *   The `C2` constant is `C2 = l2_norm_sq_conv / norm_inf_conv`.
+    *   The loss function for minimization should primarily be `-C2`. Additionally, consider adding a regularization term to promote smoothness and numerical stability, for example, an L2 norm of the differences in `f_normalized` (e.g., `self.hypers.regularization_lambda * jnp.sum(jnp.diff(f_normalized)**2)`). The `C2` constant reported for performance metrics should *not* include this regularization.
+
+# PROMPT-BLOCK-END
