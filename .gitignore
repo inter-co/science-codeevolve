@@ -210,7 +210,3 @@ __marimo__/
 
 # debug
 debug/
-
-# internal
-run_inter.sh
-
