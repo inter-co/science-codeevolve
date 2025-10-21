@@ -1,4 +1,6 @@
 # CodeEvolve
+[![preprint](https://img.shields.io/badge/preprint-arxiv.2510.14150-red)](https://arxiv.org/abs/2510.14150)
+
 CodeEvolve is an open-source evolutionary coding agent, designed to iteratively improve an initial codebase against a set of user-defined metrics. This project was originally created as an attempt to replicate the results of [AlphaEvolve](https://arxiv.org/abs/2506.13131), a closed-source coding agent announced by Google DeepMind in 2025.
 
 Our primary goal is to implement a transparent, reproducible, and community-driven framework for LLM-driven algorithm discovery. We evaluate CodeEvolve on the same mathematical benchmarks as AlphaEvolve. CodeEvolve has surpassed the reported state-of-the-art performance on 4 of its 13 problems (see the jupyter notebook with our [results](notebooks/results.ipynb)). We are actively working to improve our method on the remaining benchmarks.
@@ -27,7 +29,7 @@ During the initial stages, we drew inspiration from other open-source efforts li
 
 ## Contributing
 
-We are not accepting pull requests at this time, as we are still actively developing and changing most of the features from CodeEvolve. We plan on accepting pull requests soon. However, you can contribute by reporting issues or suggesting features through the creation of a GitHub issue [here](https://github.com/inter-co/science-codeevolve/issues).
+We are not accepting pull requests at this time, as we are still actively developing and changing most of the features from CodeEvolve. We plan on accepting pull requests soon. However, you can contribute by reporting issues or suggesting features through the creation of a [GitHub issue](https://github.com/inter-co/science-codeevolve/issues).
 
 ## Citation
 
