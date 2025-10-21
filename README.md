@@ -1,4 +1,5 @@
 # CodeEvolve
+
 CodeEvolve is an open-source evolutionary coding agent, designed to iteratively improve an initial codebase against a set of user-defined metrics.
 
 CodeEvolve was originally created as an attempt to replicate [AlphaEvolve's](https://storage.googleapis.com/deepmind-media/DeepMind.com/Blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/AlphaEvolve.pdf) results on mathematical problems. AlphaEvolve is a closed-source coding agent, announced in a whitepaper by Google Deepmind in 2025.
