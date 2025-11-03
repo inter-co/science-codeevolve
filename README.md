@@ -2,7 +2,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![preprint](https://img.shields.io/badge/preprint-arxiv.2510.14150-red)](https://arxiv.org/abs/2510.14150)
 
-<img src='assets/codeevolve_diagram.pdf' align="center" width=900 />
+<img src='assets/codeevolve_diagram.png' align="center" width=900 />
 
 CodeEvolve is an open-source evolutionary coding agent, designed to iteratively improve an initial codebase against a set of user-defined metrics. This project was originally created as an attempt to replicate the results of [AlphaEvolve](https://arxiv.org/abs/2506.13131), a closed-source coding agent announced by Google DeepMind in 2025.
 
