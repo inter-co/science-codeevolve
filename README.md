@@ -1,5 +1,8 @@
 # CodeEvolve
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![preprint](https://img.shields.io/badge/preprint-arxiv.2510.14150-red)](https://arxiv.org/abs/2510.14150)
+
+<img src='assets/codeevolve_diagram.pdf' align="center" width=900 />
 
 CodeEvolve is an open-source evolutionary coding agent, designed to iteratively improve an initial codebase against a set of user-defined metrics. This project was originally created as an attempt to replicate the results of [AlphaEvolve](https://arxiv.org/abs/2506.13131), a closed-source coding agent announced by Google DeepMind in 2025.
 
@@ -7,11 +10,33 @@ Our primary goal is to implement a transparent, reproducible, and community-driv
 
 ## Overview
 
-TODO
+### Islands Genetic Algorithm
+
+CodeEvolve employs an island-based genetic algorithm for two main reasons:
+
+1. **Diversity Maintenance**: By partitioning the population across multiple "islands" that evolve independently, the system prevents premature convergence, ensuring a wider exploration of the solution space.
+
+2. **Increased Throughput**: The parallel nature of the islands allows for higher throughput and more efficient resource utilization during the evolutionary search process.
+
+### Inspiration-Based Crossover
+
+CodeEvolve leverages the LLM's to perform an analog of the crossover operation of classic genetic algorithms:
+
+1. **Feature Combination**: The LLM is prompted to combine successful features and concepts derived from two high-performing parent solutions.
+
+2. **Contextual Synthesis**: This allows the agent to synthesize new, highly effective solutions that inherit the strengths of successful predecessors without relying on brittle, line-by-line code splicing.
+
+### Dynamic Exploration with Meta-Prompting
+
+CodeEvolve uses a meta-prompting strategy to guide the LLM's search and refinement process dynamically.
+
+1. **Adaptive Exploration**: Prompts are dynamically adjusted based on the current state of the population and the search landscape.
+
+2. **Targeted Refinement**: This strategy allows the agent to switch between exploitation and exploration effectively, maintaining dynamic control over the solution space.
 
 ## Usage
 
-TODO
+Tutorials coming soon.
 
 ## Next steps
 
