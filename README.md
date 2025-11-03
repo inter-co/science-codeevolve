@@ -2,37 +2,21 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![preprint](https://img.shields.io/badge/preprint-arxiv.2510.14150-red)](https://arxiv.org/abs/2510.14150)
 
-<img src='assets/codeevolve_diagram.png' align="center" width=900 />
-
 CodeEvolve is an open-source evolutionary coding agent, designed to iteratively improve an initial codebase against a set of user-defined metrics. This project was originally created as an attempt to replicate the results of [AlphaEvolve](https://arxiv.org/abs/2506.13131), a closed-source coding agent announced by Google DeepMind in 2025.
 
 Our primary goal is to implement a transparent, reproducible, and community-driven framework for LLM-driven algorithm discovery. We evaluate CodeEvolve on the same mathematical benchmarks as AlphaEvolve. CodeEvolve has surpassed the reported state-of-the-art performance on 4 of its 13 problems (see the jupyter notebook with our [results](notebooks/results.ipynb)). We are actively working to improve our method on the remaining benchmarks.
 
 ## Overview
 
-### Islands Genetic Algorithm
+<img src='assets/codeevolve_diagram.png' align="center" width=900 />
 
-CodeEvolve employs an island-based genetic algorithm for two main reasons:
+CodeEvolve is built upon an island-based genetic algorithm designed to maintain population diversity and increase throughput through parallel search efforts. Within this architecture, the evolutionary cycle is driven by two primary operators designed to balance the search process: 
 
-1. **Diversity Maintenance**: By partitioning the population across multiple "islands" that evolve independently, the system prevents premature convergence, ensuring a wider exploration of the solution space.
+1. **Depth exploitatiom**: This operator selects high-performing parent solutions ($S$) via rank-based selection and uses the LLM Ensemble to perform targeted, incremental refinements. Crucially, it provides the LLM with the parent's full lineage, including its $k$ closest ancestors, $A_k(S)$, to constrain the search space toward local optima refinement.
+ 
+2. **Meta-Prompting Exploration**: This operator fosters diversity by instructing an auxiliary LLM (MetaPromptingLLM) to analyze the current solution $S$ and its original prompt $P(S)$, generating an enriched new prompt $P'$. This new prompt is then used by the LLMEnsemble to generate a potentially novel solution $S'$. This step intentionally excludes the ancestral context, encouraging the model to explore distinct pathways.
 
-2. **Increased Throughput**: The parallel nature of the islands allows for higher throughput and more efficient resource utilization during the evolutionary search process.
-
-### Inspiration-Based Crossover
-
-CodeEvolve leverages the LLM's to perform an analog of the crossover operation of classic genetic algorithms:
-
-1. **Feature Combination**: The LLM is prompted to combine successful features and concepts derived from two high-performing parent solutions.
-
-2. **Contextual Synthesis**: This allows the agent to synthesize new, highly effective solutions that inherit the strengths of successful predecessors without relying on brittle, line-by-line code splicing.
-
-### Dynamic Exploration with Meta-Prompting
-
-CodeEvolve uses a meta-prompting strategy to guide the LLM's search and refinement process dynamically.
-
-1. **Adaptive Exploration**: Prompts are dynamically adjusted based on the current state of the population and the search landscape.
-
-2. **Targeted Refinement**: This strategy allows the agent to switch between exploitation and exploration effectively, maintaining dynamic control over the solution space.
+Both operators are complemented by an **Inspiration-based Crossover** mechanism, which avoids traditional syntactic splicing by providing the LLMEnsemble with sampled high-performing solutions as additional context. This encourages the LLM to synthesize new solutions by semantically combining successful logic or patterns from multiple parents. 
 
 ## Usage
 
