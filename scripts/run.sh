@@ -11,7 +11,6 @@
 # ===--------------------------------------------------------------------------------------===#
 
 #!/bin/bash
-
 # Config for main
 BASE_DIR="benchmarks/circle_packing_square/26"
 INPT_DIR="${BASE_DIR}/input/"
