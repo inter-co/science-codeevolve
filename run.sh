@@ -13,7 +13,7 @@
 #!/bin/bash
 
 # Config for main
-BASE_DIR="benchmarks/circle_packing_square/26/"
+BASE_DIR="benchmarks/circle_packing_square/26"
 INPT_DIR="${BASE_DIR}/input/"
 CFG_PATH="${BASE_DIR}/configs/config.yaml"
 OUT_DIR="${BASE_DIR}/experiments/test/"
