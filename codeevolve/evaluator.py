@@ -128,8 +128,8 @@ class Evaluator:
                 "("
                 f"eval_path={self.eval_path},"
                 f"cwd={self.cwd},"
-                f"timeout_s={self.timeout_s},",
-                f"max_mem_b={self.max_mem_b},",
+                f"timeout_s={self.timeout_s},"
+                f"max_mem_b={self.max_mem_b},"
                 f"mem_check_interval_s={self.mem_check_interval_s}"
                 ")")
 

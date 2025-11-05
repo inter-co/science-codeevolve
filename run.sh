@@ -26,7 +26,7 @@ API_KEY=""
 export API_BASE="$API_BASE"
 export API_KEY="$API_KEY"
 
-# Run main.py with taskset
+# Run with taskset
 CPU_LIST="0-7"
 
-taskset --cpu-list $CPU_LIST python main.py --inpt_dir=$INPT_DIR --cfg_path=$CFG_PATH --out_dir=$RESULTS_DIR --load_ckpt=$LOAD_CKPT --terminal_logging
+taskset --cpu-list $CPU_LIST python codeevolve_run.py --inpt_dir=$INPT_DIR --cfg_path=$CFG_PATH --out_dir=$RESULTS_DIR --load_ckpt=$LOAD_CKPT --terminal_logging

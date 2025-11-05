@@ -20,7 +20,10 @@ Both operators are complemented by an **Inspiration-based Crossover** mechanism,
 
 ## Usage
 
-Tutorials coming soon.
+```bash
+conda env create -f environment.yml
+conda activate codeevolve
+```
 
 ## Next steps
 

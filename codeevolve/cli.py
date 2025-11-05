@@ -6,7 +6,7 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 #
-# This file implements the command-line execution of CodeEvolve.
+# This file implements the command-line interface of CodeEvolve.
 #
 # ===--------------------------------------------------------------------------------------===#
 
@@ -21,6 +21,7 @@ import ctypes
 import os
 from pathlib import Path
 import re
+import sys
 
 import yaml
 
@@ -123,7 +124,7 @@ def setup_isl_args(args: Dict[str, Any], num_islands: int) -> Dict[int, Dict[str
     return isl2args
 
 
-def main(args: Dict[str, Any]):
+def main():
     """Main entry point for CodeEvolve execution with multiprocessing setup.
 
     This function orchestrates the entire CodeEvolve system by:
@@ -144,14 +145,35 @@ def main(args: Dict[str, Any]):
     ):
         asyncio.run(codeevolve(run_args, isl_data, global_data))
 
+    # args
+    args: Dict[str, Any] = vars(parse_args())
+    args["inpt_dir"] = Path(args["inpt_dir"])
+    args["cfg_path"] = Path(args["cfg_path"])
+    args["out_dir"] = Path(args["out_dir"])
+    
+    try:
+        for path in [args["inpt_dir"], args["cfg_path"]]:
+            assert os.path.exists(path), f"Path {path} not found."
+    except AssertionError as err:
+        print(str(err))
+        return 1
+
+    args["api_base"] = os.environ["API_BASE"]
+    args["api_key"] = os.environ["API_KEY"]
+
     # config
     os.makedirs(args["out_dir"], exist_ok=True)
     cfg_copy_path: Path = args["out_dir"].joinpath(args["cfg_path"].name)
-    if cfg_copy_path in os.listdir(args["out_dir"]) and args["load_ckpt"]:
-        config: Dict[Any, Any] = yaml.safe_load(open(cfg_copy_path, "r"))
-    else:
-        config: Dict[Any, Any] = yaml.safe_load(open(args["cfg_path"], "r"))
-        yaml.safe_dump(config, open(cfg_copy_path, "w"))
+
+    try:
+        if cfg_copy_path in os.listdir(args["out_dir"]) and args["load_ckpt"]:
+            config: Dict[Any, Any] = yaml.safe_load(open(cfg_copy_path, "r"))
+        else:
+            config: Dict[Any, Any] = yaml.safe_load(open(args["cfg_path"], "r"))
+            yaml.safe_dump(config, open(cfg_copy_path, "w"))
+    except Exception as err:
+        print(str(err))
+        return 1
 
     evolve_config: Dict[str, Any] = config["EVOLVE_CONFIG"]
 
@@ -177,9 +199,14 @@ def main(args: Dict[str, Any]):
     )
 
     # islands
-    edge_list: List[Tuple[int, int]] = get_edge_list(
-        evolve_config["num_islands"], evolve_config["migration_topology"]
-    )
+    try:
+        edge_list: List[Tuple[int, int]] = get_edge_list(
+            evolve_config["num_islands"], evolve_config["migration_topology"]
+        )
+    except Exception as err:
+        print(str(err))
+        return 1
+    
     in_adj: Optional[List[PipeEdge]] = None
     out_adj: Optional[List[PipeEdge]] = None
     if len(edge_list):
@@ -218,22 +245,8 @@ def main(args: Dict[str, Any]):
         log_queue.put(None)
         log_formatter_daemon.join()
 
+    return 0
+
 
 if __name__ == "__main__":
-    """Entry point for command-line execution.
-
-    Parses command-line arguments, validates required paths and environment
-    variables, and launches the main CodeEvolve system.
-    """
-    args: Dict[str, Any] = vars(parse_args())
-    args["inpt_dir"] = Path(args["inpt_dir"])
-    args["cfg_path"] = Path(args["cfg_path"])
-    args["out_dir"] = Path(args["out_dir"])
-
-    for path in [args["inpt_dir"], args["cfg_path"]]:
-        assert os.path.exists(path), f"Path {path} not found."
-
-    args["api_base"] = os.environ["API_BASE"]
-    args["api_key"] = os.environ["API_KEY"]
-
-    main(args)
+    sys.exit(main())
