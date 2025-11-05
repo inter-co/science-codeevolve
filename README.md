@@ -19,11 +19,14 @@ CodeEvolve is built upon an island-based genetic algorithm designed to maintain 
 Both operators are complemented by an **Inspiration-based Crossover** mechanism, which avoids traditional syntactic splicing by providing the LLMEnsemble with sampled high-performing solutions as additional context. This encourages the LLM to synthesize new solutions by semantically combining successful logic or patterns from multiple parents. 
 
 ## Usage
-
+To setup the proper conda environment, run the following:
 ```bash
 conda env create -f environment.yml
 conda activate codeevolve
 ```
+The command-line version of codeevolve is implemented in ```codeevolve/cli.py```, and ```run.sh``` contains a bash script for running codeevolve on a given benchmark. The most important variables to be defined in this file are the ```API_KEY, API_BASE``` environment variables for connecting with an LLM provider.
+
+More comprehensive tutorials will be released soon.
 
 ## Next steps
 
@@ -59,6 +62,6 @@ We are not accepting pull requests at this time, as we are still actively develo
 
 ## License and Disclaimer
 
-All software is licensed under the Apache License, Version 2.0 (Apache 2.0); you may not use this file except in compliance with the Apache 2.0 license. You may obtain a copy of the Apache 2.0 license at: https://www.apache.org/licenses/LICENSE-2.0
+All software is licensed under the Apache License, Version 2.0 (Apache 2.0); you may not use this file except in compliance with the Apache 2.0 license. You may obtain a copy of the Apache 2.0 license at: https://www.apache.org/licenses/LICENSE-2.0.
 
 **This is not an official Inter product.**
