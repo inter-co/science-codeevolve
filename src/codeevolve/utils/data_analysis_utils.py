@@ -136,9 +136,7 @@ def get_experiment_df(
         for prog in prompt_db.programs.values():
             if prog.fitness == mp_best_fitness:
                 mp_epoch_best_found = (
-                    min(prog.iteration_found, mp_epoch_best_found)
-                    if prog.iteration_found
-                    else 0
+                    min(prog.iteration_found, mp_epoch_best_found) if prog.iteration_found else 0
                 )
 
         mp_num_sr_errors = len(
@@ -149,16 +147,12 @@ def get_experiment_df(
             ]
         )
         mp_num_eval_errors = len([prog for prog in prompt_db.programs.values() if prog.error])
-        mp_num_eval_warnings = len(
-            [prog for prog in prompt_db.programs.values() if prog.warning]
-        )
+        mp_num_eval_warnings = len([prog for prog in prompt_db.programs.values() if prog.warning])
 
         mp_model2tok_usage = defaultdict(lambda: defaultdict(int))
         for tok_info in evolve_state["tok_usage"]:
             if tok_info["motive"] == "meta_prompt":
-                mp_model2tok_usage[tok_info["model_name"]]["prompt_tok"] += tok_info[
-                    "prompt_tok"
-                ]
+                mp_model2tok_usage[tok_info["model_name"]]["prompt_tok"] += tok_info["prompt_tok"]
                 mp_model2tok_usage[tok_info["model_name"]]["compl_tok"] += tok_info["compl_tok"]
 
         mp_tok_usage_row = []
@@ -192,15 +186,11 @@ def get_experiment_df(
 
     tok_usage_cols = [
         model_name + suffix
-        for model_name, suffix in itertools.product(
-            model_names, ["(prompt_tok)", "(compl_tok)"]
-        )
+        for model_name, suffix in itertools.product(model_names, ["(prompt_tok)", "(compl_tok)"])
     ]
     mp_tok_usage_cols = [
         "mp_" + model_name + suffix
-        for model_name, suffix in itertools.product(
-            model_names, ["(prompt_tok)", "(compl_tok)"]
-        )
+        for model_name, suffix in itertools.product(model_names, ["(prompt_tok)", "(compl_tok)"])
     ]
 
     return pd.DataFrame(
@@ -393,9 +383,7 @@ def plot_experiments_statistical_summary(
                     current_valid = value
                     cleaned_hist.append(value)
                 else:
-                    cleaned_hist.append(
-                        current_valid if current_valid is not None else last_valid
-                    )
+                    cleaned_hist.append(current_valid if current_valid is not None else last_valid)
 
             return cleaned_hist
 
@@ -578,9 +566,7 @@ def plot_program_tree(
         alpha=1.0,
     )
 
-    nx.draw_networkx_edges(
-        G, pos, ax=ax, arrows=True, arrowsize=8, edge_color="gray", alpha=0.8
-    )
+    nx.draw_networkx_edges(G, pos, ax=ax, arrows=True, arrowsize=8, edge_color="gray", alpha=0.8)
 
     nx.draw_networkx_labels(G, pos, ax=ax, labels=node_labels, font_size=font_size)
 

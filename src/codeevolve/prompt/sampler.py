@@ -72,9 +72,7 @@ class PromptSampler:
 
         self.aux_lm: OpenAILM = aux_lm
 
-        self.logger: logging.Logger = (
-            logger if logger is not None else logging.getLogger(__name__)
-        )
+        self.logger: logging.Logger = logger if logger is not None else logging.getLogger(__name__)
 
     def __repr__(self) -> str:
         """Returns a string representation of the PromptSampler.
@@ -105,9 +103,7 @@ class PromptSampler:
             {"role": "system", "content": EVOLVE_PROMPT_TASK_TEMPLATE},
             {
                 "role": "user",
-                "content": EVOLVE_PROMPT_TEMPLATE.format(
-                    prompt=prompt.code, program=prog.prog_msg
-                ),
+                "content": EVOLVE_PROMPT_TEMPLATE.format(prompt=prompt.code, program=prog.prog_msg),
             },
         ]
 
@@ -116,8 +112,10 @@ class PromptSampler:
         response, prompt_tok, compl_tok = await self.aux_lm.generate(messages)
 
         self.logger.info(
-            (f"Successfully retrieved response, using {prompt_tok} prompt tokens"
-             f" and {compl_tok} completion tokens.")
+            (
+                f"Successfully retrieved response, using {prompt_tok} prompt tokens"
+                f" and {compl_tok} completion tokens."
+            )
         )
 
         return (response, prompt_tok, compl_tok)
@@ -160,14 +158,10 @@ class PromptSampler:
             messages.appendleft(
                 {
                     "role": "user",
-                    "content": EVOLVE_PROG_TEMPLATE.format(
-                        program=db.programs[curr_pid].prog_msg
-                    ),
+                    "content": EVOLVE_PROG_TEMPLATE.format(program=db.programs[curr_pid].prog_msg),
                 }
             )
-            messages.appendleft(
-                {"role": "assistant", "content": db.programs[curr_pid].model_msg}
-            )
+            messages.appendleft({"role": "assistant", "content": db.programs[curr_pid].model_msg})
             curr_pid = db.programs[curr_pid].parent_id
             curr_depth += 1
 
@@ -177,17 +171,13 @@ class PromptSampler:
                 "content": EVOLVE_PROG_TEMPLATE.format(program=db.programs[curr_pid].prog_msg),
             }
         )
-        messages.appendleft(
-            {"role": "system", "content": prompt.code + EVOLVE_PROG_TASK_TEMPLATE}
-        )
+        messages.appendleft({"role": "system", "content": prompt.code + EVOLVE_PROG_TASK_TEMPLATE})
 
         # inspirations
         if inspirations and len(inspirations):
             insp_str: str = ""
             for i, inspiration in enumerate(inspirations):
-                insp_str += INSP_PROG_TEMPLATE.format(
-                    counter=i + 1, program=inspiration.prog_msg
-                )
+                insp_str += INSP_PROG_TEMPLATE.format(counter=i + 1, program=inspiration.prog_msg)
             messages[-1]["content"] = insp_str + messages[-1]["content"]
 
         return list(messages)

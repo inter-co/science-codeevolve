@@ -54,9 +54,11 @@ benchmarks = [
     "numexpr>=2.10.1"
 ]
 
+[project.scripts]
+codeevolve = "codeevolve.cli:main"
+
 [tool.setuptools.packages.find]
-include = ["codeevolve*"]
-exclude = ["assets*", "notebooks*", "templates*"]
+where = ["src"]
 
 [tool.setuptools.dynamic]
 version = {attr = "codeevolve.__version__"}

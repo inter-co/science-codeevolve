@@ -76,15 +76,17 @@ class Program:
             A formatted string showing key program attributes including ID,
             fitness, location found, and execution status.
         """
-        return (f"{self.__class__.__name__}"
-                "("
-                f"id={self.id},"
-                f"fitness={self.fitness:.8f},"
-                f"island_found={self.island_found},"
-                f"iteration_found={self.iteration_found},"
-                f"returncode={self.returncode},"
-                f"eval_metrics={self.eval_metrics}"
-                ")")
+        return (
+            f"{self.__class__.__name__}"
+            "("
+            f"id={self.id},"
+            f"fitness={self.fitness:.8f},"
+            f"island_found={self.island_found},"
+            f"iteration_found={self.iteration_found},"
+            f"returncode={self.returncode},"
+            f"eval_metrics={self.eval_metrics}"
+            ")"
+        )
 
 
 class ProgramDatabase:
@@ -139,17 +141,19 @@ class ProgramDatabase:
             A formatted string showing database statistics including number
             of alive programs, maximum capacity, total programs, and root programs.
         """
-        return (f"{self.__class__.__name__}"
-                "("
-                f"num_alive={self.num_alive},"
-                f"max_alive={self.max_alive},"
-                f"total={len(self.programs)},"
-                f"roots={len(self.roots)}"
-                ")")
+        return (
+            f"{self.__class__.__name__}"
+            "("
+            f"num_alive={self.num_alive},"
+            f"max_alive={self.max_alive},"
+            f"total={len(self.programs)},"
+            f"roots={len(self.roots)}"
+            ")"
+        )
 
     # program management
     ## TODO: improve insertion logic if we are to make more insertions per epoch
-    # (currently each insertion takes NlogN worst case, we can use bisect or 
+    # (currently each insertion takes NlogN worst case, we can use bisect or
     # heapq to improve this).
 
     def update_alive_caches(self) -> None:
@@ -237,7 +241,7 @@ class ProgramDatabase:
 
         Args:
             k: Number of programs to select.
-            roulette_by_rank: If True, use rank-based weights; if False, use 
+            roulette_by_rank: If True, use rank-based weights; if False, use
             fitness-based weights.
             restricted_pids: List of program IDs to exclude from selection.
 
@@ -329,7 +333,7 @@ class ProgramDatabase:
     def sample(
         self, selection_policy: str, num_inspirations: int = 0, **kwargs
     ) -> Tuple[Optional[Program], List[Program]]:
-        """Samples a parent program and inspiration programs using the specified 
+        """Samples a parent program and inspiration programs using the specified
         selection policy.
 
         Args:
@@ -351,9 +355,7 @@ class ProgramDatabase:
         elif selection_policy not in self._selection_methods.keys():
             raise ValueError(f"Selection policy must be in {self._selection_methods.keys()}")
 
-        sampled_parent: Optional[Program] = self._selection_methods[selection_policy](
-            k=1, **kwargs
-        )
+        sampled_parent: Optional[Program] = self._selection_methods[selection_policy](k=1, **kwargs)
         if sampled_parent:
             sampled_parent = sampled_parent[0]
 

@@ -92,11 +92,12 @@ def setup_isl_args(args: Dict[str, Any], num_islands: int) -> Dict[int, Dict[str
     """
     isl2args: Dict[int, Dict[str, Any]] = {}
 
-    global_ckpt: int = 0
+    common_ckpts: set[str] = {}
     for island_id in range(num_islands):
         isl_args: Dict[str, Any] = args.copy()
         isl_args["isl_out_dir"] = isl_args["out_dir"].joinpath(f"{island_id}/")
         isl_args["ckpt_dir"] = isl_args["isl_out_dir"].joinpath("ckpt/")
+        isl2args[island_id] = isl_args
 
         os.makedirs(isl_args["isl_out_dir"], exist_ok=True)
         os.makedirs(isl_args["ckpt_dir"], exist_ok=True)
@@ -104,20 +105,22 @@ def setup_isl_args(args: Dict[str, Any], num_islands: int) -> Dict[int, Dict[str
         ckpts: List[str] = [
             f for f in os.listdir(isl_args["ckpt_dir"]) if re.match(r"ckpt_\d+\.pkl$", f)
         ]
-        isl_ckpt: int = 0
-        if args["load_ckpt"] and len(ckpts):
-            if f"ckpt_{args['load_ckpt']}.pkl" in ckpts:
-                isl_ckpt = args["load_ckpt"]
-            else:
-                isl_ckpt = max([int(re.search(r"ckpt_(\d+)\.pkl$", f).group(1)) for f in ckpts])
-                if args["load_ckpt"] > 0:
-                    print(f"Ckpt {args['load_ckpt']} not found in island {island_id}.")
+        common_ckpts = common_ckpts.intersection(set(ckpts)) if island_id else set(ckpts)
 
-        isl_args["load_ckpt"] = isl_ckpt
-        isl2args[island_id] = isl_args
+    global_ckpt: int = 0
+    if len(common_ckpts):
+        latest_common_ckpt = max(
+            int(re.search(r"ckpt_(\d+)\.pkl$", f).group(1)) for f in common_ckpts
+        )
+        if args["load_ckpt"] and f"ckpt_{args["load_ckpt"]}.pkl" in common_ckpts:
+            global_ckpt = args["load_ckpt"]
+            print(f"Loading common checkpoint: {global_ckpt}")
+        else:
+            global_ckpt = latest_common_ckpt
+            print(f"Resuming from latest common checkpoint: {global_ckpt}")
+    else:
+        print("No common checkpoints found. Starting from epoch 0.")
 
-    # use latest common checkpoint for each island
-    global_ckpt = min([isl2args[island_id]["load_ckpt"] for island_id in range(num_islands)])
     for island_id in range(num_islands):
         isl2args[island_id]["load_ckpt"] = global_ckpt
 
@@ -140,9 +143,7 @@ def main():
               input/output paths, configuration, and execution settings.
     """
 
-    def _async_run_evolve(
-        run_args: Dict[str, Any], isl_data: IslandData, global_data: GlobalData
-    ):
+    def _async_run_evolve(run_args: Dict[str, Any], isl_data: IslandData, global_data: GlobalData):
         asyncio.run(codeevolve(run_args, isl_data, global_data))
 
     # args
@@ -150,7 +151,7 @@ def main():
     args["inpt_dir"] = Path(args["inpt_dir"])
     args["cfg_path"] = Path(args["cfg_path"])
     args["out_dir"] = Path(args["out_dir"])
-    
+
     try:
         for path in [args["inpt_dir"], args["cfg_path"]]:
             assert os.path.exists(path), f"Path {path} not found."
@@ -206,7 +207,7 @@ def main():
     except Exception as err:
         print(str(err))
         return 1
-    
+
     in_adj: Optional[List[PipeEdge]] = None
     out_adj: Optional[List[PipeEdge]] = None
     if len(edge_list):

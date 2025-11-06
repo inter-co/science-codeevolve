@@ -68,13 +68,15 @@ class OpenAILM:
         Returns:
             A formatted string showing key configuration parameters.
         """
-        return (f"{self.__class__.__name__}"
-                "("
-                f"model_name={self.model_name},"
-                f"temp={self.temp},"
-                f"top_p={self.top_p},"
-                f"weight={self.weight}"
-                ")")
+        return (
+            f"{self.__class__.__name__}"
+            "("
+            f"model_name={self.model_name},"
+            f"temp={self.temp},"
+            f"top_p={self.top_p},"
+            f"weight={self.weight}"
+            ")"
+        )
 
     def __post_init__(self):
         """Initializes the AsyncOpenAI client after dataclass initialization.
@@ -135,8 +137,10 @@ class OpenAILM:
                     retry_delay = retry_delay << 1
                 else:
                     raise ConnectionError(
-                        (f"Failed to fetch LM response after {self.retries+1} attempts"
-                         f"(Error:{str(err)}).")
+                        (
+                            f"Failed to fetch LM response after {self.retries+1} attempts"
+                            f"(Error:{str(err)})."
+                        )
                     )
 
 
@@ -166,8 +170,7 @@ class LMEnsemble:
         """
         self.models_cfg: List[Dict[Any, Any]] = models_cfg
         self.models: List[OpenAILM] = [
-            OpenAILM(**model_cfg, api_key=api_key, api_base=api_base)
-            for model_cfg in models_cfg
+            OpenAILM(**model_cfg, api_key=api_key, api_base=api_base) for model_cfg in models_cfg
         ]
 
         self.weights: List[float] = [model.weight for model in self.models]
@@ -179,9 +182,7 @@ class LMEnsemble:
         if self.seed:
             self.random_state.seed(self.seed)
 
-        self.logger: logging.Logger = (
-            logger if logger is not None else logging.getLogger(__name__)
-        )
+        self.logger: logging.Logger = logger if logger is not None else logging.getLogger(__name__)
 
     def __repr__(self) -> str:
         """Returns a string representation of the ensemble.
@@ -221,8 +222,10 @@ class LMEnsemble:
         response, prompt_tok, compl_tok = await self.models[model_id].generate(messages)
 
         self.logger.info(
-            (f"Successfully retrieved response, using {prompt_tok} prompt tokens"
-             f" and {compl_tok} completion tokens.")
+            (
+                f"Successfully retrieved response, using {prompt_tok} prompt tokens"
+                f" and {compl_tok} completion tokens."
+            )
         )
 
         return (model_id, response, prompt_tok, compl_tok)

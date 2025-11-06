@@ -86,8 +86,10 @@ async def evolve_loop(
     for epoch in range(start_epoch + 1, evolve_config["num_epochs"] + 1):
         logger.info(f"========= EPOCH {epoch} =========")
         logger.info(
-            (f"Global early stopping counter: {evolve_state['early_stop_counter']}"
-             f"/{evolve_config['early_stopping_rounds']}")
+            (
+                f"Global early stopping counter: {evolve_state['early_stop_counter']}"
+                f"/{evolve_config['early_stopping_rounds']}"
+            )
         )
         logger.info(f"Prompt database: {prompt_db}")
         logger.info(f"Best prompt: {prompt_db.programs[prompt_db.best_prog_id]}")
@@ -97,21 +99,19 @@ async def evolve_loop(
         gen_init_pop: bool = sol_db.num_alive < evolve_config.get("init_pop", sol_db.num_alive)
         logger.info(f"Generating initial populations: {gen_init_pop}")
 
-        exploration: bool = (
-            sol_db.random_state.uniform(0, 1) <= evolve_config["exploration_rate"]
-        )
+        exploration: bool = sol_db.random_state.uniform(0, 1) <= evolve_config["exploration_rate"]
         logger.info(f"Exploration: {exploration}")
 
         # SELECTING PARENT PROGRAM
         logger.info("=== SELECTION STEP ===")
         if not gen_init_pop:
-            selection_policy: str = (
-                "random" if exploration else evolve_config["selection_policy"]
-            )
+            selection_policy: str = "random" if exploration else evolve_config["selection_policy"]
             selection_kwargs: dict = {} if exploration else evolve_config["selection_kwargs"]
             logger.info(
-                (f"Selecting parents according to {selection_policy}"
-                 f" with kwargs {selection_kwargs}.")
+                (
+                    f"Selecting parents according to {selection_policy}"
+                    f" with kwargs {selection_kwargs}."
+                )
             )
             parent_sol, inspirations = sol_db.sample(
                 selection_policy=selection_policy,
@@ -229,9 +229,7 @@ async def evolve_loop(
 
         ## GENERATE DIFF
         try:
-            model_id, sol_diff, prompt_tok, compl_tok = await ensemble.generate(
-                messages=messages
-            )
+            model_id, sol_diff, prompt_tok, compl_tok = await ensemble.generate(messages=messages)
             evolve_success = True
 
             evolve_state["tok_usage"].append(
@@ -273,7 +271,7 @@ async def evolve_loop(
                 code=child_sol_code,
                 language=parent_sol.language,
                 parent_id=parent_sol.id if not gen_init_pop else None,
-                iteration_found=epoch,  
+                iteration_found=epoch,
                 generation=epoch,
                 island_found=isl_data.id,
                 prompt_id=prompt.id,
@@ -300,8 +298,10 @@ async def evolve_loop(
                 improved_local_fitness = True
             else:
                 logger.info(
-                    (f"New program is worse than best -> {child_sol.fitness}"
-                     f" <= {sol_db.programs[sol_db.best_prog_id].fitness}.")
+                    (
+                        f"New program is worse than best -> {child_sol.fitness}"
+                        f" <= {sol_db.programs[sol_db.best_prog_id].fitness}."
+                    )
                 )
 
         # MIGRATION
@@ -333,9 +333,7 @@ async def evolve_loop(
                 evolve_state=evolve_state,
                 best_sol_path=args["isl_out_dir"].joinpath(
                     "best_sol"
-                    + evaluator.language2extension[
-                        sol_db.programs[sol_db.best_prog_id].language
-                    ]
+                    + evaluator.language2extension[sol_db.programs[sol_db.best_prog_id].language]
                 ),
                 best_prompt_path=args["isl_out_dir"].joinpath("best_prompt.txt"),
                 ckpt_dir=args["ckpt_dir"],
@@ -362,15 +360,19 @@ async def evolve_loop(
 
         if global_data.early_stop_counter.value > evolve_state["early_stop_counter"]:
             logger.info(
-                (f"Early stopping counter increased: {global_data.early_stop_counter.value}"
-                 f"/{evolve_config['early_stopping_rounds']}")
+                (
+                    f"Early stopping counter increased: {global_data.early_stop_counter.value}"
+                    f"/{evolve_config['early_stopping_rounds']}"
+                )
             )
 
         evolve_state["early_stop_counter"] = global_data.early_stop_counter.value
         if evolve_state["early_stop_counter"] == evolve_config["early_stopping_rounds"]:
             logger.info(
-                (f"EARLY STOPPING: {evolve_state['early_stop_counter']}"
-                 " global consecutive epochs without improvement.")
+                (
+                    f"EARLY STOPPING: {evolve_state['early_stop_counter']}"
+                    " global consecutive epochs without improvement."
+                )
             )
             break
 
@@ -390,8 +392,7 @@ async def evolve_loop(
         sol_db=sol_db,
         evolve_state=evolve_state,
         best_sol_path=args["isl_out_dir"].joinpath(
-            "best_sol"
-            + evaluator.language2extension[sol_db.programs[sol_db.best_prog_id].language]
+            "best_sol" + evaluator.language2extension[sol_db.programs[sol_db.best_prog_id].language]
         ),
         best_prompt_path=args["isl_out_dir"].joinpath("best_prompt.txt"),
         ckpt_dir=args["ckpt_dir"],
@@ -399,9 +400,7 @@ async def evolve_loop(
     )
 
 
-async def codeevolve(
-    args: Dict[str, Any], isl_data: IslandData, global_data: GlobalData
-) -> None:
+async def codeevolve(args: Dict[str, Any], isl_data: IslandData, global_data: GlobalData) -> None:
     """Main entry point for the CodeEvolve algorithm on a single island.
 
     This function initializes all components needed for evolutionary program synthesis,
@@ -523,13 +522,15 @@ async def codeevolve(
         sol_db.add(init_sol)
 
     logger.info(
-        ("CODEEVOLVE COMPONENTS\n"
-         f"sol_db={sol_db}\n"
-         f"prompt_db={prompt_db}\n"
-         f"ensemble={ensemble}\n"
-         f"prompt_sampler={prompt_sampler}"
-         f"evaluator={evaluator}\n"
-         f"init_prog={init_sol}")
+        (
+            "CODEEVOLVE COMPONENTS\n"
+            f"sol_db={sol_db}\n"
+            f"prompt_db={prompt_db}\n"
+            f"ensemble={ensemble}\n"
+            f"prompt_sampler={prompt_sampler}"
+            f"evaluator={evaluator}\n"
+            f"init_prog={init_sol}"
+        )
     )
 
     # UPDATE GLOBAL BEST

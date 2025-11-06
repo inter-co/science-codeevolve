@@ -74,9 +74,7 @@ def log_formatter(
         refresh_rate: Time in seconds between dashboard refreshes.
         island_hist_len: Maximum number of log messages to keep per island.
     """
-    island_logs: Dict[int, deque] = {
-        i: deque(maxlen=island_hist_len) for i in range(num_islands)
-    }
+    island_logs: Dict[int, deque] = {i: deque(maxlen=island_hist_len) for i in range(num_islands)}
     island_id_pattern = re.compile(r"\[island (\d+)\]")
 
     island_epochs: Dict[int, str] = {i: "Initializing..." for i in range(num_islands)}

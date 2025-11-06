@@ -113,9 +113,7 @@ class Evaluator:
             "powershell": ".ps1",
             "sql": ".sql",
         }
-        self.logger: logging.Logger = (
-            logger if logger is not None else logging.getLogger(__name__)
-        )
+        self.logger: logging.Logger = logger if logger is not None else logging.getLogger(__name__)
 
     def __repr__(self):
         """Returns a string representation of the Evaluator instance.
@@ -124,14 +122,16 @@ class Evaluator:
             A formatted string showing the evaluator's configuration including
             eval path, working directory, timeout, and memory limits.
         """
-        return (f"{self.__class__.__name__}"
-                "("
-                f"eval_path={self.eval_path},"
-                f"cwd={self.cwd},"
-                f"timeout_s={self.timeout_s},"
-                f"max_mem_b={self.max_mem_b},"
-                f"mem_check_interval_s={self.mem_check_interval_s}"
-                ")")
+        return (
+            f"{self.__class__.__name__}"
+            "("
+            f"eval_path={self.eval_path},"
+            f"cwd={self.cwd},"
+            f"timeout_s={self.timeout_s},"
+            f"max_mem_b={self.max_mem_b},"
+            f"mem_check_interval_s={self.mem_check_interval_s}"
+            ")"
+        )
 
     def execute(self, prog: Program) -> None:
         """Executes a program and updates it with execution results and metrics.
@@ -152,7 +152,7 @@ class Evaluator:
         warning: Optional[str] = None
         eval_metrics: Dict[str, float] = {}
 
-        # we copy cwd to temp and pass this temp directory as 
+        # we copy cwd to temp and pass this temp directory as
         # the cwd for the program being executed
         tmp_dir: tempfile.TemporaryDirectory = tempfile.TemporaryDirectory(delete=False)
         temp_cwd: Optional[tempfile.TemporaryDirectory] = None
@@ -229,13 +229,17 @@ class Evaluator:
                     else:
                         error = stderr
                 else:
-                    error = ("MemoryExceededError: Evaluation memory usage exceeded maximum"
-                             f" limit of {self.max_mem_b} bytes.")
+                    error = (
+                        "MemoryExceededError: Evaluation memory usage exceeded maximum"
+                        f" limit of {self.max_mem_b} bytes."
+                    )
             except subprocess.TimeoutExpired:
                 kill_flag.set()
                 process.kill()
-                error = ("TimeoutError: Evaluation time usage exceeded maximum"
-                         f" time limit of {self.timeout_s} seconds.")
+                error = (
+                    "TimeoutError: Evaluation time usage exceeded maximum"
+                    f" time limit of {self.timeout_s} seconds."
+                )
 
         finally:
             try:
@@ -255,7 +259,7 @@ class Evaluator:
         prog.returncode = returncode
         prog.error = error
         prog.eval_metrics = eval_metrics
-        
-        #TODO: figure a good way of using stdout and warning, they might be really big
+
+        # TODO: figure a good way of using stdout and warning, they might be really big
         # prog.output = stdout
         # prog.warning = warning

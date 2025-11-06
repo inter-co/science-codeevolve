@@ -88,12 +88,15 @@ class GlobalBestProg:
         Returns:
             A formatted string showing fitness, iteration found, and island found.
         """
-        return (f"{self.__class__.__name__}"
-                "("
-                f"fitness={self.fitness.value:.8f},"
-                f"iteration_found={self.iteration_found.value},"
-                f"island_found={self.island_found.value}"
-                ")")
+        return (
+            f"{self.__class__.__name__}"
+            "("
+            f"fitness={self.fitness.value:.8f},"
+            f"iteration_found={self.iteration_found.value},"
+            f"island_found={self.island_found.value}"
+            ")"
+        )
+
 
 @dataclass
 class GlobalData:
@@ -151,7 +154,7 @@ def early_stopping_check(
     logger.info("All islands synced.")
 
     with global_data.lock:
-        # first to arrive is the leader, makes the early stop check, 
+        # first to arrive is the leader, makes the early stop check,
         # and then sets the aux to -1 so no other island can do the same
         if global_data.early_stop_aux.value != -1:
             if global_data.early_stop_aux.value == num_islands:
@@ -336,7 +339,7 @@ def sync_migrate(
     """
     db.update_alive_caches()
 
-    # only send programs that are not migrants and haven't migrated yet, 
+    # only send programs that are not migrants and haven't migrated yet,
     # might lead to fewer than migration_rate*num_alive migrants.
     tgt_progs: List[Program] = [
         db.programs[pid]
@@ -344,9 +347,7 @@ def sync_migrate(
         if ((db.programs[pid].island_found == db.id) and (not db.has_migrated.get(pid, False)))
     ]
 
-    num_migrants: int = min(
-        len(tgt_progs), int(max(1, migration_rate * len(db.alive_pid_cache)))
-    )
+    num_migrants: int = min(len(tgt_progs), int(max(1, migration_rate * len(db.alive_pid_cache))))
     migrants: List[Program] = sorted(
         tgt_progs, key=lambda prog: db.alive_rank_cache[prog.id], reverse=False
     )[:num_migrants]
