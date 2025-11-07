@@ -20,6 +20,7 @@ import time
 import psutil
 import pathlib
 import shutil
+import sys
 from codeevolve.database import Program
 
 # TODO: better sandboxing (e.g. firejail)
@@ -187,7 +188,7 @@ class Evaluator:
 
             # run evaluate.py in subprocess using the temporary cwd copy
             process = subprocess.Popen(
-                ["python", self.eval_path, code_file_path, result_file_path],
+                [sys.executable, self.eval_path, code_file_path, result_file_path],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 bufsize=1,
