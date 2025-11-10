@@ -325,7 +325,15 @@ async def evolve_loop(
 
         # CHECKPOINTING
         if epoch % evolve_config["ckpt"] == 0:
+            # we synchronize here to avoid a relatively common problem where
+            # a slower island fails to save a CKPT when an experiment is interrupted, 
+            # resulting in desynchronized ckpts. this does not solve the problem completely,
+            # but it does make it extremely unlikely to occur.
             logger.info("=== CHECKPOINT STEP ===")
+            logger.info("Waiting for other islands to arrive at barrier...")
+            global_data.barrier.wait()
+            logger.info("All islands arrived. Proceeding to save ckpt.")
+            
             save_ckpt(
                 curr_epoch=epoch,
                 prompt_db=prompt_db,
