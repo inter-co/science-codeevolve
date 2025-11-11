@@ -158,9 +158,13 @@ def main():
     except AssertionError as err:
         print(str(err))
         return 1
-
-    args["api_base"] = os.environ["API_BASE"]
-    args["api_key"] = os.environ["API_KEY"]
+    
+    try:
+        args["api_base"] = os.environ["API_BASE"]
+        args["api_key"] = os.environ["API_KEY"]
+    except Exception as err:
+        print("Export API_KEY and API_BASE as environment variables before running CodeEvolve.")
+        return 1
 
     # config
     os.makedirs(args["out_dir"], exist_ok=True)

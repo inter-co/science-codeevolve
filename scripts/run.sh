@@ -11,21 +11,12 @@
 # ===--------------------------------------------------------------------------------------===#
 
 #!/bin/bash
-# Config for main
+
 BASE_DIR="benchmarks/circle_packing_square/26"
 INPT_DIR="${BASE_DIR}/input/"
 CFG_PATH="${BASE_DIR}/configs/config.yaml"
 OUT_DIR="${BASE_DIR}/experiments/test/"
 LOAD_CKPT=-1
-
-# API_BASE and API_KEY for OpenAI API
-API_BASE=""
-API_KEY=""
-
-export API_BASE="$API_BASE"
-export API_KEY="$API_KEY"
-
-# Run with taskset
 CPU_LIST="0-7"
 
 taskset --cpu-list $CPU_LIST codeevolve --inpt_dir=$INPT_DIR --cfg_path=$CFG_PATH --out_dir=$RESULTS_DIR --load_ckpt=$LOAD_CKPT --terminal_logging
