@@ -1,0 +1,42 @@
+SYS_MSG: |
+  # PROMPT-BLOCK-START
+  # PROMPT-BLOCK-END
+      
+CODEBASE_PATH: 'src/'
+INIT_FILE_DATA: {filename: 'INIT_PROGRAM.EXT', language: 'EXT'}
+EVAL_FILE_NAME: 'evaluate.py'
+EVAL_TIMEOUT: 180
+
+MAX_MEM_BYTES: 1000000000
+MEM_CHECK_INTERVAL_S: 0.1
+
+EVOLVE_CONFIG: {fitness_key: 'FITNESS_KEY',
+                num_epochs: 100,ckpt: 5,max_size: 40,init_pop: 6,
+                exploration_rate: 0.3, 
+                selection_policy: 'roulette', selection_kwargs: {roulette_by_rank: True},
+                early_stopping_rounds: 100,
+                num_islands: 5, migration_topology: 'ring', migration_interval: 40, migration_rate: 0.1,
+                meta_prompting: False, use_embedding: False, use_map_elites: False,
+                num_inspirations: 0,
+                max_chat_depth: 3}
+
+ENSEMBLE: [{model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False},
+           {model_name: 'GOOGLE_GEMINI-2.5-PRO', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.2, verify_ssl: False}]
+
+SAMPLER_AUX_LM: {model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 1, verify_ssl: False}
+
+EMBEDDING: {model_name: 'AZURE_TEXT-EMBEDDING-3-SMALL', retries: 3, verify_ssl: False}
+
+MAP_ELITES: {elite_map_type: 'grid',
+             features: [
+              {name: 'feat1', min_val: 0, max_val: 1, num_bins: 10}
+             ]}
+
+# MAP_ELITES: {elite_map_type: 'cvt',
+#              features: [
+#               {name: 'feat1', min_val: 0, max_val: 1}
+#              ],
+#              elite_map_kwargs: {
+#               num_centroids: 50, num_init_samples: 10, max_iter: 300, tolerance: 0.0001
+#              }
+#              }

@@ -21,9 +21,7 @@ import multiprocessing.synchronize as mps
 import multiprocessing.connection as mpc
 import logging
 
-from codeevolve.database import Program, ProgramDatabase
-
-# dataclasses
+from codeevolve.database import Program
 
 
 @dataclass
@@ -123,7 +121,6 @@ class GlobalData:
     log_queue: mp.Queue
 
 
-# early stopping
 def early_stopping_check(
     island_id: int,
     num_islands: int,
@@ -174,6 +171,8 @@ def early_stopping_check(
 
 
 # islands graph
+
+
 def get_edge_list(num_islands: int, migration_topology: str) -> List[Tuple[int, int]]:
     """Generates edge list for island migration topology.
 
@@ -193,30 +192,31 @@ def get_edge_list(num_islands: int, migration_topology: str) -> List[Tuple[int, 
         ValueError: If migration_topology is not supported.
     """
     edge_list: List[Tuple[int, int]] = []
-    match migration_topology:
-        case "directed_ring":
-            edge_list = [(i, (i + 1) % num_islands) for i in range(num_islands)]
-        case "ring":
-            edge_list = [(i, (i + 1) % num_islands) for i in range(num_islands)] + [
-                ((i + 1) % num_islands, i) for i in range(num_islands)
-            ]
-        case "complete":
-            for i in range(num_islands):
-                for j in range(i + 1, num_islands):
-                    edge_list.append((i, j))
-                    edge_list.append((j, i))
-        case "inward_star":
-            edge_list = [(i, 0) for i in range(1, num_islands)]
-        case "outward_star":
-            edge_list = [(0, i) for i in range(1, num_islands)]
-        case "star":
-            edge_list = [(0, i) for i in range(1, num_islands)] + [
-                (i, 0) for i in range(1, num_islands)
-            ]
-        case "empty":
-            pass
-        case _:
-            raise ValueError(f"Unsupported migration topology: {migration_topology}.")
+    if num_islands > 1:
+        match migration_topology:
+            case "directed_ring":
+                edge_list = [(i, (i + 1) % num_islands) for i in range(num_islands)]
+            case "ring":
+                edge_list = [(i, (i + 1) % num_islands) for i in range(num_islands)] + [
+                    ((i + 1) % num_islands, i) for i in range(num_islands)
+                ]
+            case "complete":
+                for i in range(num_islands):
+                    for j in range(i + 1, num_islands):
+                        edge_list.append((i, j))
+                        edge_list.append((j, i))
+            case "inward_star":
+                edge_list = [(i, 0) for i in range(1, num_islands)]
+            case "outward_star":
+                edge_list = [(0, i) for i in range(1, num_islands)]
+            case "star":
+                edge_list = [(0, i) for i in range(1, num_islands)] + [
+                    (i, 0) for i in range(1, num_islands)
+                ]
+            case "empty":
+                pass
+            case _:
+                raise ValueError(f"Unsupported migration topology: {migration_topology}.")
 
     return list(set(edge_list))
 
@@ -256,26 +256,22 @@ def get_pipe_graph(
 
 
 def send_migrants(
-    db: ProgramDatabase,
     out_neigh: Optional[List[PipeEdge]],
     migrants: List[Program],
     logger: logging.Logger,
-):
+) -> None:
     """Sends migrant programs to neighboring islands.
 
     This function runs in a separate thread to send migrant programs
     to all outgoing neighbor islands through pipe connections.
 
     Args:
-        db: Program database to mark programs as migrated.
         out_neigh: List of outgoing pipe edges to neighbor islands.
         migrants: List of Program objects to send as migrants.
         logger: Logger instance for this thread.
     """
     if out_neigh:
         logger.info("[SEND THREAD] Sending migrants to neighbors...")
-        for migrant in migrants:
-            db.has_migrated[migrant.id] = True
 
         for edge in out_neigh:
             for migrant in migrants:
@@ -285,21 +281,24 @@ def send_migrants(
 
 
 def recv_migrants(
-    db: ProgramDatabase,
     in_neigh: Optional[List[PipeEdge]],
     island2count: DefaultDict[int, int],
+    in_migrants: List[Program],
     logger: logging.Logger,
-):
+) -> None:
     """Receives migrant programs from neighboring islands.
 
     This function runs in a separate thread to receive migrant programs
-    from all incoming neighbor islands and add them to the local database.
+    from all incoming neighbor islands.
 
     Args:
-        db: Program database to add received migrants.
         in_neigh: List of incoming pipe edges from neighbor islands.
         island2count: Mapping of island IDs to expected number of migrants.
+        in_migrants: Empty list used to store incoming migrants.
         logger: Logger instance for this thread.
+
+    Returns:
+        List of received migrants
     """
     if in_neigh:
         logger.info("[RECV THREAD] Receiving migrants from neighbors...")
@@ -307,9 +306,7 @@ def recv_migrants(
             for _ in range(island2count[edge.u]):
                 try:
                     migrant: Program = edge.v_conn.recv()
-                    migrant.parent_id = None
-                    migrant.prompt_id = None
-                    db.add(migrant)
+                    in_migrants.append(migrant)
                     logger.info(f"[RECV THREAD] Received {migrant} from {edge.u}.")
                 except:
                     logger.error(f"[RECV THREAD] Unable to receive migrant from {edge.u}.")
@@ -317,40 +314,26 @@ def recv_migrants(
 
 
 def sync_migrate(
-    db: ProgramDatabase,
+    out_migrants: List[Program],
     isl_data: IslandData,
     barrier: mps.Barrier,
-    migration_rate: float,
     logger: logging.Logger,
-) -> None:
+) -> List[Program]:
     """Performs synchronized migration between islands.
 
-    This function coordinates the migration of best programs between islands
-    using barriers to ensure all islands participate simultaneously. It selects
-    the best local programs that haven't migrated yet and exchanges them with
-    neighboring islands.
+    This function coordinates the migration of programs between islands
+    using barriers to ensure all islands participate simultaneously.
 
     Args:
-        db: Local program database containing programs to migrate.
+        out_migrants: List of programs to migrate.
         isl_data: Island communication data including neighbor connections.
         barrier: Synchronization barrier for coordinating migration phases.
-        migration_rate: Fraction of alive programs to migrate (0.0 to 1.0).
         logger: Logger instance for this island.
+
+    Returns:
+        List of received programs.
     """
-    db.update_alive_caches()
-
-    # only send programs that are not migrants and haven't migrated yet,
-    # might lead to fewer than migration_rate*num_alive migrants.
-    tgt_progs: List[Program] = [
-        db.programs[pid]
-        for pid in db.alive_pid_cache
-        if ((db.programs[pid].island_found == db.id) and (not db.has_migrated.get(pid, False)))
-    ]
-
-    num_migrants: int = min(len(tgt_progs), int(max(1, migration_rate * len(db.alive_pid_cache))))
-    migrants: List[Program] = sorted(
-        tgt_progs, key=lambda prog: db.alive_rank_cache[prog.id], reverse=False
-    )[:num_migrants]
+    in_migrants: List[Program] = []
 
     island2count: DefaultDict[int, int] = defaultdict(int)
 
@@ -359,9 +342,9 @@ def sync_migrate(
     logger.info("Migration started.")
 
     if isl_data.out_neigh:
-        logger.info(f"Informing other islands: {num_migrants} migrants being sent.")
+        logger.info(f"Informing other islands: {len(out_migrants)} migrants being sent.")
         for edge in isl_data.out_neigh:
-            edge.u_conn.send(num_migrants)
+            edge.u_conn.send(len(out_migrants))
 
     barrier.wait()
 
@@ -375,10 +358,10 @@ def sync_migrate(
 
     logger.info("Starting SEND and RECV threads...")
     send_thread = threading.Thread(
-        target=send_migrants, args=(db, isl_data.out_neigh, migrants, logger)
+        target=send_migrants, args=(isl_data.out_neigh, out_migrants, logger)
     )
     recv_thread = threading.Thread(
-        target=recv_migrants, args=(db, isl_data.in_neigh, island2count, logger)
+        target=recv_migrants, args=(isl_data.in_neigh, island2count, in_migrants, logger)
     )
 
     send_thread.start()
@@ -391,3 +374,5 @@ def sync_migrate(
     logger.info("Waiting for other islands to finish migration...")
     barrier.wait()
     logger.info("Migration finished.")
+
+    return in_migrants

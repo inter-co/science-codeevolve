@@ -22,6 +22,83 @@ import pathlib
 
 from codeevolve.islands import GlobalData
 
+from typing import Optional
+import logging
+
+
+class SizeLimitedFormatter(logging.Formatter):
+    """Custom logging formatter that enforces a maximum message size.
+
+    This formatter extends the standard logging.Formatter to automatically truncate
+    log messages that exceed a specified character limit. Messages longer than the
+    limit are cut off and marked with a truncation indicator to preserve log
+    readability and prevent extremely long messages from cluttering output.
+
+    The truncation is applied to the raw message content before standard formatting
+    (timestamp, level, etc.) is added, ensuring that the size limit refers specifically
+    to the user's message content rather than the entire formatted log entry.
+
+    Attributes:
+        max_msg_sz: Maximum allowed length for log message content in characters.
+    """
+
+    def __init__(
+        self, fmt: Optional[str] = None, datefmt: Optional[str] = None, max_msg_sz: int = 256
+    ) -> None:
+        """Initialize the size-limited formatter.
+
+        Args:
+            fmt: Format string for log messages. If None, uses the default format.
+            datefmt: Format string for date/time portion of log messages. If None,
+                uses the default date format.
+            max_msg_sz: Maximum allowed length for the core message content in
+                characters. Messages exceeding this limit will be truncated with
+                a "... [TRUNCATED]" suffix. Must be at least 20 characters to
+                accommodate the truncation indicator.
+
+        Raises:
+            ValueError: If max_msg_sz is less than 15 characters.
+        """
+        if max_msg_sz < 15:
+            raise ValueError(
+                "max_msg_sz must be at least 15" "characters to accommodate truncation indicator"
+            )
+
+        super().__init__(fmt, datefmt)
+        self.max_msg_sz: int = max_msg_sz
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format the log record, truncating the message if it exceeds size limits.
+
+        This method checks if the message content exceeds the configured maximum
+        size. If so, it temporarily modifies the record's message to a truncated
+        version, formats it using the parent formatter, then restores the original
+        message to avoid side effects if the record is used elsewhere.
+
+        Args:
+            record: The LogRecord instance containing the message and metadata
+                to be formatted.
+
+        Returns:
+            The formatted log message string, with the core message content
+            truncated if it originally exceeded max_msg_sz characters.
+        """
+        message_content: str = record.getMessage()
+
+        if len(message_content) > self.max_msg_sz:
+            original_msg: str = record.msg
+
+            truncate_length: int = self.max_msg_sz - 15
+            truncated_msg: str = str(record.msg)[:truncate_length] + "... [TRUNCATED]"
+            record.msg = truncated_msg
+
+            formatted: str = super().format(record)
+
+            record.msg = original_msg
+            return formatted
+
+        return super().format(record)
+
 
 class QueueHandler(logging.Handler):
     """Custom logging handler that sends log records to a multiprocessing queue.
@@ -52,7 +129,65 @@ class QueueHandler(logging.Handler):
             self.handleError(record)
 
 
-def log_formatter(
+def get_logger(
+    island_id: int = 0,
+    results_dir: Optional[pathlib.Path] = None,
+    append_mode: bool = False,
+    log_queue: Optional[mp.Queue] = None,
+    max_msg_sz: int = 256,
+) -> logging.Logger:
+    """Creates a logger instance for an island with file and optional queue handlers.
+    This function sets up a logger that writes to both a file and optionally to
+    a multiprocessing queue for centralized log collection. Each log message
+    is prefixed with the island ID for identification.
+
+    If no results_dir is provided, the logger will only output to stdout.
+
+    Args:
+        island_id: Unique identifier for the island creating the logger.
+        results_dir: Directory where the log file will be created. If None, logs only to stdout.
+        append_mode: If True, append to existing log file; if False, overwrite.
+        log_queue: Optional multiprocessing queue for centralized logging.
+        max_msg_sz: Maximum size for log messages in characters.
+    Returns:
+        Configured Logger instance for the island.
+    """
+    if results_dir:
+        sanitized_dir: str = str(results_dir).replace("/", "_").replace("\\", "_")
+        logger_name: str = f"logger_{sanitized_dir}"
+    else:
+        logger_name: str = f"logger_stdout_{island_id}"
+
+    logger: logging.Logger = logging.getLogger(logger_name)
+    if not logger.handlers:
+        logger.setLevel(logging.INFO)
+        logFormatter = SizeLimitedFormatter(
+            f"[island {island_id}] %(asctime)s | %(levelname)s | %(process)d | %(message)s",
+            max_msg_sz=max_msg_sz,
+        )
+        logger.propagate = False
+
+        if log_queue:
+            queue_handler: QueueHandler = QueueHandler(log_queue)
+            queue_handler.setFormatter(logFormatter)
+            logger.addHandler(queue_handler)
+        else:
+            logStreamHandler: logging.StreamHandler = logging.StreamHandler()
+            logStreamHandler.setFormatter(logFormatter)
+            logger.addHandler(logStreamHandler)
+
+        if results_dir:
+            fh: logging.FileHandler = logging.FileHandler(
+                results_dir.joinpath("results.log"), mode="a" if append_mode else "w"
+            )
+            fh.setLevel(logging.INFO)
+            fh.setFormatter(logFormatter)
+            logger.addHandler(fh)
+
+    return logger
+
+
+def cli_logger(
     args: Dict[str, Any],
     global_data: GlobalData,
     queue: mp.Queue,
@@ -125,55 +260,3 @@ def log_formatter(
     except (KeyboardInterrupt, ValueError):
         os.system("cls" if os.name == "nt" else "clear")
         print("\nProgram interrupted.")
-
-
-def get_logger(
-    island_id: int,
-    results_dir: pathlib.Path,
-    append_mode: bool,
-    log_queue: Optional[mp.Queue] = None,
-) -> logging.Logger:
-    """Creates a logger instance for an island with file and optional queue handlers.
-
-    This function sets up a logger that writes to both a file and optionally to
-    a multiprocessing queue for centralized log collection. Each log message
-    is prefixed with the island ID for identification.
-
-    Args:
-        island_id: Unique identifier for the island creating the logger.
-        results_dir: Directory where the log file will be created.
-        append_mode: If True, append to existing log file; if False, overwrite.
-        log_queue: Optional multiprocessing queue for centralized logging.
-
-    Returns:
-        Configured Logger instance for the island.
-    """
-
-    sanitized_dir = str(results_dir).replace("/", "_").replace("\\", "_")
-    logger_name = f"logger_{sanitized_dir}"
-    logger = logging.getLogger(logger_name)
-
-    if not logger.handlers:
-        logger.setLevel(logging.INFO)
-        logFormatter = logging.Formatter(
-            f"[island {island_id}] %(asctime)s | %(levelname)s | %(process)d | %(message)s"
-        )
-        logger.propagate = False
-
-        if log_queue:
-            queue_handler = QueueHandler(log_queue)
-            queue_handler.setFormatter(logFormatter)
-            logger.addHandler(queue_handler)
-        else:
-            logStreamHandler = logging.StreamHandler()
-            logStreamHandler.setFormatter(logFormatter)
-            logger.addHandler(logStreamHandler)
-
-        fh = logging.FileHandler(
-            results_dir.joinpath("results.log"), mode="a" if append_mode else "w"
-        )
-        fh.setLevel(logging.INFO)
-        fh.setFormatter(logFormatter)
-        logger.addHandler(fh)
-
-    return logger

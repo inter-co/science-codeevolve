@@ -34,8 +34,8 @@ class OpenAILM:
 
     Attributes:
         model_name: The name of the model to use for generation.
-        temp: Temperature parameter for controlling randomness (0.0-2.0).
-        top_p: Nucleus sampling parameter for controlling diversity (0.0-1.0).
+        temp: Temperature parameter for controlling randomness.
+        top_p: Nucleus sampling parameter for controlling diversity.
         max_tok: Maximum number of tokens to generate.
         seed: Random seed for reproducible outputs.
         weight: Weight for ensemble selection when used in LMEnsemble.
@@ -113,16 +113,9 @@ class OpenAILM:
             "max_completion_tokens": self.max_tok,
             "user": f"user_{str(uuid4())}",
             "seed": getattr(self, "seed", None),
-            "top_p": getattr(self, "top_p", 1),
+            "top_p": getattr(self, "top_p", 0.95),
             "temperature": getattr(self, "temp", 1),
         }
-
-        if self.seed is not None:
-            params["seed"] = self.seed
-        if self.top_p is not None:
-            params["top_p"] = self.top_p
-        if self.temp is not None:
-            params["temperature"] = self.temp
 
         retry_delay: int = 1
         for attempt in range(self.retries + 1):
@@ -229,3 +222,119 @@ class LMEnsemble:
         )
 
         return (model_id, response, prompt_tok, compl_tok)
+
+
+@dataclass
+class OpenAIEmbedding:
+    """A dataclass for managing OpenAI embedding computations.
+
+    This class provides an interface for computing text embeddings using
+    OpenAI-compatible APIs, handling configuration parameters, retries,
+    and batch processing.
+
+    Attributes:
+        model_name: The name of the embedding model to use.
+        dimensions: Optional dimensionality reduction for the embeddings.
+        encoding_format: Format for returned embeddings ('float' or 'base64').
+        retries: Number of retry attempts on failure.
+        api_base: Base URL for the API endpoint.
+        api_key: API key for authentication.
+        verify_ssl: Whether to verify SSL certificates.
+        client: The async OpenAI client instance (auto-initialized).
+    """
+
+    model_name: Optional[str] = None
+    dimensions: Optional[int] = None
+    encoding_format: str = "float"
+
+    retries: int = 3
+    api_base: Optional[str] = None
+    api_key: Optional[str] = None
+    verify_ssl: Optional[bool] = None
+
+    client: AsyncOpenAI = field(init=False, repr=False)
+
+    def __repr__(self):
+        """Returns a string representation of the OpenAIEmbedding instance.
+
+        Returns:
+            A formatted string showing key configuration parameters.
+        """
+        return (
+            f"{self.__class__.__name__}"
+            "("
+            f"model_name={self.model_name},"
+            f"dimensions={self.dimensions}"
+            ")"
+        )
+
+    def __post_init__(self):
+        """Initializes the AsyncOpenAI client after dataclass initialization.
+
+        Sets up the HTTP client with SSL verification settings and creates
+        the AsyncOpenAI client instance with the provided configuration.
+        """
+        http_client = httpx.AsyncClient(verify=self.verify_ssl)
+        self.client = AsyncOpenAI(
+            api_key=self.api_key, base_url=self.api_base, http_client=http_client
+        )
+
+    async def embed_batch(self, texts: List[str]) -> Tuple[List[List[float]], int]:
+        """Computes embeddings for multiple text inputs in a single request.
+
+        Args:
+            texts: List of text strings to embed.
+
+        Returns:
+            A tuple containing:
+                - List of embedding vectors (each vector is a list of floats)
+                - Total number of tokens used
+
+        Raises:
+            ConnectionError: If all retry attempts fail to get a response.
+        """
+        params: Dict[str, Any] = {
+            "model": self.model_name,
+            "input": texts,
+            "encoding_format": self.encoding_format,
+        }
+
+        if self.dimensions is not None:
+            params["dimensions"] = self.dimensions
+
+        retry_delay: int = 1
+        for attempt in range(self.retries + 1):
+            try:
+                response = await self.client.embeddings.create(**params)
+                embeddings = [data.embedding for data in response.data]
+                total_tokens = response.usage.total_tokens
+
+                if len(texts) == 1:
+                    return (embeddings[0], total_tokens)
+                return (embeddings, total_tokens)
+
+            except Exception as err:
+                if attempt < self.retries:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay = retry_delay << 1
+                else:
+                    raise ConnectionError(
+                        f"Failed to compute embeddings after {self.retries + 1} attempts "
+                        f"(Error: {str(err)})."
+                    )
+
+    async def embed(self, text: str) -> Tuple[List[float], int]:
+        """Computes embeddings for a single text input.
+
+        Args:
+            text: The text string to embed.
+
+        Returns:
+            A tuple containing:
+                - List of embedding values (floats)
+                - Number of tokens used
+
+        Raises:
+            ConnectionError: If all retry attempts fail to get a response.
+        """
+        return await self.embed_batch([text])

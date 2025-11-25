@@ -24,7 +24,7 @@ To setup the proper conda environment, run the following:
 conda env create -f environment.yml
 conda activate codeevolve
 ```
-The command-line version of codeevolve is implemented in ```codeevolve/cli.py```, and ```run.sh``` contains a bash script for running codeevolve on a given benchmark. The most important variables to be defined in this file are the ```API_KEY, API_BASE``` environment variables for connecting with an LLM provider.
+The command-line version of codeevolve is implemented in ```src/codeevolve/cli.py```, and ```scripts/run.sh``` contains a bash script for running codeevolve on a given benchmark. The most important variables to be defined in this file are the ```API_KEY, API_BASE``` environment variables for connecting with an LLM provider.
 
 More comprehensive tutorials will be released soon.
 

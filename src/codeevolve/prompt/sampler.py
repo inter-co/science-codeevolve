@@ -19,6 +19,7 @@ from codeevolve.database import Program, ProgramDatabase
 from codeevolve.prompt.template import (
     PROG_TEMPLATE,
     EVOLVE_PROG_TASK_TEMPLATE,
+    EVOLVE_PROG_WINSP_TASK_TEMPLATE,
     EVOLVE_PROMPT_TASK_TEMPLATE,
     EVOLVE_PROMPT_TEMPLATE,
     EVOLVE_PROG_TEMPLATE,
@@ -171,13 +172,17 @@ class PromptSampler:
                 "content": EVOLVE_PROG_TEMPLATE.format(program=db.programs[curr_pid].prog_msg),
             }
         )
-        messages.appendleft({"role": "system", "content": prompt.code + EVOLVE_PROG_TASK_TEMPLATE})
+        messages.appendleft({"role": "system", "content": prompt.code})
 
         # inspirations
         if inspirations and len(inspirations):
             insp_str: str = ""
             for i, inspiration in enumerate(inspirations):
                 insp_str += INSP_PROG_TEMPLATE.format(counter=i + 1, program=inspiration.prog_msg)
+
             messages[-1]["content"] = insp_str + messages[-1]["content"]
+            messages[0]["content"] += EVOLVE_PROG_WINSP_TASK_TEMPLATE
+        else:
+            messages[0]["content"] += EVOLVE_PROG_TASK_TEMPLATE
 
         return list(messages)

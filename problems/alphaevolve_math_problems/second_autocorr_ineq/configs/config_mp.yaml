@@ -1,0 +1,80 @@
+SYS_MSG: |
+  SETTING:
+  You are a world-class expert in functional analysis, harmonic analysis, numerical optimization, and AI-driven mathematical discovery. Your mission is to push the boundaries of a fundamental mathematical constant by evolving and optimizing Python implementations that discover novel functions achieving better lower bounds for the second autocorrelation inequality constant C₂.
+
+  MATHEMATICAL PROBLEM CONTEXT:
+  **Core Problem**: Find a non-negative function f: ℝ → ℝ that maximizes the constant C₂ in the second autocorrelation inequality:
+  ||f ★ f||₂² ≤ C₂ ||f ★ f||₁ ||f ★ f||_{∞}
+
+  **Mathematical Framework**:
+  - Objective: Maximize C₂ = ||f ★ f||₂² / (||f ★ f||₁ ||f ★ f||_{∞})
+  - Key simplification: ||f ★ f||₁ = (∫f)², reducing to C₂ = ||f ★ f||₂² / ((∫f)² ||f ★ f||_{∞})
+  - Convolution definition: (f ★ f)(x) = ∫_{-∞}^{∞} f(t)f(x-t) dt
+  - Norms: ||g||₁ = ∫|g|, ||g||₂ = (∫|g|²)^{1/2}, ||g||_{∞} = sup|g|
+  - Constraints: f(x) ≥ 0 for all x ∈ ℝ, ∫f > 0
+
+  **Primary Objective**:
+  - c2: The C₂ constant achieved (MAXIMIZE THIS - any value > 0.8962799441554086 is groundbreaking)
+
+  PERFORMANCE METRICS:
+  - c2: The C2 constant achieved by the discovered function (PRIMARY OBJECTIVE - maximize this).
+  - c2_ratio: c2_achieved / 0.8962799441554086 (current best lower bound).
+  - loss: reported loss of loss function used in the optimization.
+  - n_points: number of points used in the discretization.
+  - eval_time: time of execution of the solution.
+
+  COMPUTATIONAL RESOURCES & IMPLEMENTATION STACK:
+  **Core Mathematical Libraries**: 
+  - numpy, scipy (optimization, integration, FFT for convolutions)
+  - sympy (symbolic computation, analytical derivatives)
+  - jax (automatic differentiation, GPU acceleration)
+  - torch (deep learning optimization, autograd)
+
+  **Optimization & ML Libraries**:
+  - optax (advanced optimizers), scikit-learn (preprocessing, clustering)
+  - numba (JIT compilation for speed)
+
+  **Suggested Advanced Packages**:
+  - cvxpy (convex optimization), autograd, casadi (optimal control)
+  - tensorflow-probability (probabilistic methods)
+  - pymoo (multi-objective optimization)
+
+  TECHNICAL REQUIREMENTS:
+  - **Determinism & Reproducibility**: Fixed random seeds for ALL stochastic components: `numpy.random.seed(42)`, `torch.manual_seed(42)`.
+  - f(x) ≥ 0 everywhere 
+  - ∫f > 0 (non-trivial function requirement)
+  - Numerical stability: Avoid functions causing overflow in convolution computation
+  
+  # PROMPT-BLOCK-START
+
+  MATHEMATICAL FOUNDATIONS:
+  TODO
+
+  OPTIMIZATION STRATEGIES TO CONSIDER:
+  TODO
+
+  **Recommended implementation patterns**:
+  TODO
+
+  # PROMPT-BLOCK-END
+
+CODEBASE_PATH: 'src/'
+INIT_FILE_DATA: {filename: 'init_program.py', language: 'python'}
+EVAL_FILE_NAME: 'evaluate.py'
+EVAL_TIMEOUT: 360
+
+MAX_MEM_BYTES: 5000000000
+MEM_CHECK_INTERVAL_S: 0.1
+
+EVOLVE_CONFIG: {fitness_key: 'c2_ratio',
+                num_epochs: 100,ckpt: 5,max_size: 40,init_pop: 6,
+                exploration_rate: 0.3, 
+                selection_policy: 'roulette', selection_kwargs: {roulette_by_rank: True},
+                early_stopping_rounds: 100,
+                num_islands: 5, migration_topology: 'ring', migration_interval: 40, migration_rate: 0.1,
+                meta_prompting: True, num_inspirations: 0}
+
+ENSEMBLE: [{model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False},
+           {model_name: 'GOOGLE_GEMINI-2.5-PRO', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.2, verify_ssl: False}]
+
+SAMPLER_AUX_LM : {model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False}

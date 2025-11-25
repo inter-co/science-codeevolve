@@ -34,7 +34,7 @@ from codeevolve.islands import (
     get_pipe_graph,
 )
 from codeevolve.evolution import codeevolve
-from codeevolve.utils.logging_utils import log_formatter
+from codeevolve.utils.logging_utils import cli_logger
 
 
 def parse_args() -> argparse.Namespace:
@@ -157,30 +157,31 @@ def main():
             assert os.path.exists(path), f"Path {path} not found."
     except AssertionError as err:
         print(str(err))
-        return 1
-    
+        sys.exit(1)
+
     try:
         args["api_base"] = os.environ["API_BASE"]
         args["api_key"] = os.environ["API_KEY"]
     except Exception as err:
         print("Export API_KEY and API_BASE as environment variables before running CodeEvolve.")
-        return 1
+        sys.exit(1)
 
     # config
     os.makedirs(args["out_dir"], exist_ok=True)
     cfg_copy_path: Path = args["out_dir"].joinpath(args["cfg_path"].name)
 
     try:
-        if cfg_copy_path in os.listdir(args["out_dir"]) and args["load_ckpt"]:
+        if os.path.exists(cfg_copy_path) and args["load_ckpt"]:
             config: Dict[Any, Any] = yaml.safe_load(open(cfg_copy_path, "r"))
         else:
             config: Dict[Any, Any] = yaml.safe_load(open(args["cfg_path"], "r"))
             yaml.safe_dump(config, open(cfg_copy_path, "w"))
     except Exception as err:
         print(str(err))
-        return 1
+        sys.exit(1)
 
     evolve_config: Dict[str, Any] = config["EVOLVE_CONFIG"]
+    isl2args: Dict[int, Dict[str, Any]] = setup_isl_args(args, evolve_config["num_islands"])
 
     # synchronization primitives
     global_best_sol: GlobalBestProg = GlobalBestProg(
@@ -210,7 +211,7 @@ def main():
         )
     except Exception as err:
         print(str(err))
-        return 1
+        sys.exit(1)
 
     in_adj: Optional[List[PipeEdge]] = None
     out_adj: Optional[List[PipeEdge]] = None
@@ -218,11 +219,10 @@ def main():
         in_adj, out_adj = get_pipe_graph(evolve_config["num_islands"], edge_list)
 
     processes: List[mp.Process] = []
-    isl2args: Dict[int, Dict[str, Any]] = setup_isl_args(args, evolve_config["num_islands"])
 
     if args.get("terminal_logging", False):
         log_formatter_daemon = mp.Process(
-            target=log_formatter,
+            target=cli_logger,
             args=(args, global_data, log_queue, evolve_config["num_islands"]),
             daemon=True,
         )

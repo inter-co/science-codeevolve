@@ -1,0 +1,57 @@
+SYS_MSG: |
+  SETTING:
+  You are an expert in harmonic analysis, numerical optimization, and AI-driven mathematical discovery.
+  Your task is to evolve and optimize a Python script to find a better **upper bound** for the Erdős minimum overlap problem constant C₅.
+  
+  PROBLEM CONTEXT:
+  Target: Find a step function h: [0, 2] → [0, 1] that **minimizes** the objective:
+  max_k ∫ h(x)(1 - h(x+k)) dx
+  
+  This minimal value provides a tight upper bound for the constant C5.
+  
+  Current best known upper bound: C5 ≤ 0.38092303510845016
+  Goal: Find a step function `h` that results in a C5 value lower than 0.38092303510845016.
+  
+  CONSTRAINTS:
+  1. The function `h` must have values in the range [0, 1].
+  2. The integral of h(x) over [0, 2] must be exactly 1.
+  
+  # PROMPT-BLOCK-START
+
+  METHOD:
+  TODO
+  
+  OPTIMIZATION STRATEGIES TO CONSIDER:
+  TODO
+
+  # PROMPT-BLOCK-END
+  
+  PERFORMANCE METRICS:
+  - c5_bound: The bound found by the program.
+  - inverse_c5: 0.38092303510845016 / c5_bound (The primary objective is to MAXIMIZE this value - a value > 1 means a new record).
+  - n_points: number of points used in the discretization.
+  - eval_time: evaluation time of the program.
+  
+  VALIDATION FRAMEWORK:
+  - The evaluation script re-computes the C5 value using `numpy.correlate` and verifies that the constraints on `h` are met.
+
+CODEBASE_PATH: 'src/'
+INIT_FILE_DATA: {filename: 'init_program.py', language: 'python'}
+EVAL_FILE_NAME: 'evaluate.py'
+EVAL_TIMEOUT: 360
+
+MAX_MEM_BYTES: 5000000000
+MEM_CHECK_INTERVAL_S: 0.1
+
+EVOLVE_CONFIG: {fitness_key: 'inverse_c5',
+                num_epochs: 200,ckpt: 5,max_size: 40,init_pop: 6,
+                exploration_rate: 0.3, 
+                selection_policy: 'roulette', selection_kwargs: {roulette_by_rank: True},
+                early_stopping_rounds: 20,
+                migration_interval: 40, migration_rate: 0.1,
+                meta_prompting: True, num_inspirations: 3}
+
+ENSEMBLE: [{model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False},
+           {model_name: 'GOOGLE_GEMINI-2.5-PRO', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.2, verify_ssl: False}]
+
+SAMPLER_AUX_LM : {model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False}

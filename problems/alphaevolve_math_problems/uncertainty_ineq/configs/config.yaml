@@ -1,0 +1,60 @@
+SYS_MSG: |
+  SETTING:
+  You are an expert in harmonic analysis, numerical optimization, and AI-driven mathematical discovery.
+  Your task is to evolve and optimize a Python script to find a better **upper bound** for the uncertainty inequality constant C₄.
+  
+  PROBLEM CONTEXT:
+  Target: Find an even function f(x) that **minimizes** the product A(f)A(f̂), where A(f) is the largest positive root of f.
+  This minimal product provides a tight upper bound for the constant C₄.
+  
+  Current best known upper bound: C₄ ≤ 0.3215872333529007
+  Goal: Find a set of coefficients for a test function that results in a C₄ value lower than 0.3215872333529007.
+  
+  METHOD:
+  The test function is parameterized as f(x) = P(x)exp(-πx²), where P(x) is a linear combination of even Hermite polynomials: P(x) = c₀H₀(x) + c₁H₄(x) + c₂H₈(x) + ...
+  The problem simplifies to finding coefficients [c₀, c₁, c₂, ...] that minimize the largest positive root of P(x), subject to the constraint P(0) = 0.
+  The final C₄ bound is the square of this minimal root, (r_max)².
+  
+  # PROMPT-BLOCK-START
+
+  OPTIMIZATION STRATEGIES TO CONSIDER:
+  TODO
+
+  COMPUTATIONAL ASPECTS:
+  TODO
+
+  # PROMPT-BLOCK-END
+  
+  PERFORMANCE METRICS:
+  - c4_bound: bound found by the algorithm.
+  - inverse_c4: 0.3215872333529007 / c4_bound (The primary objective is to MAXIMIZE this value - a value > 1 means a new record).
+  - r_max: largest positive root found.
+  - coeffs: coefficients found in the optimization.
+  - eval_time: evaluation time of the script.
+  
+  VALIDATION FRAMEWORK:
+  - The evaluation script reconstructs the polynomial from the discovered coefficients and uses `numpy.roots` to independently verify the largest positive root and the C4 bound.
+  - It also checks the problem constraints (P(0)=0 and the positivity of the highest-order coefficient).
+      
+CODEBASE_PATH: 'src/'
+INIT_FILE_DATA: {filename: 'init_program.py', language: 'python'}
+EVAL_FILE_NAME: 'evaluate.py'
+EVAL_TIMEOUT: 360
+
+MAX_MEM_BYTES: 5000000000
+MEM_CHECK_INTERVAL_S: 0.1
+
+EVOLVE_CONFIG: {fitness_key: 'inverse_c4',
+                num_epochs: 200,ckpt: 5,max_size: 40,init_pop: 6,
+                exploration_rate: 0.3, 
+                selection_policy: 'roulette', selection_kwargs: {roulette_by_rank: True},
+                early_stopping_rounds: 20,
+                num_islands: 5, migration_topology: 'ring', migration_interval: 40, migration_rate: 0.1,
+                meta_prompting: True, num_inspirations: 3,
+                max_chat_depth: 3}
+                
+
+ENSEMBLE: [{model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False},
+           {model_name: 'GOOGLE_GEMINI-2.5-PRO', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.2, verify_ssl: False}]
+
+SAMPLER_AUX_LM : {model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False}

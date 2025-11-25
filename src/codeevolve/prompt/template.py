@@ -43,8 +43,87 @@ Present your proposed code changes using the following structure:
     3.2. **Maintain Compatibility**: All changes **MUST** maintain compatibility with unmarked code and preserve existing function signatures and interfaces.
     3.3. **Internal Consistency**: If you propose multiple changes across different SEARCH/REPLACE blocks, ensure they are mutually consistent (e.g., if a new variable or function is introduced in one block, define it in another if necessary).
 
+## EXAMPLE:
+### YOUR INPUT
+    IMPROVE THE TARGET PROGRAM.
+    ----------TARGET PROGRAM---------
+    ```python
+    # EVOLVE-BLOCK-START
+    def exp(a: int, b: int) -> int:
+        x: int = 1
+        for i in range(b + 1):
+            x = x * a
+        return x
+    # EVOLVE-BLOCK-END
+    if __name__ == '__main__':
+        print(exp(5, 3))
+    ```
+    PERFORMANCE METRICS: {'runtime':1}
+    RETURNCODE: 0
+    WARNING: None
+    ERROR: None
+
+### YOUR OUTPUT
+    <<<<<<< SEARCH
+    def exp(a: int, b: int) -> int:
+        x: int = 1
+        for i in range(b + 1):
+            x = x * a
+        return x
+    =======
+    def exp(a: int, b: int) -> int:
+        if b == 0:
+            return 1
+        if b == 1:
+            return a
+        
+        # Use iterative binary exponentiation for O(log b) time, O(1) space
+        result = 1
+        base = a
+        exponent = b
+        while exponent > 0:
+            if exponent % 2 == 1:
+                result *= base
+            base *= base
+            exponent //= 2
+        return result
+    >>>>>>> REPLACE
+"""
+
+EVOLVE_PROG_WINSP_TASK_TEMPLATE = """
+# TASK: CODE EVOLUTION
+Your goal is to evolve the provided program by modifying specific sections.
+You **MUST** adhere strictly to the **SEARCH/REPLACE format** described below for all modifications.
+
+## MODIFICATION FORMAT:
+Present your proposed code changes using the following structure:
+    ```
+    <<<<<<< SEARCH
+    [exact original code STRICTLY WITHIN an EVOLVE-BLOCK]
+    =======
+    [your modified code]
+    >>>>>>> REPLACE
+    ```
+* For multiple independent changes, provide each in a separate SEARCH/REPLACE block.
+
+## CORE RULES FOR CODE MODIFICATION:
+### 1. Scope & Boundaries:
+    1.1. **Target `EVOLVE-BLOCK` ONLY**: All code modifications **MUST** be confined to sections explicitly marked between `EVOLVE-BLOCK-START` and `EVOLVE-BLOCK-END` comments. Do NOT include these markers in your modifications.
+    1.2. **External Code Usage**: You **MAY reference** code outside these `EVOLVE-BLOCK` regions, but you **MUST NOT modify** it.
+    1.3. **New Imports**: If new imports are required, add them *within* an `EVOLVE-BLOCK`.
+
+### 2. SEARCH Block Requirements:
+    2.1. **EXACT Match**: The content of each `<<<<<<< SEARCH` block **MUST EXACTLY MATCH** the original code, including all whitespace, indentation, formatting, and comments.
+    2.2. **No Comment Alterations in SEARCH**: Do **NOT** add, remove, or modify comments within the `<<<<<<< SEARCH` block. Only make comment changes in the `======= REPLACE` block.
+    2.3. **First Occurrence Precedence**: If multiple identical code sections exist in the original program, your SEARCH block will be applied to the *first occurrence* matching its content.
+
+### 3. Output & Compatibility:
+    3.1. **Preserve Functionality**: Your modifications **MUST NOT** break existing functionality, external dependencies, or expected program behavior.
+    3.2. **Maintain Compatibility**: All changes **MUST** maintain compatibility with unmarked code and preserve existing function signatures and interfaces.
+    3.3. **Internal Consistency**: If you propose multiple changes across different SEARCH/REPLACE blocks, ensure they are mutually consistent (e.g., if a new variable or function is introduced in one block, define it in another if necessary).
+
 ## INSPIRATION PROGRAMS ANALYSIS:
-You MAY be provided with multiple inspiration programs that demonstrate various approaches to solving similar problems. **MANDATORY** analysis requirements:
+You WILL be provided with multiple inspiration programs that demonstrate various approaches to solving similar problems. **MANDATORY** analysis requirements:
 
 ### 4. Learning from Inspirations:
     4.1. **Extract Promising Techniques**: Identify and adapt successful algorithms, data structures, optimization strategies, and design patterns from the inspiration programs.
@@ -60,8 +139,6 @@ You MAY be provided with multiple inspiration programs that demonstrate various 
         - Useful design patterns or code structures
     5.2. **Integration Strategy**: Explain how you will incorporate promising ideas from inspiration programs while avoiding their mistakes.
     5.3. **Comparative Reasoning**: Justify your choices by comparing different approaches seen in the inspiration programs.
-
-* If no inspirations are provided, you can ignore these instructions.
 
 ## EXAMPLE:
 ### YOUR INPUT

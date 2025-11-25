@@ -68,13 +68,41 @@ old_code
 new_code
 >>>>>>> REPLACE
 """
-        child_code = apply_diff(parent_code, diff)
+        child_code = apply_diff(parent_code, diff, "// EVOLVE-BLOCK-START", "// EVOLVE-BLOCK-END")
         assert (
             child_code
             == """
 // EVOLVE-BLOCK-START
 new_code
 // EVOLVE-BLOCK-END
+"""
+        )
+
+    def test_single_block3(self):
+        """Tests basic diff application to a single evolve block with hash comments within search."""
+        parent_code = """
+# EVOLVE-BLOCK-START
+old_code
+# EVOLVE-BLOCK-END
+"""
+        diff = """
+<<<<<<< SEARCH
+# EVOLVE-BLOCK-START
+old_code
+# EVOLVE-BLOCK-END
+=======
+# EVOLVE-BLOCK-START
+new_code
+# EVOLVE-BLOCK-END
+>>>>>>> REPLACE
+"""
+        child_code = apply_diff(parent_code, diff)
+        assert (
+            child_code
+            == """
+# EVOLVE-BLOCK-START
+new_code
+# EVOLVE-BLOCK-END
 """
         )
 
@@ -149,7 +177,7 @@ int barfoo(const int y){
 }
 >>>>>>> REPLACE
 """
-        child_code = apply_diff(parent_code, diff)
+        child_code = apply_diff(parent_code, diff, "// EVOLVE-BLOCK-START", "// EVOLVE-BLOCK-END")
         assert (
             child_code
             == """

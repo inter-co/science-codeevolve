@@ -10,7 +10,7 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 import logging
 from pathlib import Path
@@ -18,8 +18,8 @@ from pathlib import Path
 import yaml
 import numpy as np
 
-from codeevolve.database import Program, ProgramDatabase
-from codeevolve.lm import OpenAILM, LMEnsemble
+from codeevolve.database import Program, ProgramDatabase, EliteFeature
+from codeevolve.lm import OpenAILM, LMEnsemble, OpenAIEmbedding
 from codeevolve.evaluator import Evaluator
 from codeevolve.prompt.sampler import PromptSampler, format_prog_msg
 from codeevolve.islands import (
@@ -32,6 +32,8 @@ from codeevolve.islands import (
 from codeevolve.utils.parsing_utils import apply_diff
 from codeevolve.utils.logging_utils import get_logger
 from codeevolve.utils.ckpt_utils import save_ckpt, load_ckpt
+
+MAX_LOG_MSG_SZ: int = 256
 
 
 async def evolve_loop(
@@ -49,6 +51,7 @@ async def evolve_loop(
     prompt_sampler: PromptSampler,
     ensemble: LMEnsemble,
     evaluator: Evaluator,
+    embedding: Optional[OpenAIEmbedding],
     logger: logging.Logger,
 ) -> None:
     """Executes the main evolutionary loop for program and prompt co-evolution.
@@ -82,6 +85,12 @@ async def evolve_loop(
     logger.info(f"Starting from epoch {start_epoch} with evolve_config = {evolve_config}")
 
     meta_prompting: bool = evolve_config.get("meta_prompting", False)
+    use_embedding: bool = evolve_config.get("use_embedding", False)
+
+    mp_start_marker: str = evolve_config.get("mp_start_marker", "# PROMPT-BLOCK-START")
+    mp_end_marker: str = evolve_config.get("mp_end_marker", "# PROMPT-BLOCK-END")
+    evolve_start_marker: str = evolve_config.get("evolve_start_marker", "# EVOLVE-BLOCK-START")
+    evolve_end_marker: str = evolve_config.get("evolve_end_marker", "# EVOLVE-BLOCK-END")
 
     for epoch in range(start_epoch + 1, evolve_config["num_epochs"] + 1):
         logger.info(f"========= EPOCH {epoch} =========")
@@ -95,6 +104,9 @@ async def evolve_loop(
         logger.info(f"Best prompt: {prompt_db.programs[prompt_db.best_prog_id]}")
         logger.info(f"Solution database: {sol_db}")
         logger.info(f"Best solution: {sol_db.programs[sol_db.best_prog_id]}")
+        if config.get("MAP_ELITES", None):
+            logger.info(f"sol_db EliteMap: {sol_db.elite_map.map}")
+            logger.info(f"prompt_db EliteMap: {prompt_db.elite_map.map}")
 
         gen_init_pop: bool = sol_db.num_alive < evolve_config.get("init_pop", sol_db.num_alive)
         logger.info(f"Generating initial populations: {gen_init_pop}")
@@ -147,6 +159,7 @@ async def evolve_loop(
             meta_prompt_success: bool = False
             ## GENERATE DIFF
             try:
+                # TODO: maybe move the logger from inside the sampler class to here
                 prompt_diff, prompt_tok, compl_tok = await prompt_sampler.meta_prompt(
                     prompt=parent_prompt, prog=parent_sol
                 )
@@ -162,7 +175,13 @@ async def evolve_loop(
                     }
                 )
             except Exception as err:
-                logger.error(f"Error when running prompt on LM: {str(err)[:128]}[...].")
+                logger.error(f"Error when running prompt on LM: {str(err)}.")
+                error_info: Dict[str, Any] = {
+                    "epoch": epoch,
+                    "motive": "meta_prompt",
+                    "error_msg": str(err),
+                }
+                evolve_state["errors"].append(error_info)
 
             ## APPLY DIFF
             if meta_prompt_success:
@@ -171,18 +190,19 @@ async def evolve_loop(
                     child_prompt_txt: str = apply_diff(
                         parent_code=parent_prompt.code,
                         diff=prompt_diff,
-                        evolve_regex=r"\s*PROMPT-BLOCK-START\s*\n?(.*?)\n?\s*PROMPT-BLOCK-END",
+                        start_marker=mp_start_marker,
+                        end_marker=mp_end_marker,
                     )
                     logger.info("Successfully modified parent prompt.")
                 except Exception as err:
-                    logger.error(f"Error with SEARCH/REPLACE: '{str(err)[:128]}[...]'.")
+                    logger.error(f"Error with SEARCH/REPLACE: '{str(err)}'.")
                     meta_prompt_success = False
 
                     error_info: Dict[str, Any] = {
                         "epoch": epoch,
                         "motive": "sr_meta_prompt",
-                        "parent_prompt": parent_prompt,
-                        "parent_sol": parent_sol,
+                        "parent_prompt_id": parent_prompt.id,
+                        "parent_sol_id": parent_sol.id,
                         "prompt_diff": prompt_diff,
                         "error_msg": str(err),
                     }
@@ -229,6 +249,7 @@ async def evolve_loop(
 
         ## GENERATE DIFF
         try:
+            # TODO: maybe move the logger from inside the ensemble class to here
             model_id, sol_diff, prompt_tok, compl_tok = await ensemble.generate(messages=messages)
             evolve_success = True
 
@@ -242,22 +263,32 @@ async def evolve_loop(
                 }
             )
         except Exception as err:
-            logger.error(f"Error when running prompt on LM: {str(err)[:128]}[...].")
+            logger.error(f"Error when running prompt on LM: {str(err)}.")
+            error_info: Dict[str, Any] = {
+                "epoch": epoch,
+                "motive": "generate_prog",
+                "error_msg": str(err),
+            }
+            evolve_state["errors"].append(error_info)
 
         ## APPLY DIFF
         if evolve_success:
             try:
                 logger.info("Attempting to SEARCH/REPLACE...")
-                child_sol_code: str = apply_diff(parent_code=parent_sol.code, diff=sol_diff)
+                child_sol_code: str = apply_diff(
+                    parent_code=parent_sol.code,
+                    diff=sol_diff,
+                    start_marker=evolve_start_marker,
+                    end_marker=evolve_end_marker,
+                )
                 logger.info("Successfully modified parent solution.")
             except Exception as err:
-                logger.error(f"Error with SEARCH/REPLACE: '{str(err)[:128]}[...]'.")
+                logger.error(f"Error with SEARCH/REPLACE: '{str(err)}'.")
                 evolve_success = False
-
                 error_info: Dict[str, Any] = {
                     "epoch": epoch,
                     "motive": "sr_evolve_prog",
-                    "parent_sol": parent_sol,
+                    "parent_sol_id": parent_sol.id,
                     "sol_diff": sol_diff,
                     "error_msg": str(err),
                 }
@@ -282,11 +313,45 @@ async def evolve_loop(
 
             ## EVALUATING CHILD PROGRAM
             evaluator.execute(child_sol)
-
             if child_sol.returncode == 0:
                 child_sol.fitness = child_sol.eval_metrics[evolve_config["fitness_key"]]
-            prompt.fitness = max(prompt.fitness, child_sol.fitness)
             child_sol.prog_msg = format_prog_msg(prog=child_sol)
+            child_sol.features = child_sol.eval_metrics
+
+            if child_sol.fitness > prompt.fitness:
+                logger.info("Child solution improves on parent prompt fitness.")
+                prompt.fitness = child_sol.fitness
+                prompt.features = child_sol.features
+
+            ## CHILD SOL FEATURES
+            if use_embedding:
+                try:
+                    logger.info(
+                        f"Attempting to obtain embedding with model {embedding.model_name}..."
+                    )
+                    child_sol.embedding, prompt_tok = await embedding.embed(child_sol.code)
+                    logger.info(
+                        f"Successfully retrieved response, using {prompt_tok} prompt tokens"
+                    )
+
+                    evolve_state["tok_usage"].append(
+                        {
+                            "epoch": epoch,
+                            "motive": "generate_embedding",
+                            "prompt_tok": prompt_tok,
+                            "compl_tok": 0,
+                            "model_name": embedding.model_name,
+                        }
+                    )
+                except Exception as err:
+                    logger.error(f"Error when generating embedding: '{str(err)}'.")
+                    error_info: Dict[str, Any] = {
+                        "epoch": epoch,
+                        "motive": "generate_embedding",
+                        "error_msg": str(err),
+                    }
+                    evolve_state["errors"].append(error_info)
+
             logger.info(f"Child solution -> {child_sol}.")
 
             ## ADD TO DB
@@ -308,13 +373,23 @@ async def evolve_loop(
         if isl_data.in_neigh or isl_data.out_neigh:
             if epoch % evolve_config.get("migration_interval", 20) == 0:
                 logger.info("=== MIGRATION STEP ===")
-                sync_migrate(
-                    db=sol_db,
+                out_migrants: List[Program] = sol_db.get_migrants(
+                    migration_rate=evolve_config.get("migration_rate", 0.1)
+                )
+                in_migrants: List[Program] = sync_migrate(
+                    out_migrants=out_migrants,
                     isl_data=isl_data,
                     barrier=global_data.barrier,
-                    migration_rate=evolve_config.get("migration_rate", 0.1),
                     logger=logger,
                 )
+
+                for out_migrant in out_migrants:
+                    sol_db.has_migrated[out_migrant.id] = True
+
+                for in_migrant in in_migrants:
+                    in_migrant.parent_id = None
+                    in_migrant.prompt_id = None
+                    sol_db.add(in_migrant)
 
         # UPDATE EVOLVE STATE
         evolve_state["best_fit_hist"].append(sol_db.programs[sol_db.best_prog_id].fitness)
@@ -326,14 +401,14 @@ async def evolve_loop(
         # CHECKPOINTING
         if epoch % evolve_config["ckpt"] == 0:
             # we synchronize here to avoid a relatively common problem where
-            # a slower island fails to save a CKPT when an experiment is interrupted, 
+            # a slower island fails to save a CKPT when an experiment is interrupted,
             # resulting in desynchronized ckpts. this does not solve the problem completely,
             # but it does make it extremely unlikely to occur.
             logger.info("=== CHECKPOINT STEP ===")
             logger.info("Waiting for other islands to arrive at barrier...")
             global_data.barrier.wait()
             logger.info("All islands arrived. Proceeding to save ckpt.")
-            
+
             save_ckpt(
                 curr_epoch=epoch,
                 prompt_db=prompt_db,
@@ -433,6 +508,7 @@ async def codeevolve(args: Dict[str, Any], isl_data: IslandData, global_data: Gl
         results_dir=args["isl_out_dir"],
         append_mode=(args["load_ckpt"] != 0),
         log_queue=global_data.log_queue,
+        max_msg_sz=MAX_LOG_MSG_SZ,
     )
 
     logger.info("=== CodeEvolve ===")
@@ -477,6 +553,17 @@ async def codeevolve(args: Dict[str, Any], isl_data: IslandData, global_data: Gl
         logger=logger,
     )
 
+    embedding: Optional[OpenAIEmbedding] = None
+    if evolve_config.get("use_embedding", False):
+        assert (
+            config.get("EMBEDDING", None) is not None
+        ), "EMBEDDING model must be defined in config.yaml when use_embedding is true."
+        embedding = OpenAIEmbedding(
+            **config["EMBEDDING"],
+            api_key=args["api_key"],
+            api_base=args["api_base"],
+        )
+
     if args["load_ckpt"]:
         prompt_db, sol_db, evolve_state = load_ckpt(args["load_ckpt"], args["ckpt_dir"])
 
@@ -486,11 +573,43 @@ async def codeevolve(args: Dict[str, Any], isl_data: IslandData, global_data: Gl
 
     else:
         logger.info("Starting anew.")
+        features: Optional[List[EliteFeature]] = None
+
+        map_elites_cfg: Dict[str, Any] = config.get("MAP_ELITES", {})
+        if evolve_config.get("use_map_elites", False):
+            assert (
+                len(map_elites_cfg) > 0
+            ), "MAP_ELITES must be defined in config.yaml when use_map_elites is true."
+
+            features = []
+            for feature in map_elites_cfg["features"]:
+                features.append(
+                    EliteFeature(
+                        name=feature["name"],
+                        min_val=feature["min_val"],
+                        max_val=feature["max_val"],
+                        num_bins=feature.get("num_bins", None),
+                    )
+                )
+
         prompt_db: ProgramDatabase = ProgramDatabase(
             id=isl_data.id,
-            max_alive=evolve_config.get("max_size", None),
             seed=config.get("SEED", None),
+            max_alive=evolve_config.get("max_size", None),
+            elite_map_type=map_elites_cfg.get("elite_map_type", None),
+            features=features,
+            **map_elites_cfg.get("elite_map_kwargs", {}),
         )
+
+        sol_db: ProgramDatabase = ProgramDatabase(
+            id=isl_data.id,
+            seed=config.get("SEED", None),
+            max_alive=evolve_config.get("max_size", None),
+            elite_map_type=map_elites_cfg.get("elite_map_type", None),
+            features=features,
+            **map_elites_cfg.get("elite_map_kwargs", {}),
+        )
+
         init_prompt: Program = Program(
             id=str(uuid4()),
             code=config["SYS_MSG"],
@@ -500,12 +619,6 @@ async def codeevolve(args: Dict[str, Any], isl_data: IslandData, global_data: Gl
             island_found=isl_data.id,
         )
         prompt_db.add(init_prompt)
-
-        sol_db: ProgramDatabase = ProgramDatabase(
-            id=isl_data.id,
-            max_alive=evolve_config.get("max_size", None),
-            seed=config.get("SEED", None),
-        )
 
         with open(
             args["inpt_dir"]
@@ -526,20 +639,17 @@ async def codeevolve(args: Dict[str, Any], isl_data: IslandData, global_data: Gl
             init_sol.fitness = init_sol.eval_metrics[evolve_config["fitness_key"]]
 
         init_sol.prog_msg = format_prog_msg(prog=init_sol)
+        init_sol.features = init_sol.eval_metrics
 
         sol_db.add(init_sol)
 
-    logger.info(
-        (
-            "CODEEVOLVE COMPONENTS\n"
-            f"sol_db={sol_db}\n"
-            f"prompt_db={prompt_db}\n"
-            f"ensemble={ensemble}\n"
-            f"prompt_sampler={prompt_sampler}"
-            f"evaluator={evaluator}\n"
-            f"init_prog={init_sol}"
-        )
-    )
+    logger.info(f"sol_db={sol_db}")
+    logger.info(f"prompt_db={prompt_db}")
+    logger.info(f"ensemble={ensemble}")
+    logger.info(f"prompt_sampler={prompt_sampler}")
+    logger.info(f"evaluator={evaluator}")
+    logger.info(f"embedding={embedding}")
+    logger.info(f"init_prog={init_sol}")
 
     # UPDATE GLOBAL BEST
     with global_data.lock:
@@ -570,5 +680,6 @@ async def codeevolve(args: Dict[str, Any], isl_data: IslandData, global_data: Gl
         prompt_sampler,
         ensemble,
         evaluator,
+        embedding,
         logger,
     )

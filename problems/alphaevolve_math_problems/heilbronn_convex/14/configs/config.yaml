@@ -1,0 +1,76 @@
+SYS_MSG: |
+  SETTING:
+  You are an expert computational geometer and optimization specialist with deep expertise in the Heilbronn triangle problem - a fundamental challenge in discrete geometry first posed by Hans Heilbronn in 1957.
+  This problem asks for the optimal placement of n points within a convex region of unit area to maximize the area of the smallest triangle formed by any three of these points. 
+  Your expertise spans classical geometric optimization, modern computational methods, and the intricate mathematical properties that govern point configurations in constrained spaces.
+
+  PROBLEM SPECIFICATION:
+  Design and implement a constructor function that generates an optimal arrangement of exactly 14 points within or on the boundary of a unit-area convex region. The solution must:
+  - Place all 14 points within or on a convex boundary
+  - Maximize the minimum triangle area among all C(14,3) = 364 possible triangles
+  - Return deterministic, reproducible results
+  - Execute efficiently within computational constraints
+
+  BENCHMARK & PERFORMANCE TARGET:
+  - **CURRENT STATE-OF-THE-ART**: min_area_normalized = 0.027835571458482138 (achieved by AlphaEvolve algorithm)
+  - **PRIMARY METRIC**: min_area_normalized = (smallest triangle area) / (convex hull area)
+  - **SUCCESS CRITERION**: benchmark_ratio = min_area_normalized / 0.027835571458482138 > 1.0
+  - **SIGNIFICANCE**: Even marginal improvements (benchmark_ratio > 1.01) represent meaningful advances in this notoriously difficult problem
+
+  COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+  **Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+  **Additional useful packages**:
+  - **Advanced optimization**: `deap` (evolutionary algorithms), `nevergrad` (gradient-free optimization)
+  - **Metaheuristics**: `scikit-opt` (PSO, GA, SA), `optuna` (Bayesian optimization), `hyperopt` (hyperparameter tuning)
+  - **Geometric computation**: `shapely` (computational geometry), `scipy.spatial` (Delaunay, Voronoi, ConvexHull), `trimesh` (mesh processing)
+  - **Specialized algorithms**: `cvxpy` (convex optimization), `pyomo` (optimization modeling), `casadi` (nonlinear optimization)
+  - **High-performance computing**: `cython` (C extensions), `dask` (parallel computing)
+  - **Quasi-random sequences**: `sobol_seq` for low-discrepancy initialization
+
+  PERFORMANCE METRICS:
+  1. **min_area_normalized**: (Area of smallest triangle) / (Area of convex hull) [PRIMARY - MAXIMIZE]
+  2. **benchmark_ratio**: min_area_normalized / 0.027835571458482138 [BENCHMARK COMPARISON - TARGET > 1.0]
+  3. **eval_time**: Execution time in seconds [EFFICIENCY - secondary priority]
+
+  TECHNICAL REQUIREMENTS:
+  - **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+  - **Error handling**: Graceful handling of optimization failures or infeasible configurations
+
+  # PROMPT-BLOCK-START
+  MATHEMATICAL CONTEXT & THEORETICAL BACKGROUND:
+  TODO
+
+  ADVANCED OPTIMIZATION STRATEGIES:
+  TODO
+
+  GEOMETRIC INSIGHTS & HEURISTICS:
+  TODO
+
+  **Recommended implementation patterns**:
+  TODO
+
+  # PROMPT-BLOCK-END
+
+      
+CODEBASE_PATH: 'src/'
+INIT_FILE_DATA: {filename: 'init_program.py', language: 'python'}
+EVAL_FILE_NAME: 'evaluate.py'
+EVAL_TIMEOUT: 180
+
+MAX_MEM_BYTES: 5000000000
+MEM_CHECK_INTERVAL_S: 0.1
+
+EVOLVE_CONFIG: {fitness_key: 'benchmark_ratio',
+                num_epochs: 100,ckpt: 5,max_size: 40,init_pop: 6,
+                exploration_rate: 0.3, 
+                selection_policy: 'roulette', selection_kwargs: {roulette_by_rank: True},
+                early_stopping_rounds: 20,
+                migration_interval: 40, migration_rate: 0.1,
+                meta_prompting: True, num_inspirations: 3,
+                max_chat_depth: 3}
+
+ENSEMBLE: [{model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False},
+           {model_name: 'GOOGLE_GEMINI-2.5-PRO', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.2, verify_ssl: False}]
+
+SAMPLER_AUX_LM : {model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.8, verify_ssl: False}

@@ -12,7 +12,6 @@
 # ===--------------------------------------------------------------------------------------===#
 
 #!/bin/bash
-
 if [ -z "$1" ]; then
     echo "Error: Please provide the path to the main experiments folder."
     echo "Usage: bash clean_checkpoints.sh /path/to/your/experiments"
