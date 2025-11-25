@@ -32,8 +32,7 @@ More comprehensive tutorials will be released soon.
 
 We are actively developing CodeEvolve to be a more powerful and robust framework. Our immediate roadmap is focused on incorporating more sophisticated evolutionary mechanisms mentioned in our future work:
 
-1. **MAP-Elites**: We plan to integrate the MAP-Elites algorithm. This will help us move beyond optimizing a single fitness metric and instead maintain a diverse archive of high-performing solutions across different "features" or "behaviors" of the code.
-2. **Dynamic Exploration/Exploitation**: Currently, the choice between exploration (meta-prompting) and exploitation (depth) is set by a fixed probability (exploration_rate). A major planned feature is to implement a more dynamic scheduling, potentially using Reinforcement Learning methods, to adapt this trade-off based on the state of the evolutionary search.
+1. **Dynamic Exploration/Exploitation**: Currently, the choice between exploration (meta-prompting) and exploitation (depth) is set by a fixed probability (exploration_rate). A major planned feature is to implement a more dynamic scheduling, potentially using Reinforcement Learning methods, to adapt this trade-off based on the state of the evolutionary search.
 
 We plan on working on performance improvements, e.g. faster sampling, asynchronous islands algorithm, etc. We also intend on implementing more benchmark problems to test CodeEvolve.
 ## Project background and inspirations
