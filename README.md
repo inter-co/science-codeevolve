@@ -2,6 +2,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![arxiv](https://img.shields.io/badge/arxiv-arxiv.2510.14150-red)](https://arxiv.org/abs/2510.14150)
+[![version](https://img.shields.io/badge/version-v0.2.0-green)](v0.2.0)
 
 <img src='assets/codeevolve_diagram.png' align="center" width=900 />
 

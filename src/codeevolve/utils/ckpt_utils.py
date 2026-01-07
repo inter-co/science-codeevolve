@@ -73,7 +73,7 @@ def save_ckpt(
 
     logger.info(f"Saved best solution at '{best_sol_path}'.")
     logger.info(f"Saved best prompt at '{best_prompt_path}'.")
-    logger.info(f"Checkpoint {curr_epoch} sucessfully saved.")
+    logger.info(f"Checkpoint {curr_epoch} successfully saved.")
 
 
 def load_ckpt(epoch: int, ckpt_dir: str | pathlib.Path) -> Tuple[
