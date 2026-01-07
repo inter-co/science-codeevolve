@@ -61,6 +61,13 @@ For complete experimental configurations, benchmark implementations, and step-by
 
 This companion repository contains all code necessary to reproduce the results from our [technical report](https://arxiv.org/abs/2510.14150).
 
+## Releases
+
+We organize the different versions of CodeEvolve as releases in both this repository and its companion experiments repository. Currently, we have the following releases:
+
+1. `v0.1.0`: This is the initial version of CodeEvolve, and can be used to access/reproduce the results from the v1 version of our technical report.
+2. `v0.2.0`: This is the most recent version of CodeEvolve, and can be used to access/reproduce the results from the v3 version of our technical report.
+
 ## Quick Start
 
 ### Installation
