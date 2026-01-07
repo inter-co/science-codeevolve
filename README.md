@@ -86,7 +86,7 @@ You can run codeevolve via the terminal as follows:
 ```bash
 codeevolve --inpt_dir=INPT_DIR --cfg_path=CFG_PATH --out_dir=RESULTS_DIR --load_ckpt=LOAD_CKPT --terminal_logging
 ```
-See `src/codeevolve/cli.py` for further details. Our [experiments repository](https://github.com/inter-co/science-codeevolve-experiments) multiple usage examples.
+The `scripts/run.sh` provides a bash script for running CodeEvolve using taskset in order to limit the CPU usage. See `src/codeevolve/cli.py` for further details. Our [experiments repository](https://github.com/inter-co/science-codeevolve-experiments) multiple usage examples.
 
 ### Customizing for Your Problem
 
@@ -97,7 +97,7 @@ CodeEvolve is designed for algorithmic problems with quantifiable metrics. To ap
 3. Configure evolutionary parameters (population size, mutation rates, etc.)
 4. Choose your LLM ensemble composition
 
-Comprehensive tutorials and example notebooks are coming soon.
+See `problems/problem_template` for a general template for running CodeEvolve on a python problem. Comprehensive tutorials and example notebooks are coming soon.
 
 ## Use Cases
 
