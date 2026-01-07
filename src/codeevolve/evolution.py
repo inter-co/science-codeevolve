@@ -544,7 +544,7 @@ def handle_migration(
             sol_db.add(in_migrant)
 
 
-async def evolve_loop(
+async def codeevolve_loop(
     start_epoch: int,
     evolve_state: Dict[str, Any],
     init_sol: Program,
@@ -1012,7 +1012,7 @@ async def codeevolve(args: Dict[str, Any], isl_data: IslandData, global_data: Gl
         return
 
     # ===== LAUNCH EVOLUTIONARY LOOP =====
-    await evolve_loop(
+    await codeevolve_loop(
         start_epoch,
         evolve_state,
         init_sol,
