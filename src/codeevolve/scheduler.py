@@ -10,7 +10,7 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Dict, Optional
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -264,18 +264,45 @@ class PlateauScheduler(ExplorationRateScheduler):
 
 
 class CosineScheduler(ExplorationRateScheduler):
-    """ """
+    """Cosine annealing scheduler that oscillates exploration rate periodically.
+    
+    This scheduler uses a cosine wave to smoothly vary the exploration rate
+    between min_rate and max_rate over a fixed cycle length, allowing for
+    periodic transitions between exploration and exploitation.
+    
+    Attributes:
+        cycle_length: Number of epochs for one complete cosine cycle.
+    """
 
     def __init__(
         self, exploration_rate: float, max_rate: float, min_rate: float, cycle_length: int
     ):
+        """Initialize the cosine annealing scheduler.
+        
+        Args:
+            exploration_rate: Initial exploration rate.
+            max_rate: Maximum exploration rate bound.
+            min_rate: Minimum exploration rate bound.
+            cycle_length: Number of epochs per complete cosine cycle.
+            
+        Raises:
+            ValueError: If cycle_length is not positive.
+        """
         super().__init__(exploration_rate, max_rate, min_rate)
         if cycle_length <= 0:
             raise ValueError(f"cycle_length ({cycle_length}) must be positive")
         self.cycle_length = cycle_length
 
     def __call__(self, epoch: int, **kwargs) -> float:
-        """ """
+        """Compute exploration rate using cosine annealing.
+        
+        Args:
+            epoch: Current epoch number.
+            **kwargs: Additional arguments (ignored).
+            
+        Returns:
+            Updated exploration rate following cosine wave.
+        """
         cycle_progress: float = (epoch % self.cycle_length) / self.cycle_length
         cosine_factor: float = 0.5 * (1 + np.cos(np.pi * cycle_progress))
         rate: float = self.min_rate + (self.max_rate - self.min_rate) * cosine_factor

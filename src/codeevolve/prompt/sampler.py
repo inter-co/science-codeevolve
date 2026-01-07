@@ -12,7 +12,6 @@
 
 from typing import Dict, List, Tuple, Optional
 from collections import deque
-import logging
 
 from codeevolve.lm import OpenAILM
 from codeevolve.database import Program, ProgramDatabase

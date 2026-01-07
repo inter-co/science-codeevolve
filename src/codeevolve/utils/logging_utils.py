@@ -22,10 +22,6 @@ import pathlib
 
 from codeevolve.islands import GlobalData
 
-from typing import Optional
-import logging
-
-
 class SizeLimitedFormatter(logging.Formatter):
     """Custom logging formatter that enforces a maximum message size.
 

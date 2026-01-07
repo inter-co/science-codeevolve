@@ -44,7 +44,6 @@ def select_parents(
     evolve_config: Dict[str, Any],
     gen_init_pop: bool,
     exploration: bool,
-    epoch: int,
     logger: logging.Logger,
 ) -> Tuple[Program, Program, List[Program]]:
     """
@@ -72,7 +71,6 @@ def select_parents(
             - migration_interval: Epochs between migrations (default: 20)
         gen_init_pop: Whether currently generating initial population
         exploration: Whether in exploration mode (vs exploitation)
-        epoch: Current epoch number
         logger: Logger for recording selection decisions
 
     Returns:
@@ -653,7 +651,6 @@ async def evolve_loop(
             evolve_config=evolve_config,
             gen_init_pop=gen_init_pop,
             exploration=exploration,
-            epoch=epoch,
             logger=logger,
         )
 
