@@ -182,8 +182,10 @@ class GridEliteMap(EliteMap):
                 return None
 
             value = max(feature.min_val, min(value, feature.max_val))
-
-            proportion: float = (value - feature.min_val) / (feature.max_val - feature.min_val)
+            if feature.max_val - feature.min_val > 0:
+                proportion: float = (value - feature.min_val) / (feature.max_val - feature.min_val)
+            else:
+                proportion: float = 0
             idx: int = int(proportion * (feature.num_bins - 1))
             indices.append(idx)
 
@@ -308,7 +310,7 @@ class ProgramDatabase:
         self.id = id
         self.seed: Optional[int] = seed
         self.random_state: random.Random = random.Random()
-        if self.seed:
+        if self.seed is not None:
             self.random_state.seed(self.seed)
 
         self.programs: Dict[str, Program] = {}
@@ -326,10 +328,12 @@ class ProgramDatabase:
         self._pids_pool_cache: List[str] = []
         self._rank_cache: Dict[str, int] = {}
 
-        self.elite_map_type: Optional[str] = elite_map_type.lower() if elite_map_type else None
+        self.elite_map_type: Optional[str] = (
+            elite_map_type.lower() if elite_map_type is not None else None
+        )
         self.elite_map: Optional[EliteMap] = None
 
-        if features and self.elite_map_type:
+        if features is not None and self.elite_map_type is not None:
             match self.elite_map_type:
                 case "grid":
                     self.elite_map = GridEliteMap(features=features)
@@ -369,13 +373,13 @@ class ProgramDatabase:
     # (currently each insertion takes NlogN worst case, we can use bisect or
     # heapq to improve this).
 
-    def _update_caches(self) -> None:
+    def update_caches(self) -> None:
         """Updates internal caches for programs and their fitness rankings.
 
         This method rebuilds the program cache, sorts programs by fitness,
         updates rank mappings, and identifies best and worst programs.
         """
-        if getattr(self, "map", None) is not None:
+        if getattr(self, "elite_map", None) is not None:
             self._pids_pool_cache = self.elite_map.get_elite_ids()
         else:
             self._pids_pool_cache = [pid for pid, is_alive in self.is_alive.items() if is_alive]
@@ -388,6 +392,9 @@ class ProgramDatabase:
             self._pids_pool_cache, key=lambda pid: self.programs[pid].fitness, reverse=True
         )
         self._rank_cache = {pid: i for i, pid in enumerate(desc_pids)}
+
+        self.best_prog_id = desc_pids[0]
+        self.worst_prog_id = desc_pids[-1]
 
     def add(self, prog: Program) -> None:
         """Adds a program to the database.
@@ -419,15 +426,7 @@ class ProgramDatabase:
             else:
                 self.is_alive[prog.id] = False
 
-        if self.best_prog_id is None or self.programs[self.best_prog_id].fitness < prog.fitness:
-            self.best_prog_id = prog.id
-
-        if self.is_alive[prog.id] and (
-            self.worst_prog_id is None or prog.fitness < self.programs[self.worst_prog_id].fitness
-        ):
-            self.worst_prog_id = prog.id
-
-        self._update_caches()
+        self.update_caches()
 
     # parent selection
 
@@ -524,12 +523,17 @@ class ProgramDatabase:
         return self.tournament_selection(pids_pool=pids_pool, k=k, tournament_size=len(pids_pool))
 
     def sample(
-        self, selection_policy: str, num_inspirations: int = 0, **kwargs
+        self,
+        selection_policy: str,
+        num_inspirations: int = 0,
+        pids_pool: Optional[List[str]] = None,
+        **kwargs,
     ) -> Tuple[Optional[Program], List[Program]]:
         """Samples a parent and inspiration programs using a selection policy.
         Args:
             selection_policy: Method to use ('random', 'roulette', 'tournament', 'best').
             num_inspirations: Number of inspiration programs to sample.
+            pids_pool: Pool of program ids to sample from. If None, uses internal cached pool of programs.
             **kwargs: Additional arguments for the selection method.
         Returns:
             A tuple of (parent Program, list of inspiration Programs).
@@ -538,18 +542,18 @@ class ProgramDatabase:
         if not selection_func:
             raise ValueError(f"Selection policy must be in {self._selection_methods.keys()}")
 
-        self._update_caches()
-        if not self._pids_pool_cache:
-            return None, []
+        if pids_pool is None:
+            self.update_caches()
+            pids_pool = self._pids_pool_cache
+            if not self._pids_pool_cache:
+                return None, []
 
-        parent_progs: Optional[List[Program]] = selection_func(
-            pids_pool=self._pids_pool_cache, k=1, **kwargs
-        )
+        parent_progs: Optional[List[Program]] = selection_func(pids_pool=pids_pool, k=1, **kwargs)
         parent: Optional[Program] = parent_progs[0] if parent_progs else None
 
         inspirations: List[Program] = []
         if parent and num_inspirations > 0:
-            inspiration_pool: List[str] = [pid for pid in self._pids_pool_cache if pid != parent.id]
+            inspiration_pool: List[str] = [pid for pid in pids_pool if pid != parent.id]
             if inspiration_pool:
                 inspirations = selection_func(
                     pids_pool=inspiration_pool, k=num_inspirations, **kwargs
@@ -559,8 +563,8 @@ class ProgramDatabase:
     def get_migrants(self, migration_rate: float) -> List[Program]:
         """Returns a list of migrants according a given migration rate.
 
-        Only migrates programs who haven't migrated and are not
-        themselves migrants. Might lead to fewer than
+        Only migrates programs who haven't migrated, are not
+        themselves migrants and are not the best program. Might lead to fewer than
         migration_rate*self.num_alive migrants.
 
         Args:
@@ -569,12 +573,14 @@ class ProgramDatabase:
         Returns:
             List of migrant programs.
         """
-        self._update_caches()
+        self.update_caches()
 
         eligible_progs: List[str] = [
             pid
             for pid in self._pids_pool_cache
-            if self.programs[pid].island_found == self.id and not self.has_migrated.get(pid)
+            if (self.programs[pid].island_found == self.id)
+            and (not self.has_migrated.get(pid))
+            and (pid != self.best_prog_id)
         ]
         if not eligible_progs:
             return []

@@ -16,6 +16,7 @@ import pickle as pkl
 import pathlib
 
 from codeevolve.database import ProgramDatabase
+from codeevolve.scheduler import ExplorationRateScheduler
 
 
 def save_ckpt(
@@ -23,6 +24,7 @@ def save_ckpt(
     prompt_db: ProgramDatabase,
     sol_db: ProgramDatabase,
     evolve_state: Dict[str, Any],
+    scheduler: Optional[ExplorationRateScheduler],
     best_sol_path: str | pathlib.Path,
     best_prompt_path: str | pathlib.Path,
     ckpt_dir: str | pathlib.Path,
@@ -39,6 +41,7 @@ def save_ckpt(
         prompt_db: Database containing prompt population.
         sol_db: Database containing solution population.
         evolve_state: Dictionary containing the current state of the evolution algorithm.
+        scheduler: Exploration scheduler.
         best_sol_path: File path where the best solution code will be saved.
         best_prompt_path: File path where the best prompt code will be saved.
         ckpt_dir: Directory where the checkpoint file will be saved.
@@ -50,6 +53,8 @@ def save_ckpt(
         "sol_db": sol_db,
         "evolve_state": evolve_state,
     }
+    if scheduler is not None:
+        data["scheduler"] = scheduler
     if isinstance(best_sol_path, str):
         best_sol_path = pathlib.Path(best_sol_path)
     if isinstance(best_prompt_path, str):
@@ -71,9 +76,12 @@ def save_ckpt(
     logger.info(f"Checkpoint {curr_epoch} sucessfully saved.")
 
 
-def load_ckpt(
-    epoch: int, ckpt_dir: str | pathlib.Path
-) -> Tuple[ProgramDatabase, ProgramDatabase, Dict[str, Any]]:
+def load_ckpt(epoch: int, ckpt_dir: str | pathlib.Path) -> Tuple[
+    Optional[ProgramDatabase],
+    Optional[ProgramDatabase],
+    Optional[Dict[str, Any]],
+    Optional[ExplorationRateScheduler],
+]:
     """Loads a checkpoint of the evolutionary algorithm state.
 
     This function restores the state of the evolutionary algorithm from a
@@ -88,6 +96,7 @@ def load_ckpt(
             - Prompt database with evolved prompts, None if not found
             - Solution database with evolved programs, None if not found
             - Dictionary with the evolution algorithm state, None if not found
+            - Exploration scheduler, None if not found
     """
     if isinstance(ckpt_dir, str):
         ckpt_dir = pathlib.Path(ckpt_dir)
@@ -99,4 +108,5 @@ def load_ckpt(
         data.get("prompt_db", None),
         data.get("sol_db", None),
         data.get("evolve_state", None),
+        data.get("scheduler", None),
     )

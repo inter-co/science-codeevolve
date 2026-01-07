@@ -1,0 +1,89 @@
+SYS_MSG: |
+  # PROMPT-BLOCK-START
+
+  SETTING:
+  You are an expert computational geometer and optimization specialist with deep expertise in circle packing problems, geometric optimization algorithms, and constraint satisfaction.
+  Your mission is to evolve and optimize a constructor function that generates an optimal arrangement of exactly 21 non-overlapping circles within a rectangle, maximizing the sum of their radii.
+
+  PROBLEM CONTEXT:
+  - **Objective**: Create a function that returns optimal (x, y, radius) coordinates for 21 circles
+  - **Benchmark**: Beat the AlphaEvolve state-of-the-art result of sum_radii = 2.3658321334167627
+  - **Container**: Rectangle with perimeter = 4 (width + height = 2). You may choose optimal width/height ratio
+  - **Constraints**: 
+    * All circles must be fully contained within rectangle boundaries
+    * No circle overlaps (distance between centers ≥ sum of their radii)
+    * Exactly 21 circles required
+    * All radii must be positive
+
+  COMPUTATIONAL BUDGET:
+  - **Time limit**: 60 seconds maximum execution time
+  - **Memory limit**: 1 GB
+
+  COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+  **Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+
+  **Additional useful packages**:
+  - **Global optimization**: `deap` (evolutionary computation), `platypus` (NSGA-II)
+  - **Metaheuristics**: `scikit-opt` (PSO, GA, SA), `nevergrad` (gradient-free optimization), `optuna` (hyperparameter optimization)
+  - **Geometric computing**: `shapely` (geometric operations), `rtree` (spatial indexing), `scipy.spatial` (distance matrices, Voronoi)
+  - **Constraint programming**: `python-constraint`, `ortools` (Google OR-Tools), `cvxpy` (convex optimization)
+  - **Physics engines**: `pymunk` (2D rigid body physics), `Box2D` (collision detection)
+  - **Parallel computing**: `joblib` (embarrassingly parallel), `multiprocessing`, `concurrent.futures`
+  - **Performance**: `cython` (C extensions), `numexpr` (fast numerical expressions)
+
+  PERFORMANCE METRICS:
+  1. **sum_radii**: Total sum of all 21 circle radii (PRIMARY OBJECTIVE - maximize)
+  2. **benchmark_ratio**: sum_radii / 2.3658321334167627 (progress toward beating benchmark)  
+  3. **eval_time**: Execution time in seconds (keep reasonable, prefer accuracy over speed)
+
+  TECHNICAL REQUIREMENTS:
+  - **Determinism**: Use fixed random seeds if employing stochastic methods for reproducibility
+  - **Error handling**: Graceful handling of optimization failures or infeasible configurations
+  - **Memory efficiency**: Avoid excessive memory allocation for distance matrix computations
+  - **Scalability**: Design with potential extension to different circle counts in mind
+
+  # PROMPT-BLOCK-END
+      
+CODEBASE_PATH: 'src/'
+INIT_FILE_DATA: {filename: 'init_program.py', language: 'python'}
+EVAL_FILE_NAME: 'evaluate.py'
+EVAL_TIMEOUT: 60
+
+MAX_MEM_BYTES: 1000000000
+MEM_CHECK_INTERVAL_S: 0.1
+
+EVOLVE_CONFIG: {fitness_key: 'benchmark_ratio',
+                num_epochs: 100,ckpt: 10,max_size: null,init_pop: 10,
+                exploration_rate: 0.2, 
+                selection_policy: 'roulette', selection_kwargs: {roulette_by_rank: True},
+                early_stopping_rounds: null,
+                num_islands: 5, migration_topology: 'ring', migration_interval: 20, migration_rate: 0.1,
+                meta_prompting: True, use_embedding: False, use_map_elites: True,
+                num_inspirations: 2,
+                max_chat_depth: 5,
+                mp_start_marker: "# PROMPT-BLOCK-START", mp_end_marker: "# PROMPT-BLOCK-END",
+                evolve_start_marker: "# EVOLVE-BLOCK-START", evolve_end_marker: "# EVOLVE-BLOCK-END",
+                use_scheduler: True, type: 'PlateauScheduler', scheduler_kwargs: {min_rate: 0.2, max_rate: 0.5, plateau_threshold: 5, increase_factor: 1.05, decrease_factor: 0.95}
+                }
+
+
+EXPLORATION_ENSEMBLE: [{model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 1, verify_ssl: False}]
+
+EXPLOITATION_ENSEMBLE: [{model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.60, verify_ssl: False},
+                        {model_name: 'GOOGLE_GEMINI-2.5-PRO', temp: 0.7, top_p: 0.95, retries: 3, weight: 0.40, verify_ssl: False}]
+
+SAMPLER_AUX_LM : {model_name: 'GOOGLE_GEMINI-2.5-FLASH', temp: 0.7, top_p: 0.95, retries: 3, weight: 1, verify_ssl: False}
+
+EMBEDDING: {model_name: 'AZURE_TEXT-EMBEDDING-3-SMALL', retries: 3, verify_ssl: False, dimensions: 128}
+
+MAP_ELITES: {elite_map_type: 'cvt',
+             features: [
+              {name: 'radii_sum', min_val: 0, max_val: 2.8},
+              {name: 'benchmark_ratio', min_val: 0, max_val: 1.2},
+              {name: 'eval_time', min_val: 0, max_val: 180},
+             ],
+             elite_map_kwargs: {
+              num_centroids: 30, num_init_samples: 1000, max_iter: 300, tolerance: 0.0001
+             }
+}
+

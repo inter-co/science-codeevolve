@@ -161,13 +161,16 @@ class LMEnsemble:
             seed: Random seed for reproducible model selection.
             logger: Logger instance for logging operations.
         """
+        if models_cfg is None:
+            raise ValueError("Model configuration cannot be None.")
+
         self.models_cfg: List[Dict[Any, Any]] = models_cfg
         self.models: List[OpenAILM] = [
             OpenAILM(**model_cfg, api_key=api_key, api_base=api_base) for model_cfg in models_cfg
         ]
 
         self.weights: List[float] = [model.weight for model in self.models]
-        total = sum(self.weights)
+        total: float = sum(self.weights)
         self.weights = [weight / total for weight in self.weights]
 
         self.random_state: random.Random = random.Random()

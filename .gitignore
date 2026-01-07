@@ -211,3 +211,7 @@ __marimo__/
 # debug
 debug/
 mock/
+MODELS.md
+
+.sm_stage_simple
+jobs_history.json

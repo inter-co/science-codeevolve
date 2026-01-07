@@ -24,6 +24,8 @@ from codeevolve.prompt.template import (
     EVOLVE_PROMPT_TEMPLATE,
     EVOLVE_PROG_TEMPLATE,
     INSP_PROG_TEMPLATE,
+    EXPLORE_PROG_TASK_TEMPLATE,
+    EXPLORE_PROG_WINSP_TASK_TEMPLATE,
 )
 
 
@@ -63,17 +65,14 @@ class PromptSampler:
     It supports both program evolution and meta-prompt evolution.
     """
 
-    def __init__(self, aux_lm: OpenAILM, logger: Optional[logging.Logger] = None):
+    def __init__(self, aux_lm: OpenAILM):
         """Initializes the prompt sampler with an auxiliary language model.
 
         Args:
             aux_lm: OpenAI language model instance for meta-prompt generation.
-            logger: Logger instance for logging prompt operations.
         """
 
         self.aux_lm: OpenAILM = aux_lm
-
-        self.logger: logging.Logger = logger if logger is not None else logging.getLogger(__name__)
 
     def __repr__(self) -> str:
         """Returns a string representation of the PromptSampler.
@@ -108,16 +107,7 @@ class PromptSampler:
             },
         ]
 
-        self.logger.info(f"Attempting to run meta_prompt on {self.aux_lm}...")
-
         response, prompt_tok, compl_tok = await self.aux_lm.generate(messages)
-
-        self.logger.info(
-            (
-                f"Successfully retrieved response, using {prompt_tok} prompt tokens"
-                f" and {compl_tok} completion tokens."
-            )
-        )
 
         return (response, prompt_tok, compl_tok)
 
@@ -128,6 +118,7 @@ class PromptSampler:
         db: ProgramDatabase,
         inspirations: Optional[List[Program]] = None,
         max_chat_depth: Optional[int] = None,
+        exploitation: bool = False,
     ) -> List[Dict[str, str]]:
         """Builds a conversation prompt from program lineage and inspirations.
 
@@ -181,8 +172,14 @@ class PromptSampler:
                 insp_str += INSP_PROG_TEMPLATE.format(counter=i + 1, program=inspiration.prog_msg)
 
             messages[-1]["content"] = insp_str + messages[-1]["content"]
-            messages[0]["content"] += EVOLVE_PROG_WINSP_TASK_TEMPLATE
+            messages[0]["content"] += (
+                EVOLVE_PROG_WINSP_TASK_TEMPLATE
+                if exploitation
+                else EXPLORE_PROG_WINSP_TASK_TEMPLATE
+            )
         else:
-            messages[0]["content"] += EVOLVE_PROG_TASK_TEMPLATE
+            messages[0]["content"] += (
+                EVOLVE_PROG_TASK_TEMPLATE if exploitation else EXPLORE_PROG_TASK_TEMPLATE
+            )
 
         return list(messages)

@@ -37,6 +37,6 @@ MAP_ELITES: {elite_map_type: 'grid',
 #               {name: 'feat1', min_val: 0, max_val: 1}
 #              ],
 #              elite_map_kwargs: {
-#               num_centroids: 50, num_init_samples: 10, max_iter: 300, tolerance: 0.0001
+#               num_centroids: 50, num_init_samples: 100, max_iter: 300, tolerance: 0.0001
 #              }
 #              }

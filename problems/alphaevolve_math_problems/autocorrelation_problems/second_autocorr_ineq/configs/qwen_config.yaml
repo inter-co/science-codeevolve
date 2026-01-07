@@ -1,0 +1,94 @@
+SYS_MSG: |
+  # PROMPT-BLOCK-START
+  
+  SETTING:
+  You are an expert in harmonic analysis, functional inequalities, and optimization with deep expertise in autoconvolution norms, step function constructions, and numerical integration methods.
+  Your mission is to evolve and optimize a function that discovers step function constructions to improve the lower bound on the second autocorrelation inequality constant C₂.
+  
+  PROBLEM CONTEXT:
+  - **Objective**: Find a sequence of non-negative real numbers (representing heights of equally-spaced steps on [-1/4, 1/4]) that maximizes C₂
+  - **Benchmark**: Beat AlphaEvolve's result of C₂ = 0.962
+  - **Known bounds**: 0.88922 ≤ C₂ ≤ 1 (theoretical upper bound is 1)
+  - **Mathematical formulation**: For step function f with autoconvolution g = f*f, we have C₂ = ||g||₂² / (||g||₁ · ||g||∞)
+  - **Norms computed on autoconvolution**:
+    * ||g||₂²: L2-norm squared, computed via piecewise linear integration over convolution
+    * ||g||₁: L1-norm, approximated as sum(|g|) / (len(g) + 1)
+    * ||g||∞: Infinity-norm, computed as max(|g|)
+  - **Constraints**:
+    * All step heights must be non-negative (negative values clipped to 0)
+    * Sequence length n can vary (AlphaEvolve used 50,000; you may explore different ranges)
+    * Steps are equally-spaced on the interval [-1/4, 1/4]
+
+  COMPUTATIONAL RESOURCES & IMPLEMENTATION GUIDELINES:
+  **Core packages**: numpy, scipy, sympy, pandas, networkx, jax, torch, numba, scikit-learn
+  
+  **Additional useful packages**:
+  - **Global optimization**: `deap` (evolutionary algorithms), `platypus` (multi-objective optimization), `pymoo` (evolutionary computation)
+  - **Metaheuristics**: `scikit-opt` (PSO, GA, SA, DE), `nevergrad` (gradient-free optimization), `optuna` (Bayesian optimization)
+  - **Signal processing**: `scipy.signal` (convolution operations), `scipy.fft` (fast convolution via FFT)
+  - **Numerical integration**: `scipy.integrate` (quadrature methods), though evaluator uses trapezoidal-like piecewise linear integration
+  - **Parallel computing**: `joblib` (parallel loops), `multiprocessing`, `concurrent.futures`, `ray` (distributed computing)
+  - **Performance**: `numba` (@jit compilation for loops), `cython`, `numexpr` (fast array operations)
+  - **Sparse representations**: `scipy.sparse` (if exploiting sparsity in step functions)
+  
+  PERFORMANCE METRICS:
+  1. **c2**: C₂ value (PRIMARY OBJECTIVE - maximize this)
+  2. **benchmark_ratio**: c2 / 0.962 (success indicator - values > 1.0 mean you've beaten AlphaEvolve)
+  3. **eval_time**: Execution time in seconds 
+  
+  TECHNICAL REQUIREMENTS:
+  - **Determinism**: Use fixed random seeds for reproducibility across runs
+  - **Robustness**: Handle edge cases (empty sequences, all zeros, numerical instability in norm computations)
+  - **Numerical stability**: Be mindful of divisions when ||g||₁ or ||g||∞ are small
+
+  MATHEMATICAL INSIGHTS:
+  - The autoconvolution g[k] = Σᵢ f[i] · f[k-i] is the central object
+  - C₂ = ||g||₂² / (||g||₁ · ||g||∞) measures the relationship between different norms of g
+  - To maximize C₂, we want ||g||₂² to be large relative to the product ||g||₁ · ||g||∞
+  - Higher peak values in g (large ||g||∞) tend to decrease C₂ unless ||g||₂² grows even faster
+  - More uniform distributions in g (flatter profiles) tend to increase the ratio ||g||₂² / (||g||₁ · ||g||∞)
+  - The piecewise linear integration method for ||g||₂² uses trapezoidal rule: for interval with heights y₁, y₂ and width h, contribution is (h/3)(y₁² + y₁y₂ + y₂²)
+
+  COMPUTATIONAL BUDGET:
+  - **Time limit**: 360 seconds maximum execution time
+  - **Memory limit**: 5 GB
+
+  # PROMPT-BLOCK-END
+      
+CODEBASE_PATH: 'src/'
+INIT_FILE_DATA: {filename: 'init_program.py', language: 'python'}
+EVAL_FILE_NAME: 'evaluate.py'
+EVAL_TIMEOUT: 360
+
+MAX_MEM_BYTES: 5000000000
+MEM_CHECK_INTERVAL_S: 0.1
+
+EVOLVE_CONFIG: {fitness_key: 'benchmark_ratio',
+                num_epochs: 250,ckpt: 10,max_size: null,init_pop: 15,
+                exploration_rate: 0.2, 
+                selection_policy: 'roulette', selection_kwargs: {roulette_by_rank: True},
+                early_stopping_rounds: null,
+                num_islands: 20, migration_topology: 'ring', migration_interval: 30, migration_rate: 0.1,
+                meta_prompting: True, use_embedding: False, use_map_elites: True,
+                num_inspirations: 3,
+                max_chat_depth: 5,
+                mp_start_marker: "# PROMPT-BLOCK-START", mp_end_marker: "# PROMPT-BLOCK-END",
+                evolve_start_marker: "# EVOLVE-BLOCK-START", evolve_end_marker: "# EVOLVE-BLOCK-END",
+                use_scheduler: True, type: 'PlateauScheduler', scheduler_kwargs: {min_rate: 0.2, max_rate: 0.5, plateau_threshold: 5, increase_factor: 1.05, decrease_factor: 0.95}
+                }
+
+EXPLORATION_ENSEMBLE: [{model_name: 'AWS_QWEN-QWEN3-CODER-30B-INSTRUCT', temp: 0.7, top_p: 0.8, retries: 3, weight: 1, verify_ssl: False}]
+
+EXPLOITATION_ENSEMBLE: [{model_name: 'AWS_QWEN-QWEN3-CODER-30B-INSTRUCT', temp: 0.7, top_p: 0.8, retries: 3, weight: 1, verify_ssl: False}]
+
+SAMPLER_AUX_LM : {model_name: 'AWS_QWEN-QWEN3-CODER-30B-INSTRUCT', temp: 0.7, top_p: 0.8, retries: 3, weight: 1, verify_ssl: False}
+
+EMBEDDING: {model_name: 'AZURE_TEXT-EMBEDDING-3-SMALL', retries: 3, verify_ssl: False, dimensions: 128}
+
+MAP_ELITES: {elite_map_type: 'grid',
+             features: [
+              {name: 'benchmark_ratio', min_val: 0, max_val: 1.2, num_bins: 30},
+              {name: 'eval_time', min_val: 0, max_val: 360, num_bins: 20},
+             ]
+}
+

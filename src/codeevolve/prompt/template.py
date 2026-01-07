@@ -223,6 +223,170 @@ You WILL be provided with multiple inspiration programs that demonstrate various
     >>>>>>> REPLACE
 """
 
+EXPLORE_PROG_TASK_TEMPLATE = """
+# TASK: CODE EXPLORATION & DIVERSIFICATION
+Your goal is to evolve the provided program by implementing **novel strategies** and **distinct algorithmic pathways**.
+Unlike standard optimization, you should avoid minor incremental fixes. Instead, aim to rewrite the logic using a different paradigm or mathematical approach to increase the diversity of the solution space.
+You **MUST** adhere strictly to the **SEARCH/REPLACE format** described below for all modifications.
+## MODIFICATION FORMAT:
+Present your proposed code changes using the following structure:
+    ```
+    <<<<<<< SEARCH
+    [exact original code STRICTLY WITHIN an EVOLVE-BLOCK]
+    =======
+    [your modified code]
+    >>>>>>> REPLACE
+    ```
+* For multiple independent changes, provide each in a separate SEARCH/REPLACE block.
+## CORE RULES FOR CODE MODIFICATION:
+### 1. Scope & Boundaries:
+    1.1. **Target `EVOLVE-BLOCK` ONLY**: All code modifications **MUST** be confined to sections explicitly marked between `EVOLVE-BLOCK-START` and `EVOLVE-BLOCK-END` comments. Do NOT include these markers in your modifications.
+    1.2. **External Code Usage**: You **MAY reference** code outside these `EVOLVE-BLOCK` regions, but you **MUST NOT modify** it.
+    1.3. **New Imports**: If new imports are required, add them *within* an `EVOLVE-BLOCK`.
+### 2. SEARCH Block Requirements:
+    2.1. **EXACT Match**: The content of each `<<<<<<< SEARCH` block **MUST EXACTLY MATCH** the original code, including all whitespace, indentation, formatting, and comments.
+    2.2. **No Comment Alterations in SEARCH**: Do **NOT** add, remove, or modify comments within the `<<<<<<< SEARCH` block. Only make comment changes in the `======= REPLACE` block.
+    2.3. **First Occurrence Precedence**: If multiple identical code sections exist in the original program, your SEARCH block will be applied to the *first occurrence* matching its content.
+### 3. Output & Compatibility:
+    3.1. **Preserve Functionality**: Your modifications **MUST NOT** break existing functionality, external dependencies, or expected program behavior.
+    3.2. **Maintain Compatibility**: All changes **MUST** maintain compatibility with unmarked code and preserve existing function signatures and interfaces.
+    3.3. **Internal Consistency**: If you propose multiple changes across different SEARCH/REPLACE blocks, ensure they are mutually consistent.
+### 4. Exploration Goals:
+    4.1. **Distinct Pathways**: Do not simply optimize the current approach. Attempt to solve the problem using a fundamentally different algorithm or logic.
+## EXAMPLE:
+### YOUR INPUT
+    EXPLORE NEW STRATEGIES FOR THE TARGET PROGRAM.
+    ----------TARGET PROGRAM---------
+    ```python
+    # EVOLVE-BLOCK-START
+    def exp(a: int, b: int) -> int:
+        x: int = 1
+        for i in range(b + 1):
+            x = x * a
+        return x
+    # EVOLVE-BLOCK-END
+    if __name__ == '__main__':
+        print(exp(5, 3))
+    ```
+    PERFORMANCE METRICS: {'runtime':1}
+    RETURNCODE: 0
+    WARNING: None
+    ERROR: None
+### YOUR OUTPUT
+    <<<<<<< SEARCH
+    def exp(a: int, b: int) -> int:
+        x: int = 1
+        for i in range(b + 1):
+            x = x * a
+        return x
+    =======
+    def exp(a: int, b: int) -> int:
+        if b == 0:
+            return 1
+        if b == 1:
+            return a
+        
+        # EXPLORATION: Switching from linear iteration to Divide-and-Conquer (Binary Exponentiation)
+        # This represents a distinct algorithmic pathway with O(log n) complexity.
+        result = 1
+        base = a
+        exponent = b
+        while exponent > 0:
+            if exponent % 2 == 1:
+                result *= base
+            base *= base
+            exponent //= 2
+        return result
+    >>>>>>> REPLACE
+"""
+
+EXPLORE_PROG_WINSP_TASK_TEMPLATE = """
+# TASK: CODE EXPLORATION & DIVERSIFICATION
+Your goal is to evolve the provided program by implementing **novel strategies** and **distinct algorithmic pathways**.
+Unlike standard optimization, you should avoid minor incremental fixes. Instead, aim to rewrite the logic using a different paradigm or mathematical approach to increase the diversity of the solution space.
+You will be provided with the **Target Program** and a set of **Randomly Sampled Inspiration Programs**.
+Unlike optimization tasks, your goal is **NOT** merely to refine the current code, but to synthesize a fundamentally different approach (a semantic crossover) that increases solution diversity.
+
+You **MUST** adhere strictly to the **SEARCH/REPLACE format** described below for all modifications.
+
+## MODIFICATION FORMAT:
+Present your proposed code changes using the following structure:
+    ```
+    <<<<<<< SEARCH
+    [exact original code STRICTLY WITHIN an EVOLVE-BLOCK]
+    =======
+    [your modified code]
+    >>>>>>> REPLACE
+    ```
+* For multiple independent changes, provide each in a separate SEARCH/REPLACE block.
+
+## CORE RULES FOR CODE MODIFICATION:
+### 1. Scope & Boundaries:
+    1.1. **Target `EVOLVE-BLOCK` ONLY**: All code modifications **MUST** be confined to sections explicitly marked between `EVOLVE-BLOCK-START` and `EVOLVE-BLOCK-END` comments.
+    1.2. **External Code Usage**: You **MAY reference** code outside these `EVOLVE-BLOCK` regions, but you **MUST NOT modify** it.
+    1.3. **New Imports**: If new imports are required, add them *within* an `EVOLVE-BLOCK`.
+
+### 2. SEARCH Block Requirements:
+    2.1. **EXACT Match**: The content of each `<<<<<<< SEARCH` block **MUST EXACTLY MATCH** the original code.
+    2.2. **No Comment Alterations in SEARCH**: Do **NOT** add, remove, or modify comments within the `<<<<<<< SEARCH` block.
+
+### 3. Output & Compatibility:
+    3.1. **Preserve Functionality**: Your modifications **MUST NOT** break existing functionality or external dependencies.
+    3.2. **Maintain Compatibility**: All changes **MUST** maintain compatibility with unmarked code.
+
+## INSPIRATION EXPLORATION ANALYSIS:
+You **MUST** analyze the provided **Random Inspiration Programs** to find alternative logic.
+
+### 4. Exploration Goals:
+    4.1. **Seek Novelty**: Do not perform incremental optimization (e.g., small variable name changes). Look for **structural changes** in the inspirations.
+    4.2. **Semantic Crossover**: Synthesize a new solution that combines the problem definition of the Target with the **algorithmic logic** of the Inspirations.
+    4.3. **Divergent Thinking**: If the Target and Inspirations are similar, try to combine their distinct features to create a hybrid that differs from both parents.
+
+### 5. Mandatory Analysis Steps:
+    5.1. **Logic Extraction**: Identify the core algorithm used in each random inspiration.
+    5.2. **Differentiation Strategy**: Explain how the inspiration's approach differs from the target's current approach.
+    5.3. **Synthesis Plan**: Describe how you will replace the target's logic with the inspiration's logic to explore a new part of the search space.
+
+## EXAMPLE:
+### YOUR INPUT
+    ----------RANDOM INSPIRATION 1---------
+    ```python
+    # EVOLVE-BLOCK-START
+    def solve(data): return sorted(data, reverse=True)[0] # Greedy/Sorting approach
+    # EVOLVE-BLOCK-END
+    ```
+    ----------TARGET PROGRAM---------
+    ```python
+    # EVOLVE-BLOCK-START
+    def solve(data):
+        m = 0
+        for x in data: m = max(m, x) # Iterative Linear Scan
+        return m
+    # EVOLVE-BLOCK-END
+    ```
+### YOUR OUTPUT
+    **INSPIRATION ANALYSIS:**
+    - The Target uses an iterative linear scan (O(N)).
+    - The Random Inspiration uses a sorting-based approach (O(N log N)).
+    - **Strategy**: While sorting is slower here, it represents a distinct algorithmic pathway. I will explore the sorting-based logic to see if it simplifies downstream operations or enables different optimizations.
+    
+    **SYNTHESIS:**
+    I will replace the iterative logic with the sorting logic from Inspiration 1 to shift the solution structure.
+
+    <<<<<<< SEARCH
+    def solve(data):
+        m = 0
+        for x in data: m = max(m, x) # Iterative Linear Scan
+        return m
+    =======
+    def solve(data):
+        # EXPLORATION: Adopting Sorting strategy from Inspiration 1
+        if not data: return 0
+        sorted_data = sorted(data, reverse=True)
+        return sorted_data[0]
+    >>>>>>> REPLACE
+"""
+
 PROG_TEMPLATE = """ 
 ```{language}
 {code}
@@ -249,11 +413,10 @@ INSP_PROG_TEMPLATE = """
 EVOLVE_PROMPT_TASK_TEMPLATE = """
 # SETTING
 You are an expert Prompt Engineer specializing in crafting instructions for advanced code-generating AI models.
-Your task is to improve a given prompt in order to guide an LLM to generate more effective and efficient code.
 
-# TASK: PROMPT EVOLUTION
-Your goal is to evolve the provided **prompt**. 
-The evolved prompt should be more likely to guide an AI assistant to generate correct and effective code. 
+# TASK: PROMPT EVOLUTION FOR DIVERSITY
+Your goal is to evolve the provided **prompt** to foster solution diversity.
+While the evolved prompt must still aim for valid code, it should encourage the AI assistant to explore **distinct algorithmic pathways** and **novel strategies** different from the current solution.
 You will be given the original prompt, the code it generated, and the results of executing that code.
 You **MUST** adhere strictly to the **SEARCH/REPLACE format** described below for all modifications.
 
@@ -270,73 +433,28 @@ Present your proposed prompt changes using the following structure:
 
 ## CORE RULES FOR PROMPT MODIFICATION:
 ### 1. Scope & Boundaries:
-    1.1. **Target `PROMPT-BLOCK` ONLY**: All modifications **MUST** be confined to sections of the prompt explicitly marked between `PROMPT-BLOCK-START` and `PROMPT-BLOCK-END` comments. Do NOT include these markers in your modifications.
+    1.1. **Target `PROMPT-BLOCK` ONLY**: All modifications **MUST** be confined to sections of the prompt explicitly marked between `PROMPT-BLOCK-START` and `PROMPT-BLOCK-END` comments.
     1.2. **External Text Usage**: You **MAY reference** text outside these `PROMPT-BLOCK` regions, but you **MUST NOT modify** it.
-
 ### 2. SEARCH Block Requirements:
-    2.1. **EXACT Match**: The content of each `<<<<<<< SEARCH` block **MUST EXACTLY MATCH** the original text, including all whitespace, formatting, and punctuation.
-    2.2. **No Comment Alterations in SEARCH**: Do **NOT** add, remove, or modify comments within the `<<<<<<< SEARCH` block.
-
+    2.1. **EXACT Match**: The content of each `<<<<<<< SEARCH` block **MUST EXACTLY MATCH** the original text.
 ### 3. Goal of Evolution:
-    3.1. **Incorporate Feedback**: Your modifications should incorporate insights from the provided `GENERATED CODE` and its `PERFORMANCE METRICS`. Use the errors, warnings, or performance issues as clues for how the prompt can be improved.
-    3.2. **Enrich context**: Your modifications should enrich the prompt's context in order to give the LLM a broader and deeper understanding of the problem at hand. Add relevant information about the problem that will enrich the context, insights into the literature and state-of-the-art knowledge, guidance toward specific algorithmic patterns and strategies, etc. You can also remove redundant or misleading parts of the prompt in order to increase its quality.
-
+    3.1. **Foster Diversity**: Analyze the strategy used in the `GENERATED CODE`. Modify the prompt to guide the LLM away from this specific implementation detail and toward alternative valid logic or mathematical approaches.
+    3.2. **Enrich Context**: Enrich the prompt with higher-level conceptual guidance that opens up the search space. Add insights from literature or broad algorithmic patterns that differ from the current approach.
+    3.3. **Avoid Over-fitting**: Do not make the prompt overly specific to fixing the current solution's bugs if it sacrifices generality. The goal is a *new* perspective, not just a patch.
 ## EXAMPLE:
 ### YOUR INPUT
-    IMPROVE THE TARGET PROMPT.
-    ----------TARGET PROMPT---------
-    # PROMPT-BLOCK-START
-    # SETTING
-    You are an expert software developer. Your goal is to design an integer exponentiation function.
-    # PROMPT-BLOCK-END
-    # PERFORMANCE METRICS
-        1. **correctness**: Ratio of tests passed by total number of tests
-        2. **eval_time**: Execution time in seconds
-    # COMPUTATIONAL RESOURCES
-    You have access to the python standard library.
-    You have a time limit of 1 second, and a memory limit of 100 KB.
-    # REQUIREMENTS
-    You function must be correct.
-    # PROMPT-BLOCK-START
-    # ADDITIONAL CONTEXT
-    Exponentiation is defined as exp(a,b) = a*a*...*a (b times) when a and b are integers. 
-    # PROMPT-BLOCK-END
-    --------------------------------
+    ... [Input omitted for brevity] ...
     ----------GENERATED PROGRAM---------
-    ```python
-    def exp(a: int, b: int) -> int:
-        x: int = 1
-        for i in range(b):
-            x = x * a
-        return x
-    ```
-    PERFORMANCE METRICS: {'correctness':1,'eval_time':0.99}
-    RETURNCODE: 0
-    WARNING: None
-    ERROR: None
+    [An O(n) iterative solution]
     ---------------------------------
 ### YOUR ANSWER
-    The `eval_time` of 0.99 is dangerously close to the 1-second limit, suggesting the O(b) iterative approach is too slow.
-    The original prompt's description, `a*a*...*a (b times)`, likely guided the AI to this inefficient implementation. 
-    I will evolve the prompt to be more specific about performance requirements and to provide clearer examples to prevent ambiguity. 
-    This will guide the AI towards a more robust and efficient algorithm like binary exponentiation, which has O(log b) time complexity.
+    The generated program uses a standard iterative approach. To foster diversity and find potentially better optima, I will evolve the prompt to explicitly encourage a divide-and-conquer strategy, which is a distinct algorithmic pathway.
     <<<<<<< SEARCH
     # SETTING
     You are an expert software developer. Your goal is to design an integer exponentiation function.
     =======
     # SETTING
-    You are an expert software engineer, with a deep knowledge of divide-and-conquer algorithms.
-    Your goal is to design an efficient function to perform integer exponentiation.
-    >>>>>>> REPLACE
-    <<<<<<< SEARCH
-    # ADDITIONAL CONTEXT
-    Exponentiation is defined as exp(a,b) = a*a*...*a (b times) when a and b are integers. 
-    =======
-    # ADDITIONAL CONTEXT
-    Exponentiation is defined as `exp(a,b) = a*a*...*a` (b times). For example, `exp(a, 3) = a * a * a`.
-    A naive solution can be implemented in linear time O(b), however this is likely to time out for large values of b.
-    The integer exponentiation problem is a famous example where a divide-and-conquer strategy can achieve an exponential speedup: O(log b) time.
-    This is achieved by computing a^{b/2} recursively.
+    You are an expert mathematician. Your goal is to design an integer exponentiation function using recursive properties or binary decomposition.
     >>>>>>> REPLACE
 """
 
