@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codeevolve"
+dynamic = ["version"]
+description = "Source code for CodeEvolve."
+readme = "README.md"
+requires-python = ">=3.13.5"
+license = "Apache-2.0"
+authors = [
+    {name = "Inter Science"}
+]
+dependencies = [
+    "httpx>=0.28.1",
+    "numpy>=2.2.5",
+    "openai>=1.91.0",
+    "pandas>=2.2.3",
+    "psutil>=5.9.0",
+    "PyYAML>=6.0.3",
+    "scipy>=1.16.0",
+    "matplotlib>=3.10.3",
+    "networkx>=3.4.2"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.1",
+    "black>=22.0.0",
+    "isort>=5.10.0",
+    "boto3>=1.38.44"
+]
+
+benchmarks = [
+    "sympy>=1.13.3",
+    "jax>=0.7.2",
+    "torch>=2.5.1",
+    "numba>=0.61.2",
+    "scikit-learn>=1.7.1",
+    "deap>=1.4.3",
+    "platypus-opt",
+    "scikit-opt>=0.6.6",
+    "nevergrad>=1.0.12",
+    "optuna>=4.4.0",
+    "shapely>=2.1.1",
+    "rtree>=1.4.0",
+    "python-constraint>=1.4.0",
+    "ortools>=9.14.6206",
+    "cvxpy>=1.7.1",
+    "pymunk>=7.1.0",
+    "joblib>=1.5.1",
+    "cython>=3.1.2",
+    "numexpr>=2.10.1"
+]
+
+[project.scripts]
+codeevolve = "codeevolve.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = {attr = "codeevolve.__version__"}
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 100
