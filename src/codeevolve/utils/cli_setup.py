@@ -237,7 +237,7 @@ def setup_island_args(
 # ---------------------------------------------------------------------------
 
 
-def print_dict_rec(base_dict: Dict[str, Any]) -> None:
+def print_dict_rec(base_dict: Dict[str, Any], forbidden_keys: Optional[List[str]] = None) -> None:
     """Recursively prints a dictionary in a formatted hierarchical structure.
 
     For nested dictionaries, prints a header with the key name surrounded by
@@ -247,13 +247,18 @@ def print_dict_rec(base_dict: Dict[str, Any]) -> None:
     Args:
         base_dict: The dictionary to print. Values can be any type, but nested
             dictionaries will be recursively printed with indentation headers.
+        forbidden_keys: List of forbidden keys that will not be printed.
+                        Recursively passed to nested dicts.
     """
     for key, value in base_dict.items():
         if isinstance(value, dict):
             print(f"=== {key} ===")
-            print_dict_rec(value)
+            print_dict_rec(value, forbidden_keys)
         else:
-            print(f"{key}:{value}")
+            if forbidden_keys is None or key not in forbidden_keys:
+                print(f"{key}:{value}")
+            else:
+                print(f"{key}:***")
 
 
 def display_config(args: Dict[str, Any], config: Dict[str, Any]) -> None:
@@ -273,7 +278,7 @@ def display_config(args: Dict[str, Any], config: Dict[str, Any]) -> None:
     print(ASCII_NAME)
     print("=" * 100)
     print("=" * 10 + "TERMINAL ARGS" + "=" * 10)
-    print_dict_rec(args)
+    print_dict_rec(args, ["api_key"])
     print("=" * 10 + "CODEEVOLVE CONFIG" + "=" * 10)
     print_dict_rec(config)
     print("=" * 100)
