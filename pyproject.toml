@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -14,22 +14,17 @@ authors = [
 ]
 dependencies = [
     "httpx>=0.28.1",
-    "numpy>=2.2.5",
+    "numpy>=2.1.0",
     "openai>=1.91.0",
-    "pandas>=2.2.3",
-    "psutil>=5.9.0",
-    "PyYAML>=6.0.3",
-    "scipy>=1.16.0",
-    "matplotlib>=3.10.3",
-    "networkx>=3.4.2"
+    "psutil>=6.1.0",
+    "PyYAML>=6.0.2",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.4.1",
-    "black>=22.0.0",
-    "isort>=5.10.0",
-    "boto3>=1.38.44"
+    "pytest>=9.0.0",
+    "black>=25.1.0",
+    "isort>=6.0.0",
 ]
 
 benchmarks = [
