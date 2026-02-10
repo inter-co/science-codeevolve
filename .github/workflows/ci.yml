@@ -7,12 +7,18 @@ on:
     branches: ["**"]
 
 jobs:
-  lint:
-    name: Formatting (Black)
+  format:
+    name: Auto-format (isort + Black)
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -24,11 +30,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Check import ordering with isort
-        run: isort --check-only --diff src/ tests/
+      - name: Run isort
+        run: isort src/ tests/
 
-      - name: Check formatting with Black
-        run: black --check src/ tests/
+      - name: Run Black
+        run: black src/ tests/
+
+      - name: Commit formatting changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: auto-format with isort + Black [skip ci]"
 
   test:
     name: Tests
