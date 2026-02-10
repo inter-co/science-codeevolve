@@ -10,28 +10,25 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Any, Dict, List, Optional, Tuple, Union
-
 import asyncio
-from dataclasses import dataclass, field
 import logging
 import random
 import re
-import httpx
 import time
-
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import uuid4
 
+import httpx
 from openai import AsyncOpenAI
 
-from codeevolve.lm.base import BaseLM, BaseEnsemble, BaseEmbedding
-from codeevolve.utils.parsing import find_evolve_block_spans
+from codeevolve.lm.base import BaseEmbedding, BaseEnsemble, BaseLM
 from codeevolve.utils.constants import (
-    MOCK_MODEL_PREFIX,
-    DEFAULT_EVOLVE_START_MARKER,
     DEFAULT_EVOLVE_END_MARKER,
+    DEFAULT_EVOLVE_START_MARKER,
+    MOCK_MODEL_PREFIX,
 )
-
+from codeevolve.utils.parsing import find_evolve_block_spans
 
 # ---------------------------------------------------------------------------
 # Language model classes

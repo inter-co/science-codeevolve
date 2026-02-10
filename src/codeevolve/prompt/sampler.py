@@ -10,33 +10,32 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Any, Dict, List, Tuple, Optional, Union
 from collections import deque
+from typing import Any, Dict, List, Optional, Tuple, Union
 
+from codeevolve.database import Program, ProgramDatabase
 from codeevolve.lm.openai import (
-    OpenAILM,
     MockOpenAILM,
+    OpenAILM,
     _create_lm_from_config,
 )
-from codeevolve.database import Program, ProgramDatabase
 from codeevolve.prompt.template import (
-    PROG_TEMPLATE,
     EVOLVE_PROG_TEMPLATE,
-    INSP_PROG_TEMPLATE,
     EVOLVE_PROMPT_TEMPLATE,
+    INSP_PROG_TEMPLATE,
+    PROG_TEMPLATE,
+    get_evolve_prompt_task_template,
     get_evolve_task_template,
     get_evolve_with_inspirations_task_template,
     get_explore_task_template,
     get_explore_with_inspirations_task_template,
-    get_evolve_prompt_task_template,
 )
 from codeevolve.utils.constants import (
-    DEFAULT_EVOLVE_START_MARKER,
     DEFAULT_EVOLVE_END_MARKER,
-    DEFAULT_PROMPT_START_MARKER,
+    DEFAULT_EVOLVE_START_MARKER,
     DEFAULT_PROMPT_END_MARKER,
+    DEFAULT_PROMPT_START_MARKER,
 )
-
 
 # ---------------------------------------------------------------------------
 # Utilities

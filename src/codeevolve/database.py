@@ -10,14 +10,13 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Dict, List, Optional, Callable, Tuple
-from abc import ABC, abstractmethod
-
-from dataclasses import dataclass, field
-import random
 import math
-import numpy as np
+import random
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Callable, Dict, List, Optional, Tuple
 
+import numpy as np
 
 # ---------------------------------------------------------------------------
 # Program

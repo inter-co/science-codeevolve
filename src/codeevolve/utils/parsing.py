@@ -11,15 +11,14 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Dict, Tuple, List
 import re
+from typing import Dict, List, Tuple
 
 from codeevolve.utils.constants import (
-    DEFAULT_EVOLVE_START_MARKER,
-    DEFAULT_EVOLVE_END_MARKER,
     DEFAULT_DIFF_REGEX,
+    DEFAULT_EVOLVE_END_MARKER,
+    DEFAULT_EVOLVE_START_MARKER,
 )
-
 
 # ---------------------------------------------------------------------------
 # Exceptions

@@ -10,15 +10,14 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import List, Optional, DefaultDict
-
-from collections import defaultdict
-import threading
-import multiprocessing.synchronize as mps
 import logging
+import multiprocessing.synchronize as mps
+import threading
+from collections import defaultdict
+from typing import DefaultDict, List, Optional
 
 from codeevolve.database import Program
-from codeevolve.islands.graph import PipeEdge, IslandCommunicationData
+from codeevolve.islands.graph import IslandCommunicationData, PipeEdge
 
 
 def send_migrants(

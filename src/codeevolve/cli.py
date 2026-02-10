@@ -10,35 +10,35 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Any, Dict, List, Optional
 import argparse
 import ctypes
 import multiprocessing as mp
 import os
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from codeevolve.islands.sync import GlobalSyncData, GlobalBestProg
 from codeevolve.islands.graph import PipeEdge, setup_island_topology
-from codeevolve.utils.cli_setup import (
-    validate_environment,
-    validate_paths,
-    create_config_copy,
-    load_config,
-    setup_island_args,
-    display_config,
-)
-from codeevolve.utils.lock import DirectoryLock, check_directory_lock
-from codeevolve.utils.ckpt import load_run_metadata
+from codeevolve.islands.sync import GlobalBestProg, GlobalSyncData
 from codeevolve.runner import (
+    cleanup_log_daemon,
     get_cleanup_state,
+    monitor_island_processes,
     setup_signal_handlers,
     spawn_island_processes,
     start_log_daemon,
-    cleanup_log_daemon,
-    monitor_island_processes,
 )
+from codeevolve.utils.ckpt import load_run_metadata
+from codeevolve.utils.cli_setup import (
+    create_config_copy,
+    display_config,
+    load_config,
+    setup_island_args,
+    validate_environment,
+    validate_paths,
+)
+from codeevolve.utils.lock import DirectoryLock, check_directory_lock
 
 
 def parse_args() -> argparse.Namespace:

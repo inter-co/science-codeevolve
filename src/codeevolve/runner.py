@@ -10,22 +10,21 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Any, Dict, List, Optional
 import asyncio
 import multiprocessing as mp
-from pathlib import Path
 import signal
 import sys
 import traceback
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from codeevolve.islands.sync import GlobalSyncData
-from codeevolve.islands.graph import PipeEdge, IslandCommunicationData
 from codeevolve.evolution import codeevolve
-from codeevolve.utils.logging import cli_logger
-from codeevolve.utils.lock import DirectoryLock
+from codeevolve.islands.graph import IslandCommunicationData, PipeEdge
+from codeevolve.islands.sync import GlobalSyncData
 from codeevolve.utils.constants import CRASH_LOG_FILE
-
+from codeevolve.utils.lock import DirectoryLock
+from codeevolve.utils.logging import cli_logger
 
 # ---------------------------------------------------------------------------
 # Global cleanup state for signal handlers

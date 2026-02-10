@@ -10,19 +10,17 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Any, Dict, Optional
-
 import logging
 import multiprocessing as mp
+import os
+import re
 import time
 from collections import deque
-import re
-import os
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 from codeevolve.islands.sync import GlobalSyncData
-from codeevolve.utils.constants import DEFAULT_MAX_LOG_MSG_SIZE, ISLAND_LOG_FILE, ASCII_NAME
-
+from codeevolve.utils.constants import ASCII_NAME, DEFAULT_MAX_LOG_MSG_SIZE, ISLAND_LOG_FILE
 
 # ---------------------------------------------------------------------------
 # Time formatting utilities

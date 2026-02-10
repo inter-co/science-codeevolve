@@ -10,20 +10,21 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Any, Optional, Dict, List, Tuple
-import tempfile
-import logging
-import subprocess
-import threading
 import json
-import time
-import psutil
-from pathlib import Path
+import logging
 import shutil
+import subprocess
 import sys
-from codeevolve.database import Program
-from codeevolve.utils.constants import LANGUAGE_TO_EXTENSION, DEFAULT_EXTENSION
+import tempfile
+import threading
+import time
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
+import psutil
+
+from codeevolve.database import Program
+from codeevolve.utils.constants import DEFAULT_EXTENSION, LANGUAGE_TO_EXTENSION
 
 # ---------------------------------------------------------------------------
 # Process utilities

@@ -10,11 +10,11 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import List, Tuple, Dict, Optional
-import sys
-from dataclasses import dataclass
 import multiprocessing as mp
 import multiprocessing.connection as mpc
+import sys
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
 
 
 @dataclass

@@ -11,14 +11,13 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Dict
-from dataclasses import dataclass
 import multiprocessing as mp
 import multiprocessing.sharedctypes as mpsct
 import multiprocessing.synchronize as mps
+from dataclasses import dataclass
+from typing import Dict
 
 from codeevolve.database import Program
-
 
 # ---------------------------------------------------------------------------
 # Global best program tracking

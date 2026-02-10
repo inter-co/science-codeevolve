@@ -13,10 +13,10 @@
 import pytest
 
 from codeevolve.utils.parsing import (
-    apply_diff,
-    SearchAndReplaceError,
     DiffError,
     EvolveBlockError,
+    SearchAndReplaceError,
+    apply_diff,
 )
 
 
@@ -45,14 +45,11 @@ new_code
 >>>>>>> REPLACE
 """
         child_code = apply_diff(parent_code, diff)
-        assert (
-            child_code
-            == """
+        assert child_code == """
 # EVOLVE-BLOCK-START
 new_code
 # EVOLVE-BLOCK-END
 """
-        )
 
     def test_single_block2(self):
         """Tests basic diff application to a single evolve block with C-style comments."""
@@ -69,14 +66,11 @@ new_code
 >>>>>>> REPLACE
 """
         child_code = apply_diff(parent_code, diff, "// EVOLVE-BLOCK-START", "// EVOLVE-BLOCK-END")
-        assert (
-            child_code
-            == """
+        assert child_code == """
 // EVOLVE-BLOCK-START
 new_code
 // EVOLVE-BLOCK-END
 """
-        )
 
     def test_single_block3(self):
         """Tests basic diff application to a single evolve block with hash comments within search."""
@@ -97,14 +91,11 @@ new_code
 >>>>>>> REPLACE
 """
         child_code = apply_diff(parent_code, diff)
-        assert (
-            child_code
-            == """
+        assert child_code == """
 # EVOLVE-BLOCK-START
 new_code
 # EVOLVE-BLOCK-END
 """
-        )
 
     def test_multi_diff_block(self):
         """Tests multiple diff operations applied to a single evolve block in Python."""
@@ -133,9 +124,7 @@ def barfoo(y:int):
 >>>>>>> REPLACE
 """
         child_code = apply_diff(parent_code, diff)
-        assert (
-            child_code
-            == """
+        assert child_code == """
 # EVOLVE-BLOCK-START
 def foobar(x:int):
     return x+5
@@ -143,7 +132,6 @@ def barfoo(y:int):
     return y+6
 # EVOLVE-BLOCK-END
 """
-        )
 
     def test_multi_diff_block2(self):
         """Tests multiple diff operations applied to a single evolve block in C++."""
@@ -178,9 +166,7 @@ int barfoo(const int y){
 >>>>>>> REPLACE
 """
         child_code = apply_diff(parent_code, diff, "// EVOLVE-BLOCK-START", "// EVOLVE-BLOCK-END")
-        assert (
-            child_code
-            == """
+        assert child_code == """
 // EVOLVE-BLOCK-START
 int foobar(const int x){
     return x+5;
@@ -190,7 +176,6 @@ int barfoo(const int y){
 }
 // EVOLVE-BLOCK-END
 """
-        )
 
     def test_multi_evolve_block(self):
         """Tests diff application across multiple separate evolve blocks."""
@@ -241,9 +226,7 @@ def barfoo2(y:int):
 >>>>>>> REPLACE
 """
         child_code = apply_diff(parent_code, diff)
-        assert (
-            child_code
-            == """
+        assert child_code == """
 # EVOLVE-BLOCK-START
 def foobar(x:int):
     return x+5
@@ -259,7 +242,6 @@ def barfoo2(y:int):
     return y+6
 # EVOLVE-BLOCK-END
 """
-        )
 
     def test_first_match_only(self):
         """Tests that replacements only apply to the first matching occurrence in each block."""
@@ -292,9 +274,7 @@ def bar2(y:int):
 >>>>>>> REPLACE
 """
         child_code = apply_diff(parent_code, diff)
-        assert (
-            child_code
-            == """
+        assert child_code == """
 # EVOLVE-BLOCK-START
 def foo(x:int):
     return x+7
@@ -310,7 +290,6 @@ def bar2(y:int):
     return y+6
 # EVOLVE-BLOCK-END
 """
-        )
 
     def test_multiline_replacement(self):
         """Tests diff application with multiline search and replace blocks."""
@@ -337,9 +316,7 @@ class Calculator:
 >>>>>>> REPLACE
 '''
         child_code = apply_diff(parent_code, diff)
-        assert (
-            child_code
-            == '''
+        assert child_code == '''
 class Calculator:
     # EVOLVE-BLOCK-START
     def add(self, a, b):
@@ -352,7 +329,6 @@ class Calculator:
     def multiply(self, a, b):
         return a * b
 '''
-        )
 
     def test_empty_replace(self):
         """Tests diff application where the replacement text is empty (deletion)."""
@@ -368,14 +344,11 @@ class Calculator:
 >>>>>>> REPLACE
         """
         child_code = apply_diff(parent_code, diff)
-        assert (
-            child_code
-            == """
+        assert child_code == """
 # EVOLVE-BLOCK-START
     
 # EVOLVE-BLOCK-END
 """
-        )
 
     # Negative test cases
 

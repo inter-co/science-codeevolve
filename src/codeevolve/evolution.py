@@ -11,42 +11,41 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Any, Dict, List, Optional, Tuple
-from dataclasses import dataclass
-from uuid import uuid4
 import logging
+from dataclasses import dataclass
 from pathlib import Path
-import yaml
+from typing import Any, Dict, List, Optional, Tuple
+from uuid import uuid4
+
 import numpy as np
+import yaml
 
-from codeevolve.database import Program, ProgramDatabase, EliteFeature
-from codeevolve.lm.openai import OpenAIEnsemble, OpenAIEmbedding
+from codeevolve.database import EliteFeature, Program, ProgramDatabase
 from codeevolve.evaluator import Evaluator
-from codeevolve.prompt.sampler import PromptSampler, format_prog_msg
-
-from codeevolve.islands.sync import GlobalSyncData
 from codeevolve.islands.graph import IslandCommunicationData
 from codeevolve.islands.migration import sync_migrate
-
-from codeevolve.scheduler import ExplorationRateScheduler, SCHEDULER_TYPES
-from codeevolve.utils.parsing import apply_diff
-from codeevolve.utils.logging import get_logger, get_elapsed_time
-from codeevolve.utils.ckpt import save_ckpt, load_ckpt, save_run_metadata
+from codeevolve.islands.sync import GlobalSyncData
+from codeevolve.lm.openai import OpenAIEmbedding, OpenAIEnsemble
+from codeevolve.prompt.sampler import PromptSampler, format_prog_msg
+from codeevolve.scheduler import SCHEDULER_TYPES, ExplorationRateScheduler
+from codeevolve.utils.ckpt import load_ckpt, save_ckpt, save_run_metadata
 from codeevolve.utils.constants import (
-    DEFAULT_EVOLVE_START_MARKER,
-    DEFAULT_EVOLVE_END_MARKER,
-    DEFAULT_PROMPT_START_MARKER,
-    DEFAULT_PROMPT_END_MARKER,
+    BEST_PROMPT_FILE,
+    BEST_SOLUTION_FILE,
     DEFAULT_EVAL_TIMEOUT_S,
+    DEFAULT_EVOLVE_END_MARKER,
+    DEFAULT_EVOLVE_START_MARKER,
+    DEFAULT_MAX_LOG_MSG_SIZE,
     DEFAULT_MAX_MEM_BYTES,
     DEFAULT_MEM_CHECK_INTERVAL_S,
     DEFAULT_MIGRATION_INTERVAL,
     DEFAULT_MIGRATION_RATE,
-    DEFAULT_MAX_LOG_MSG_SIZE,
-    BEST_SOLUTION_FILE,
-    BEST_PROMPT_FILE,
+    DEFAULT_PROMPT_END_MARKER,
+    DEFAULT_PROMPT_START_MARKER,
     LANGUAGE_TO_EXTENSION,
 )
+from codeevolve.utils.logging import get_elapsed_time, get_logger
+from codeevolve.utils.parsing import apply_diff
 
 # ---------------------------------------------------------------------------
 # Helpers

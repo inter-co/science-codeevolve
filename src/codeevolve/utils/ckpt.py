@@ -10,15 +10,15 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Any, Dict, Tuple, Optional
 import json
 import logging
 import pickle as pkl
 from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
 from codeevolve.database import ProgramDatabase
 from codeevolve.scheduler import ExplorationRateScheduler
-from codeevolve.utils.constants import RUN_METADATA_FILE, CHECKPOINT_FILE_FORMAT
+from codeevolve.utils.constants import CHECKPOINT_FILE_FORMAT, RUN_METADATA_FILE
 
 
 def save_ckpt(

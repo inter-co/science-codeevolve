@@ -11,7 +11,6 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Optional
 import atexit
 import datetime
 import fcntl
@@ -19,6 +18,7 @@ import os
 import socket
 import sys
 from pathlib import Path
+from typing import Optional
 
 from codeevolve.utils.constants import LOCK_FILE
 
