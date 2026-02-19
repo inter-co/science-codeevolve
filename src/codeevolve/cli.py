@@ -145,9 +145,9 @@ def main() -> int:
     )
 
     global_best_sol: GlobalBestProg = GlobalBestProg(
-        fitness=mp.Value(ctypes.c_longdouble, 0, lock=False),
-        iteration_found=mp.Value(ctypes.c_uint, 0, lock=False),
-        island_found=mp.Value(ctypes.c_int, -1, lock=False),
+        fitness=mp.Value(ctypes.c_longdouble, float("-inf"), lock=False),
+        iteration_found=mp.Value(ctypes.c_int, 0, lock=False),
+        island_found=mp.Value(ctypes.c_int, 0, lock=False),
         depth=mp.Value(ctypes.c_int, 0, lock=False),
         eval_metrics=mp.Manager().dict(),
     )
