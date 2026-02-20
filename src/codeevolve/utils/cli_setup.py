@@ -261,7 +261,7 @@ def print_dict_rec(base_dict: Dict[str, Any], forbidden_keys: Optional[List[str]
                 print(f"{key}:***")
 
 
-def display_config(args: Dict[str, Any], config: Dict[str, Any]) -> None:
+def display_config(args: Dict[str, Any], config: Dict[str, Any], global_ckpt: int) -> None:
     """Displays the current configuration and prompts the user for confirmation.
 
     Prints the CodeEvolve logo and name, followed by the terminal arguments and
@@ -272,6 +272,7 @@ def display_config(args: Dict[str, Any], config: Dict[str, Any]) -> None:
     Args:
         args: Dictionary of command-line arguments to display.
         config: Dictionary of configuration settings loaded from the YAML file.
+        global_ckpt: Integer with the global checkpoint that each island will load.
     """
     print("=" * 100)
     print(ASCII_LOGO)
@@ -282,6 +283,7 @@ def display_config(args: Dict[str, Any], config: Dict[str, Any]) -> None:
     print("=" * 10 + "CODEEVOLVE CONFIG" + "=" * 10)
     print_dict_rec(config)
     print("=" * 100)
+    print(f"CodeEvolve will start from ckpt {global_ckpt}.")
     if not args.get("y", False):
         cont: str = input("Do you wish to continue? [y/[^y]]")
         if cont != "y":

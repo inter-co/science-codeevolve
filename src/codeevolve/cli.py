@@ -106,6 +106,7 @@ def main() -> int:
     Returns:
         Exit code (0 for success, 1 for failure, 128+signum for signal).
     """
+
     cleanup_state: Dict[str, Any] = get_cleanup_state()
 
     setup_signal_handlers()
@@ -117,19 +118,19 @@ def main() -> int:
     args["cfg_path"] = Path(args["cfg_path"]) if args["cfg_path"] else None
     args["out_dir"] = Path(args["out_dir"])
 
-    loading_checkpoint: bool = args["load_ckpt"] != 0
-    validate_paths(args["inpt_dir"], args["cfg_path"], loading_checkpoint)
-    if not args["out_dir"].exists():
-        if loading_checkpoint:
-            print(f"Output directory {args["out_dir"]} not found. Starting anew.")
-            loading_checkpoint = False
-        os.makedirs(args["out_dir"])
-
     api_base: str
     api_key: str
     api_base, api_key = validate_environment()
     args["api_base"] = api_base
     args["api_key"] = api_key
+
+    loading_checkpoint: bool = args["load_ckpt"] != 0
+    validate_paths(args["inpt_dir"], args["cfg_path"], loading_checkpoint)
+
+    if not args["out_dir"].exists():
+        if loading_checkpoint:
+            loading_checkpoint = False
+        os.makedirs(args["out_dir"])
 
     config: Dict[str, Any]
     cfg_copy_path: Path
@@ -153,14 +154,9 @@ def main() -> int:
     )
 
     elapsed_time_offset: float = 0.0
-    cpu_count: int = 0
-    try:
-        cpu_count = len(os.sched_getaffinity(0))
-    except (AttributeError, OSError):
-        cpu_count = os.cpu_count()
-        if cpu_count is None:
-            cpu_count = 1
-
+    cpu_count: int = len(os.sched_getaffinity(0))
+    
+    global_ckpt: int = 0
     if loading_checkpoint:
         global_ckpt: int = isl2args[0]["load_ckpt"]
         metadata: Dict[str, Any] = load_run_metadata(args["out_dir"], global_ckpt)
@@ -192,7 +188,7 @@ def main() -> int:
         evolve_config["migration_topology"],
     )
 
-    display_config(args, config)
+    display_config(args, config, global_ckpt)
 
     directory_lock: DirectoryLock = DirectoryLock(args["out_dir"])
     check_directory_lock(directory_lock)
