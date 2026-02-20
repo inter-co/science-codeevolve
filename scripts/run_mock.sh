@@ -16,7 +16,7 @@ BASE_DIR="problems/${PROB_NAME}"
 INPT_DIR="${BASE_DIR}/input/"
 CFG_PATH="configs/config_mock.yaml"
 OUT_DIR="debug/${PROB_NAME}/mock/"
-LOAD_CKPT=30
+LOAD_CKPT=0
 CPU_LIST="0"
 
 export API_BASE="test" 
