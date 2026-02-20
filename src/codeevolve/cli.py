@@ -162,7 +162,7 @@ def main() -> int:
             ckpt_cpu_count: int = metadata["cpu_count"]
             if ckpt_cpu_count > 0 and ckpt_cpu_count != cpu_count:
                 warnings.append(
-                    f"Warning: CPU count changed from {ckpt_cpu_count} (ckpt) to {cpu_count} (current). This may affect performance comparisons."
+                    f"Warning: CPU count changed from {ckpt_cpu_count} (ckpt) to {cpu_count} (current)."
                 )
 
     if args["load_ckpt"] >= 0 and global_ckpt != args["load_ckpt"]:
