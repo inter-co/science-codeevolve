@@ -262,7 +262,13 @@ def print_dict_rec(base_dict: Dict[str, Any], forbidden_keys: Optional[List[str]
                 print(f"{key}:***")
 
 
-def display_run_data(args: Dict[str, Any], config: Dict[str, Any], global_ckpt: int, metadata: Optional[Dict[str, Any]], warnings: List[str]) -> None:
+def display_run_data(
+    args: Dict[str, Any],
+    config: Dict[str, Any],
+    global_ckpt: int,
+    metadata: Optional[Dict[str, Any]],
+    warnings: List[str],
+) -> None:
     """
     Displays the relevant data about the run to be executed. Unless the '--y' flag is set,
     prompts the user to confirm before proceeding. If the user does not confirm
@@ -286,12 +292,12 @@ def display_run_data(args: Dict[str, Any], config: Dict[str, Any], global_ckpt: 
     if len(warnings) > 0:
         print("=" * 10 + " WARNINGS " + "=" * 10)
         for msg in warnings:
-            print(msg)  
+            print(msg)
     print("=" * 10 + f" STARTING FROM CKPT {global_ckpt} " + "=" * 10)
     if metadata is not None:
         print("=" * 10 + " LOADED METADATA " + "=" * 10)
-        print_dict_rec(metadata) 
-    print("=" * 100) 
+        print_dict_rec(metadata)
+    print("=" * 100)
     if not args.get("y", False):
         cont: str = input("Do you wish to continue? [y/[^y]]")
         if cont != "y":

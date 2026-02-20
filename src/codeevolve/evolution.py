@@ -709,9 +709,7 @@ async def codeevolve_loop(
             cpus: int = global_data.cpu_count.value
             logger.info(f"{type(global_data.best_sol)}")
             save_run_metadata(args["out_dir"], epoch_num, elapsed_s, cpus, global_data.best_sol)
-            logger.info(
-                f"Saved run metadata for epoch {epoch_num}."
-            )
+            logger.info(f"Saved run metadata for epoch {epoch_num}.")
 
     meta_prompting: bool = evolve_config.get("meta_prompting", False)
     use_map_elites: bool = evolve_config.get("use_map_elites", False)

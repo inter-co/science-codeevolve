@@ -13,12 +13,12 @@
 import json
 import logging
 import pickle as pkl
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
-from dataclasses import asdict
 
-from codeevolve.islands.sync import GlobalBestProg
 from codeevolve.database import ProgramDatabase
+from codeevolve.islands.sync import GlobalBestProg
 from codeevolve.scheduler import ExplorationRateScheduler
 from codeevolve.utils.constants import CHECKPOINT_FILE_FORMAT, RUN_METADATA_FILE
 
@@ -121,7 +121,7 @@ def save_run_metadata(
     epoch: int,
     elapsed_time: float,
     cpu_count: int,
-    global_best_sol: GlobalBestProg
+    global_best_sol: GlobalBestProg,
 ) -> None:
     """Saves run metadata to a JSON file.
 
@@ -143,7 +143,7 @@ def save_run_metadata(
     if metadata_file.exists():
         with open(metadata_file, "r") as f:
             data = json.load(f)
-    
+
     data[str(epoch)] = {
         "elapsed_time": elapsed_time,
         "cpu_count": cpu_count,
@@ -152,8 +152,8 @@ def save_run_metadata(
             "iteration_found": global_best_sol.iteration_found.value,
             "island_found": global_best_sol.island_found.value,
             "depth": global_best_sol.depth.value,
-            "eval_metrics": dict(global_best_sol.eval_metrics)
-        }
+            "eval_metrics": dict(global_best_sol.eval_metrics),
+        },
     }
 
     with open(metadata_file, "w") as f:

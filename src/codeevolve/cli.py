@@ -161,15 +161,19 @@ def main() -> int:
             elapsed_time_offset = metadata["elapsed_time"]
             ckpt_cpu_count: int = metadata["cpu_count"]
             if ckpt_cpu_count > 0 and ckpt_cpu_count != cpu_count:
-                warnings.append(f"Warning: CPU count changed from {ckpt_cpu_count} (ckpt) to {cpu_count} (current). This may affect performance comparisons.")
+                warnings.append(
+                    f"Warning: CPU count changed from {ckpt_cpu_count} (ckpt) to {cpu_count} (current). This may affect performance comparisons."
+                )
 
     if args["load_ckpt"] >= 0 and global_ckpt != args["load_ckpt"]:
         warnings.append(f"Warning: ckpt {args["load_ckpt"]}, global ckpt set to {global_ckpt}.")
 
     global_data: GlobalSyncData = GlobalSyncData(
         best_sol=global_best_sol,
-        early_stop_counter=mp.Value(ctypes.c_int, 0, lock=False), # early stop counter should be in metadata, need to change this
-        early_stop_aux=mp.Value(ctypes.c_int, 0, lock=False), # same as above
+        early_stop_counter=mp.Value(
+            ctypes.c_int, 0, lock=False
+        ),  # early stop counter should be in metadata, need to change this
+        early_stop_aux=mp.Value(ctypes.c_int, 0, lock=False),  # same as above
         lock=mp.Lock(),
         barrier=mp.Barrier(parties=evolve_config["num_islands"]),
         log_queue=mp.Queue(),

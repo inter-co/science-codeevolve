@@ -12,10 +12,10 @@
 # ===--------------------------------------------------------------------------------------===#
 import ctypes
 import multiprocessing as mp
-from multiprocessing.managers import DictProxy
 import multiprocessing.sharedctypes as mpsct
 import multiprocessing.synchronize as mps
 from dataclasses import dataclass
+from multiprocessing.managers import DictProxy
 from typing import Any, Dict, Optional
 
 from codeevolve.database import Program
@@ -86,7 +86,7 @@ class GlobalBestProg:
         self.eval_metrics.clear()
         self.eval_metrics.update(prog.eval_metrics)
 
-    def from_dict(self, tgt_dict: Dict[str,Any]) -> None:
+    def from_dict(self, tgt_dict: Dict[str, Any]) -> None:
         """Initializes the GlobalBestProg instance from a target dictionary.
 
         Args:
@@ -100,15 +100,16 @@ class GlobalBestProg:
         eval_metrics: Optional[Dict[str, float]] = tgt_dict.get("eval_metrics", None)
 
         if fitness is not None:
-            self.fitness.value = fitness 
+            self.fitness.value = fitness
         if iteration_found is not None:
-            self.iteration_found.value = iteration_found 
+            self.iteration_found.value = iteration_found
         if island_found is not None:
-            self.island_found.value = island_found 
+            self.island_found.value = island_found
         if depth is not None:
-            self.depth.value = depth 
+            self.depth.value = depth
         if eval_metrics is not None:
-            self.eval_metrics = mp.Manager().dict(eval_metrics) 
+            self.eval_metrics = mp.Manager().dict(eval_metrics)
+
 
 # ---------------------------------------------------------------------------
 # Global synchronization data
