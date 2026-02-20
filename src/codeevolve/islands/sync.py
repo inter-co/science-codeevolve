@@ -10,12 +10,13 @@
 # islands algorithm.
 #
 # ===--------------------------------------------------------------------------------------===#
-
+import ctypes
 import multiprocessing as mp
+from multiprocessing.managers import DictProxy
 import multiprocessing.sharedctypes as mpsct
 import multiprocessing.synchronize as mps
 from dataclasses import dataclass
-from typing import Dict
+from typing import Any, Dict, Optional
 
 from codeevolve.database import Program
 
@@ -39,11 +40,11 @@ class GlobalBestProg:
         eval_metrics: Shared dictionary of evaluation metric names to values.
     """
 
-    fitness: mpsct.Synchronized
-    iteration_found: mpsct.Synchronized
-    island_found: mpsct.Synchronized
-    depth: mpsct.Synchronized
-    eval_metrics: Dict[str, float]
+    fitness: mpsct.Synchronized = mp.Value(ctypes.c_longdouble, float("-inf"), lock=False)
+    iteration_found: mpsct.Synchronized = mp.Value(ctypes.c_int, -1, lock=False)
+    island_found: mpsct.Synchronized = mp.Value(ctypes.c_int, -1, lock=False)
+    depth: mpsct.Synchronized = mp.Value(ctypes.c_int, -1, lock=False)
+    eval_metrics: DictProxy = mp.Manager().dict()
 
     def __repr__(self) -> str:
         """Returns a string representation of the global best program.
@@ -85,6 +86,29 @@ class GlobalBestProg:
         self.eval_metrics.clear()
         self.eval_metrics.update(prog.eval_metrics)
 
+    def from_dict(self, tgt_dict: Dict[str,Any]) -> None:
+        """Initializes the GlobalBestProg instance from a target dictionary.
+
+        Args:
+            dict: dictionary with keys mapping to attributes.
+            Initializes with default values if not found.
+        """
+        fitness: Optional[float] = tgt_dict.get("fitness", None)
+        iteration_found: Optional[int] = tgt_dict.get("iteration_found", None)
+        island_found: Optional[int] = tgt_dict.get("island_found", None)
+        depth: Optional[int] = tgt_dict.get("depth", None)
+        eval_metrics: Optional[Dict[str, float]] = tgt_dict.get("eval_metrics", None)
+
+        if fitness is not None:
+            self.fitness.value = fitness 
+        if iteration_found is not None:
+            self.iteration_found.value = iteration_found 
+        if island_found is not None:
+            self.island_found.value = island_found 
+        if depth is not None:
+            self.depth.value = depth 
+        if eval_metrics is not None:
+            self.eval_metrics = mp.Manager().dict(eval_metrics) 
 
 # ---------------------------------------------------------------------------
 # Global synchronization data

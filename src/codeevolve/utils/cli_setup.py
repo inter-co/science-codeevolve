@@ -252,8 +252,9 @@ def print_dict_rec(base_dict: Dict[str, Any], forbidden_keys: Optional[List[str]
     """
     for key, value in base_dict.items():
         if isinstance(value, dict):
-            print(f"=== {key} ===")
+            print(f" === {key} START ===")
             print_dict_rec(value, forbidden_keys)
+            print(f" === {key} END ===")
         else:
             if forbidden_keys is None or key not in forbidden_keys:
                 print(f"{key}:{value}")
@@ -261,11 +262,9 @@ def print_dict_rec(base_dict: Dict[str, Any], forbidden_keys: Optional[List[str]
                 print(f"{key}:***")
 
 
-def display_config(args: Dict[str, Any], config: Dict[str, Any], global_ckpt: int) -> None:
-    """Displays the current configuration and prompts the user for confirmation.
-
-    Prints the CodeEvolve logo and name, followed by the terminal arguments and
-    configuration settings in a formatted structure. Unless the '--y' flag is set,
+def display_run_data(args: Dict[str, Any], config: Dict[str, Any], global_ckpt: int, metadata: Optional[Dict[str, Any]], warnings: List[str]) -> None:
+    """
+    Displays the relevant data about the run to be executed. Unless the '--y' flag is set,
     prompts the user to confirm before proceeding. If the user does not confirm
     with 'y', the program exits.
 
@@ -273,17 +272,26 @@ def display_config(args: Dict[str, Any], config: Dict[str, Any], global_ckpt: in
         args: Dictionary of command-line arguments to display.
         config: Dictionary of configuration settings loaded from the YAML file.
         global_ckpt: Integer with the global checkpoint that each island will load.
+        metadata: CodeEvolve metadata
+        warnings: Warnings from cli.py
     """
     print("=" * 100)
     print(ASCII_LOGO)
     print(ASCII_NAME)
     print("=" * 100)
-    print("=" * 10 + "TERMINAL ARGS" + "=" * 10)
+    print("=" * 10 + " TERMINAL ARGS " + "=" * 10)
     print_dict_rec(args, ["api_key"])
-    print("=" * 10 + "CODEEVOLVE CONFIG" + "=" * 10)
+    print("=" * 10 + " CONFIG " + "=" * 10)
     print_dict_rec(config)
-    print("=" * 100)
-    print(f"CodeEvolve will start from ckpt {global_ckpt}.")
+    if len(warnings) > 0:
+        print("=" * 10 + " WARNINGS " + "=" * 10)
+        for msg in warnings:
+            print(msg)  
+    print("=" * 10 + f" STARTING FROM CKPT {global_ckpt} " + "=" * 10)
+    if metadata is not None:
+        print("=" * 10 + " LOADED METADATA " + "=" * 10)
+        print_dict_rec(metadata) 
+    print("=" * 100) 
     if not args.get("y", False):
         cont: str = input("Do you wish to continue? [y/[^y]]")
         if cont != "y":

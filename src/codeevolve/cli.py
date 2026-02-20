@@ -32,7 +32,7 @@ from codeevolve.runner import (
 from codeevolve.utils.ckpt import load_run_metadata
 from codeevolve.utils.cli_setup import (
     create_config_copy,
-    display_config,
+    display_run_data,
     load_config,
     setup_island_args,
     validate_environment,
@@ -106,6 +106,7 @@ def main() -> int:
     Returns:
         Exit code (0 for success, 1 for failure, 128+signum for signal).
     """
+    warnings: List[str] = []
 
     cleanup_state: Dict[str, Any] = get_cleanup_state()
 
@@ -130,6 +131,7 @@ def main() -> int:
     if not args["out_dir"].exists():
         if loading_checkpoint:
             loading_checkpoint = False
+            warnings.append(f"Warning: directory {args["out_dir"]} not found. Starting anew.")
         os.makedirs(args["out_dir"])
 
     config: Dict[str, Any]
@@ -145,34 +147,29 @@ def main() -> int:
         args, evolve_config["num_islands"], cfg_copy_path
     )
 
-    global_best_sol: GlobalBestProg = GlobalBestProg(
-        fitness=mp.Value(ctypes.c_longdouble, float("-inf"), lock=False),
-        iteration_found=mp.Value(ctypes.c_int, 0, lock=False),
-        island_found=mp.Value(ctypes.c_int, 0, lock=False),
-        depth=mp.Value(ctypes.c_int, 0, lock=False),
-        eval_metrics=mp.Manager().dict(),
-    )
-
+    global_best_sol: GlobalBestProg = GlobalBestProg()
     elapsed_time_offset: float = 0.0
     cpu_count: int = len(os.sched_getaffinity(0))
-    
     global_ckpt: int = 0
+    metadata: Optional[Dict[str, Any]] = None
+
     if loading_checkpoint:
         global_ckpt: int = isl2args[0]["load_ckpt"]
-        metadata: Dict[str, Any] = load_run_metadata(args["out_dir"], global_ckpt)
-        elapsed_time_offset = metadata["elapsed_time"]
-        ckpt_cpu_count: int = metadata.get("cpu_count", 0)
-        if ckpt_cpu_count > 0 and ckpt_cpu_count != cpu_count:
-            print(
-                f"Warning: CPU count changed from {ckpt_cpu_count} (checkpoint) "
-                f"to {cpu_count} (current). This may affect performance comparisons.",
-                file=sys.stderr,
-            )
+        metadata = load_run_metadata(args["out_dir"], global_ckpt)
+        if metadata is not None:
+            global_best_sol.from_dict(metadata["best_sol"])
+            elapsed_time_offset = metadata["elapsed_time"]
+            ckpt_cpu_count: int = metadata["cpu_count"]
+            if ckpt_cpu_count > 0 and ckpt_cpu_count != cpu_count:
+                warnings.append(f"Warning: CPU count changed from {ckpt_cpu_count} (ckpt) to {cpu_count} (current). This may affect performance comparisons.")
+
+    if args["load_ckpt"] >= 0 and global_ckpt != args["load_ckpt"]:
+        warnings.append(f"Warning: ckpt {args["load_ckpt"]}, global ckpt set to {global_ckpt}.")
 
     global_data: GlobalSyncData = GlobalSyncData(
         best_sol=global_best_sol,
-        early_stop_counter=mp.Value(ctypes.c_uint, 0, lock=False),
-        early_stop_aux=mp.Value(ctypes.c_int, 0, lock=False),
+        early_stop_counter=mp.Value(ctypes.c_int, 0, lock=False), # early stop counter should be in metadata, need to change this
+        early_stop_aux=mp.Value(ctypes.c_int, 0, lock=False), # same as above
         lock=mp.Lock(),
         barrier=mp.Barrier(parties=evolve_config["num_islands"]),
         log_queue=mp.Queue(),
@@ -188,7 +185,7 @@ def main() -> int:
         evolve_config["migration_topology"],
     )
 
-    display_config(args, config, global_ckpt)
+    display_run_data(args, config, global_ckpt, metadata, warnings)
 
     directory_lock: DirectoryLock = DirectoryLock(args["out_dir"])
     check_directory_lock(directory_lock)

@@ -15,7 +15,9 @@ import logging
 import pickle as pkl
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
+from dataclasses import asdict
 
+from codeevolve.islands.sync import GlobalBestProg
 from codeevolve.database import ProgramDatabase
 from codeevolve.scheduler import ExplorationRateScheduler
 from codeevolve.utils.constants import CHECKPOINT_FILE_FORMAT, RUN_METADATA_FILE
@@ -119,8 +121,9 @@ def save_run_metadata(
     epoch: int,
     elapsed_time: float,
     cpu_count: int,
+    global_best_sol: GlobalBestProg
 ) -> None:
-    """Saves run metadata (elapsed time and CPU count) to a JSON file.
+    """Saves run metadata to a JSON file.
 
     This function saves metadata at each checkpoint epoch to enable
     accurate tracking when resuming from checkpoints.
@@ -140,17 +143,24 @@ def save_run_metadata(
     if metadata_file.exists():
         with open(metadata_file, "r") as f:
             data = json.load(f)
-
+    
     data[str(epoch)] = {
         "elapsed_time": elapsed_time,
         "cpu_count": cpu_count,
+        "best_sol": {
+            "fitness": global_best_sol.fitness.value,
+            "iteration_found": global_best_sol.iteration_found.value,
+            "island_found": global_best_sol.island_found.value,
+            "depth": global_best_sol.depth.value,
+            "eval_metrics": dict(global_best_sol.eval_metrics)
+        }
     }
 
     with open(metadata_file, "w") as f:
         json.dump(data, f, indent=2)
 
 
-def load_run_metadata(out_dir: str | Path, epoch: int) -> Dict[str, Any]:
+def load_run_metadata(out_dir: str | Path, epoch: int) -> Optional[Dict[str, Any]]:
     """Loads run metadata from a JSON file for a specific checkpoint epoch.
 
     Args:
@@ -158,23 +168,18 @@ def load_run_metadata(out_dir: str | Path, epoch: int) -> Dict[str, Any]:
         epoch: Epoch number to load metadata for.
 
     Returns:
-        Dictionary with 'elapsed_time' and 'cpu_count' keys, or defaults if not found.
+        Dictionary with 'elapsed_time' and 'cpu_count' keys, or None if not found.
     """
     if isinstance(out_dir, str):
         out_dir = Path(out_dir)
 
     metadata_file: Path = out_dir.joinpath(RUN_METADATA_FILE)
 
-    default_metadata: Dict[str, Any] = {"elapsed_time": 0.0, "cpu_count": 0}
-
     if not metadata_file.exists():
-        return default_metadata
+        return None
 
     with open(metadata_file, "r") as f:
         data: Dict[str, Any] = json.load(f)
 
     epoch_data = data.get(str(epoch), {})
-    return {
-        "elapsed_time": epoch_data.get("elapsed_time", 0.0),
-        "cpu_count": epoch_data.get("cpu_count", 0),
-    }
+    return epoch_data
