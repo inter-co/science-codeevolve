@@ -209,7 +209,7 @@ def get_logger(
     if not logger.handlers:
         logger.setLevel(logging.INFO)
         logFormatter = SizeLimitedFormatter(
-            f"[island {island_id}] %(asctime)s | %(levelname)s | %(process)d | %(message)s",
+            f"[island {island_id}] %(asctime)s | %(levelname)s | %(process)d | %(filename)s:%(lineno)d | %(message)s",
             max_msg_sz=max_msg_sz,
         )
         logger.propagate = False
