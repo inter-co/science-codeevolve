@@ -12,7 +12,7 @@
 #
 # Some of the code in this file is adapted from:
 #
-# google-deepmind/alphaevolve_repository_of_problems:
+# https://github.com/google-deepmind/alphaevolve_repository_of_problems:
 # Licensed under the Apache License v2.0.
 #
 # ===--------------------------------------------------------------------------------------===#

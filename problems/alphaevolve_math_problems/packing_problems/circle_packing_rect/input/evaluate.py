@@ -13,7 +13,7 @@
 #
 # Some of the code in this file is adapted from:
 #
-# google-deepmind/alphaevolve_results:
+# https://github.com/google-deepmind/alphaevolve_results:
 # Licensed under the Apache License v2.0.
 #
 # ===--------------------------------------------------------------------------------------===#
