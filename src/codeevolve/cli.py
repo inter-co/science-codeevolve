@@ -186,7 +186,7 @@ def main() -> int:
     out_adj: Optional[List[PipeEdge]]
     in_adj, out_adj = setup_island_topology(
         evolve_config["num_islands"],
-        evolve_config["migration_topology"],
+        evolve_config.get("migration", {})["topology"],
     )
 
     display_run_data(args, config, global_ckpt, metadata, warnings)

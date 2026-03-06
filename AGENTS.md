@@ -35,12 +35,12 @@ problems/           # Benchmark problems and problem_template
 
 ## Code Conventions
 
-- **Type hints**: use throughout; prefer `X | None` over `Optional[X]` for new code
+- **Type hints**: use throughout; prefer `Optional[X]` over `X | None` for new code
 - **Docstrings**: Google-style with Args/Returns/Raises sections
 - **File headers**: each source file starts with the Apache-2.0 license block
 - **Constants**: centralized in `utils/constants.py`; do not scatter magic values
 - **Dataclasses**: `Program` is a dataclass in `database.py`; `depth` field tracks evolutionary lineage depth
-- **Config**: YAML-based; top-level keys (`EVAL_TIMEOUT`, `SYS_MSG`, etc.) and `EVOLVE_CONFIG` dict for evolutionary parameters
+- **Config**: YAML-based; top-level keys (`SYS_MSG`, `CODEBASE_PATH`, etc.), `BUDGET_CONFIG` dict for resource limits/timeout scheduling, and `EVOLVE_CONFIG` dict for evolutionary parameters (with nested `selection`, `migration`, `markers`, `exploration_scheduler` sub-dicts)
 
 ## Key Patterns
 

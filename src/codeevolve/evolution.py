@@ -28,12 +28,11 @@ from codeevolve.islands.sync import GlobalSyncData
 from codeevolve.lm.openai import OpenAIEmbedding, OpenAIEnsemble
 from codeevolve.prompt.sampler import PromptSampler, format_prog_msg
 from codeevolve.prompt.template import format_eval_budget
-from codeevolve.scheduler import SCHEDULER_TYPES, ExplorationRateScheduler
+from codeevolve.scheduler import SCHEDULER_TYPES, Scheduler
 from codeevolve.utils.ckpt import load_ckpt, save_ckpt, save_run_metadata
 from codeevolve.utils.constants import (
     BEST_PROMPT_FILE,
     BEST_SOLUTION_FILE,
-    DEFAULT_EVAL_MIN_TIMEOUT_S,
     DEFAULT_EVAL_TIMEOUT_S,
     DEFAULT_EVOLVE_END_MARKER,
     DEFAULT_EVOLVE_START_MARKER,
@@ -50,34 +49,6 @@ from codeevolve.utils.logging import get_elapsed_time, get_logger
 from codeevolve.utils.parsing import apply_diff
 
 # ---------------------------------------------------------------------------
-# Dynamic timeout
-# ---------------------------------------------------------------------------
-
-
-def compute_dynamic_timeout(
-    depth: int,
-    max_timeout_s: int,
-    min_timeout_s: int,
-    max_depth: int,
-) -> int:
-    """Computes the effective timeout for a program based on its depth.
-
-    Scales linearly from ``min_timeout_s`` at depth 0 up to
-    ``max_timeout_s`` at depth >= ``max_depth``.
-
-    Args:
-        depth: Evolutionary depth of the program.
-        max_timeout_s: Maximum timeout in seconds (upper bound).
-        min_timeout_s: Minimum timeout in seconds (floor at depth 0).
-        max_depth: Reference depth at which the full timeout is reached.
-
-    Returns:
-        Effective timeout in seconds, always in [min_timeout_s, max_timeout_s].
-    """
-    ratio: float = min(depth / max_depth, 1.0)
-    return max(min_timeout_s, int(min_timeout_s + (max_timeout_s - min_timeout_s) * ratio))
-
-# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -91,11 +62,12 @@ def _get_markers(evolve_config: Dict[str, Any]) -> Tuple[str, str, str, str]:
     Returns:
         Tuple of (evolve_start, evolve_end, prompt_start, prompt_end) markers.
     """
+    markers: Dict[str, str] = evolve_config.get("markers", {})
     return (
-        evolve_config.get("evolve_start_marker", DEFAULT_EVOLVE_START_MARKER),
-        evolve_config.get("evolve_end_marker", DEFAULT_EVOLVE_END_MARKER),
-        evolve_config.get("mp_start_marker", DEFAULT_PROMPT_START_MARKER),
-        evolve_config.get("mp_end_marker", DEFAULT_PROMPT_END_MARKER),
+        markers.get("evolve_start_marker", DEFAULT_EVOLVE_START_MARKER),
+        markers.get("evolve_end_marker", DEFAULT_EVOLVE_END_MARKER),
+        markers.get("mp_start_marker", DEFAULT_PROMPT_START_MARKER),
+        markers.get("mp_end_marker", DEFAULT_PROMPT_END_MARKER),
     )
 
 
@@ -180,10 +152,8 @@ def select_parents(
         init_sol: Initial solution program used during population initialization
         init_prompt: Initial prompt program used during population initialization
         evolve_config: Configuration dictionary containing:
-            - selection_policy: Policy name (e.g., 'tournament', 'roulette')
-            - selection_kwargs: Policy-specific parameters
+            - selection: Dict with 'policy' and optional 'kwargs'
             - num_inspirations: Number of inspiration programs to sample
-            - migration_interval: Epochs between migrations (default: 20)
         gen_init_pop: Whether currently generating initial population
         exploration: Whether in exploration mode (vs exploitation)
         logger: Logger for recording selection decisions
@@ -219,18 +189,20 @@ def select_parents(
             pids_pool=[prompt_id for prompt_id, is_alive in prompt_db.is_alive.items() if is_alive],
         )
     else:
-        selection_kwargs: Dict[str, Any] = evolve_config.get("selection_kwargs", {})
+        selection_cfg: Dict[str, Any] = evolve_config["selection"]
+        selection_policy: str = selection_cfg["policy"]
+        selection_kwargs: Dict[str, Any] = selection_cfg.get("kwargs", {})
         logger.info(
-            f"Exploitation: Selecting parents using {evolve_config['selection_policy']} "
+            f"Exploitation: Selecting parents using {selection_policy} "
             f"with kwargs {selection_kwargs}."
         )
         parent_sol, inspirations = sol_db.sample(
-            selection_policy=evolve_config["selection_policy"],
+            selection_policy=selection_policy,
             num_inspirations=evolve_config["num_inspirations"],
             **selection_kwargs,
         )
         parent_prompt, _ = prompt_db.sample(
-            selection_policy=evolve_config["selection_policy"],
+            selection_policy=selection_policy,
             num_inspirations=0,
             **selection_kwargs,
         )
@@ -639,17 +611,17 @@ def handle_migration(
         global_data: Global data containing barrier for synchronization
         sol_db: Local solution database
         evolve_config: Configuration containing:
-            - migration_interval: Epochs between migrations (default: 20)
-            - migration_rate: Fraction of population to migrate (default: 0.1)
+            - migration: Dict with 'interval' and 'rate'
         logger: Logger instance
     """
     if isl_data.in_neigh is None and isl_data.out_neigh is None:
         return
 
-    if epoch % evolve_config.get("migration_interval", DEFAULT_MIGRATION_INTERVAL) == 0:
+    migration_cfg: Dict[str, Any] = evolve_config.get("migration", {})
+    if epoch % migration_cfg.get("interval", DEFAULT_MIGRATION_INTERVAL) == 0:
         logger.info("=== MIGRATION STEP ===")
         out_migrants = sol_db.get_migrants(
-            migration_rate=evolve_config.get("migration_rate", DEFAULT_MIGRATION_RATE)
+            migration_rate=migration_cfg.get("rate", DEFAULT_MIGRATION_RATE)
         )
         in_migrants = sync_migrate(
             out_migrants=out_migrants,
@@ -672,7 +644,6 @@ async def codeevolve_loop(
     evolve_state: Dict[str, Any],
     init_sol: Program,
     init_prompt: Program,
-    config: Dict[str, Any],
     evolve_config: Dict[str, Any],
     args: Dict[str, Any],
     isl_data: IslandCommunicationData,
@@ -684,7 +655,8 @@ async def codeevolve_loop(
     exploitation_ensemble: OpenAIEnsemble,
     evaluator: Evaluator,
     embedding: Optional[OpenAIEmbedding],
-    scheduler: Optional[ExplorationRateScheduler],
+    exploration_scheduler: Optional[Scheduler],
+    timeout_scheduler: Optional[Scheduler],
     logger: logging.Logger,
 ) -> None:
     """Executes the main evolutionary loop for program and prompt co-evolution.
@@ -719,7 +691,9 @@ async def codeevolve_loop(
         exploitation_ensemble: Ensemble for exploitation.
         evaluator: Program evaluator.
         embedding: Embedding model (optional).
-        scheduler: Exploration rate scheduler (optional).
+        exploration_scheduler: Exploration rate exploration_scheduler (optional).
+        timeout_scheduler: Timeout exploration_scheduler (optional). When provided,
+            the evaluation timeout is adjusted each epoch.
         logger: Logger instance.
     """
     logger.info("============ STARTING EVOLUTIONARY LOOP ============")
@@ -733,7 +707,8 @@ async def codeevolve_loop(
             prompt_db=prompt_db,
             sol_db=sol_db,
             evolve_state=evolve_state,
-            scheduler=scheduler,
+            exploration_scheduler=exploration_scheduler,
+            timeout_scheduler=timeout_scheduler,
             best_sol_path=args["isl_out_dir"].joinpath(
                 BEST_SOLUTION_FILE + LANGUAGE_TO_EXTENSION.get(best_lang, ".txt")
             ),
@@ -750,18 +725,8 @@ async def codeevolve_loop(
     meta_prompting: bool = evolve_config.get("meta_prompting", False)
     use_map_elites: bool = evolve_config.get("use_map_elites", False)
     exploration_rate: float = (
-        scheduler.exploration_rate if scheduler is not None else evolve_config["exploration_rate"]
+        exploration_scheduler.value if exploration_scheduler is not None else evolve_config["exploration_rate"]
     )
-    dynamic_timeout: bool = config.get("DYNAMIC_EVAL_TIMEOUT", False)
-    min_timeout_s: int = config.get("EVAL_MIN_TIMEOUT", DEFAULT_EVAL_MIN_TIMEOUT_S)
-    max_depth: Optional[int] = None
-    if dynamic_timeout:
-        raw_mcd: Optional[int] = evolve_config.get("max_chat_depth")
-        if raw_mcd is not None and raw_mcd > 0:
-            max_depth = raw_mcd
-        else:
-            max_depth = evolve_config["num_epochs"]
-
     eval_budget: str = format_eval_budget(
         timeout_s=evaluator.timeout_s, max_mem_b=evaluator.max_mem_b
     )
@@ -784,8 +749,8 @@ async def codeevolve_loop(
         init_pop_size: int = evolve_config.get("init_pop", sol_db.num_alive)
         gen_init_pop: bool = sol_db.num_alive < init_pop_size
 
-        if not gen_init_pop and scheduler is not None:
-            exploration_rate = scheduler(
+        if not gen_init_pop and exploration_scheduler is not None:
+            exploration_rate = exploration_scheduler(
                 epoch=epoch - init_pop_size,
                 best_fitness=sol_db.programs[sol_db.best_prog_id].fitness,
             )
@@ -840,13 +805,11 @@ async def codeevolve_loop(
         chat_depth: Optional[int] = evolve_config.get("max_chat_depth", None) if exploitation else 0
 
         child_timeout: Optional[int] = None
-        if dynamic_timeout and max_depth is not None:
-            child_timeout = compute_dynamic_timeout(
-                depth=parent_sol.depth + 1,
-                max_timeout_s=evaluator.timeout_s,
-                min_timeout_s=min_timeout_s,
-                max_depth=max_depth,
-            )
+        if timeout_scheduler is not None:
+            child_timeout = int(timeout_scheduler(
+                epoch=epoch,
+                best_fitness=sol_db.programs[sol_db.best_prog_id].fitness,
+            ))
             eval_budget = format_eval_budget(
                 timeout_s=child_timeout, max_mem_b=evaluator.max_mem_b
             )
@@ -980,7 +943,8 @@ class CodeEvolveComponents:
         prompt_sampler: Sampler for building conversation prompts from lineages.
         evaluator: Program evaluator with sandboxing and resource limits.
         embedding: Optional embedding model for code vectorization.
-        scheduler: Optional exploration rate scheduler.
+        exploration_scheduler: Optional exploration rate exploration_scheduler.
+        timeout_scheduler: Optional timeout exploration_scheduler for dynamic evaluation timeouts.
         logger: Logger instance for this island.
     """
 
@@ -997,7 +961,8 @@ class CodeEvolveComponents:
     prompt_sampler: PromptSampler
     evaluator: Evaluator
     embedding: Optional[OpenAIEmbedding]
-    scheduler: Optional[ExplorationRateScheduler]
+    exploration_scheduler: Optional[Scheduler]
+    timeout_scheduler: Optional[Scheduler]
     logger: logging.Logger
 
 
@@ -1085,12 +1050,13 @@ def _create_evaluator(
     Returns:
         Configured Evaluator instance.
     """
+    budget: Dict[str, Any] = config.get("BUDGET_CONFIG", {})
     return Evaluator(
         eval_path=Path(config["EVAL_FILE_NAME"]),
         cwd=args["inpt_dir"],
-        timeout_s=config.get("EVAL_TIMEOUT", DEFAULT_EVAL_TIMEOUT_S),
-        max_mem_b=config.get("MAX_MEM_BYTES", DEFAULT_MAX_MEM_BYTES),
-        mem_check_interval_s=config.get("MEM_CHECK_INTERVAL_S", DEFAULT_MEM_CHECK_INTERVAL_S),
+        timeout_s=budget.get("eval_timeout", DEFAULT_EVAL_TIMEOUT_S),
+        max_mem_b=budget.get("max_mem_bytes", DEFAULT_MAX_MEM_BYTES),
+        mem_check_interval_s=budget.get("mem_check_interval_s", DEFAULT_MEM_CHECK_INTERVAL_S),
         logger=logger,
     )
 
@@ -1127,61 +1093,100 @@ def _create_embedding(
     )
 
 
-def _create_scheduler(
+def _create_exploration_scheduler(
     evolve_config: Dict[str, Any],
-) -> Optional[ExplorationRateScheduler]:
+) -> Optional[Scheduler]:
     """Creates the exploration rate scheduler if configured.
+
+    Presence of ``exploration_scheduler`` in *evolve_config* enables scheduling.
 
     Args:
         evolve_config: Evolution-specific configuration.
 
     Returns:
-        ExplorationRateScheduler instance if use_scheduler is enabled, None otherwise.
+        Scheduler instance if exploration_scheduler is configured, None otherwise.
     """
-    if not evolve_config.get("use_scheduler", False):
+    sched_cfg: Optional[Dict[str, Any]] = evolve_config.get("exploration_scheduler")
+    if sched_cfg is None:
         return None
 
-    scheduler_type: str = evolve_config.get("type", "ExponentialDecayScheduler")
+    scheduler_type: str = sched_cfg.get("type", "ExponentialScheduler")
     return SCHEDULER_TYPES[scheduler_type](
-        exploration_rate=evolve_config["exploration_rate"],
-        **evolve_config["scheduler_kwargs"],
+        value=evolve_config["exploration_rate"],
+        **sched_cfg.get("kwargs", {}),
+    )
+
+
+def _create_timeout_scheduler(
+    config: Dict[str, Any],
+) -> Optional[Scheduler]:
+    """Creates the timeout scheduler if configured.
+
+    When ``timeout_scheduler`` is present inside ``BUDGET_CONFIG``, a scheduler
+    is created that adjusts the evaluation timeout each epoch.  The value
+    bounds (``min_value``, ``max_value``) are provided in the scheduler's
+    own ``kwargs``.
+
+    Args:
+        config: Full configuration dictionary.
+
+    Returns:
+        Scheduler instance if timeout_scheduler is configured, None otherwise.
+    """
+    budget: Dict[str, Any] = config.get("BUDGET_CONFIG", {})
+    timeout_cfg: Optional[Dict[str, Any]] = budget.get("timeout_scheduler")
+    if timeout_cfg is None:
+        return None
+
+    kwargs: Dict[str, Any] = timeout_cfg.get("kwargs", {})
+    scheduler_type: str = timeout_cfg.get("type", "ExponentialScheduler")
+    return SCHEDULER_TYPES[scheduler_type](
+        value=float(kwargs["min_value"]),
+        **kwargs,
     )
 
 
 def _initialize_from_checkpoint(
     args: Dict[str, Any],
-    scheduler: Optional[ExplorationRateScheduler],
+    exploration_scheduler: Optional[Scheduler],
+    timeout_scheduler: Optional[Scheduler],
 ) -> Tuple[
     ProgramDatabase,
     ProgramDatabase,
     Dict[str, Any],
     Program,
     Program,
-    Optional[ExplorationRateScheduler],
+    Optional[Scheduler],
+    Optional[Scheduler],
 ]:
     """Initializes databases and programs from a checkpoint.
 
     Args:
         args: Command-line arguments containing checkpoint path.
-        scheduler: Previously created scheduler (may be replaced by checkpoint).
+        exploration_scheduler: Previously created exploration_scheduler (may be replaced by checkpoint).
+        timeout_scheduler: Previously created timeout exploration_scheduler
+            (may be replaced by checkpoint).
 
     Returns:
-        Tuple of (prompt_db, sol_db, evolve_state, init_prompt, init_sol, scheduler).
+        Tuple of (prompt_db, sol_db, evolve_state, init_prompt, init_sol,
+        exploration_scheduler, timeout_scheduler).
     """
     prompt_db: ProgramDatabase
     sol_db: ProgramDatabase
     evolve_state: Dict[str, Any]
-    sched: Optional[ExplorationRateScheduler]
+    sched: Optional[Scheduler]
+    ts: Optional[Scheduler]
 
-    prompt_db, sol_db, evolve_state, sched = load_ckpt(args["load_ckpt"], args["ckpt_dir"])
+    prompt_db, sol_db, evolve_state, sched, ts = load_ckpt(args["load_ckpt"], args["ckpt_dir"])
 
     init_prompt: Program = prompt_db.programs[prompt_db.best_prog_id]
     init_sol: Program = sol_db.programs[sol_db.best_prog_id]
     init_sol.prompt_id = init_prompt.id
 
-    final_scheduler: Optional[ExplorationRateScheduler] = sched if sched is not None else scheduler
+    final_scheduler: Optional[Scheduler] = sched if sched is not None else exploration_scheduler
+    final_ts: Optional[Scheduler] = ts if ts is not None else timeout_scheduler
 
-    return prompt_db, sol_db, evolve_state, init_prompt, init_sol, final_scheduler
+    return prompt_db, sol_db, evolve_state, init_prompt, init_sol, final_scheduler, final_ts
 
 
 def _initialize_new(
@@ -1303,7 +1308,7 @@ def setup_codeevolve_components(
     - LLM ensemble creation (exploration and exploitation)
     - Prompt sampler creation
     - Evaluator creation with resource limits
-    - Optional embedding model and scheduler creation
+    - Optional embedding model and exploration_scheduler creation
     - Database initialization (either from checkpoint or new)
     - Initial solution evaluation
 
@@ -1340,7 +1345,8 @@ def setup_codeevolve_components(
     prompt_sampler: PromptSampler = _create_prompt_sampler(config, evolve_config, args)
     evaluator: Evaluator = _create_evaluator(config, args, logger)
     embedding: Optional[OpenAIEmbedding] = _create_embedding(config, evolve_config, args)
-    scheduler: Optional[ExplorationRateScheduler] = _create_scheduler(evolve_config)
+    exploration_scheduler: Optional[Scheduler] = _create_exploration_scheduler(evolve_config)
+    timeout_scheduler: Optional[Scheduler] = _create_timeout_scheduler(config)
 
     start_epoch: int = args["load_ckpt"]
     prompt_db: ProgramDatabase
@@ -1350,8 +1356,8 @@ def setup_codeevolve_components(
     init_sol: Program
 
     if args["load_ckpt"]:
-        prompt_db, sol_db, evolve_state, init_prompt, init_sol, scheduler = (
-            _initialize_from_checkpoint(args, scheduler)
+        prompt_db, sol_db, evolve_state, init_prompt, init_sol, exploration_scheduler, timeout_scheduler = (
+            _initialize_from_checkpoint(args, exploration_scheduler, timeout_scheduler)
         )
     else:
         prompt_db, sol_db, evolve_state, init_prompt, init_sol = _initialize_new(
@@ -1372,7 +1378,8 @@ def setup_codeevolve_components(
         prompt_sampler=prompt_sampler,
         evaluator=evaluator,
         embedding=embedding,
-        scheduler=scheduler,
+        exploration_scheduler=exploration_scheduler,
+        timeout_scheduler=timeout_scheduler,
         logger=logger,
     )
 
@@ -1415,7 +1422,7 @@ async def codeevolve(
     components.logger.info(f"prompt_sampler={components.prompt_sampler}")
     components.logger.info(f"evaluator={components.evaluator}")
     components.logger.info(f"embedding={components.embedding}")
-    components.logger.info(f"scheduler={components.scheduler}")
+    components.logger.info(f"exploration_scheduler={components.exploration_scheduler}")
     components.logger.info(f"init_prog={components.init_sol}")
 
     with global_data.lock:
@@ -1441,7 +1448,6 @@ async def codeevolve(
         components.evolve_state,
         components.init_sol,
         components.init_prompt,
-        components.config,
         components.evolve_config,
         args,
         isl_data,
@@ -1453,6 +1459,7 @@ async def codeevolve(
         components.exploitation_ensemble,
         components.evaluator,
         components.embedding,
-        components.scheduler,
+        components.exploration_scheduler,
+        components.timeout_scheduler,
         components.logger,
     )

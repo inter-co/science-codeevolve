@@ -19,7 +19,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from codeevolve.database import ProgramDatabase
 from codeevolve.islands.sync import GlobalBestProg
-from codeevolve.scheduler import ExplorationRateScheduler
+from codeevolve.scheduler import Scheduler
 from codeevolve.utils.constants import CHECKPOINT_FILE_FORMAT, RUN_METADATA_FILE
 
 
@@ -28,11 +28,12 @@ def save_ckpt(
     prompt_db: ProgramDatabase,
     sol_db: ProgramDatabase,
     evolve_state: Dict[str, Any],
-    scheduler: Optional[ExplorationRateScheduler],
+    scheduler: Optional[Scheduler],
     best_sol_path: str | Path,
     best_prompt_path: str | Path,
     ckpt_dir: str | Path,
     logger: Optional[logging.Logger] = None,
+    timeout_scheduler: Optional[Scheduler] = None,
 ) -> None:
     """Saves a checkpoint of the evolutionary algorithm state.
 
@@ -45,11 +46,12 @@ def save_ckpt(
         prompt_db: Database containing prompt population.
         sol_db: Database containing solution population.
         evolve_state: Dictionary containing the current state of the evolution algorithm.
-        scheduler: Exploration scheduler.
+        scheduler: Exploration rate scheduler.
         best_sol_path: File path where the best solution code will be saved.
         best_prompt_path: File path where the best prompt code will be saved.
         ckpt_dir: Directory where the checkpoint file will be saved.
         logger: Logger instance for logging checkpoint operations.
+        timeout_scheduler: Timeout scheduler (optional).
     """
 
     data: Dict[str, Any] = {
@@ -59,6 +61,8 @@ def save_ckpt(
     }
     if scheduler is not None:
         data["scheduler"] = scheduler
+    if timeout_scheduler is not None:
+        data["timeout_scheduler"] = timeout_scheduler
     if isinstance(best_sol_path, str):
         best_sol_path = Path(best_sol_path)
     if isinstance(best_prompt_path, str):
@@ -84,7 +88,8 @@ def load_ckpt(epoch: int, ckpt_dir: str | Path) -> Tuple[
     Optional[ProgramDatabase],
     Optional[ProgramDatabase],
     Optional[Dict[str, Any]],
-    Optional[ExplorationRateScheduler],
+    Optional[Scheduler],
+    Optional[Scheduler],
 ]:
     """Loads a checkpoint of the evolutionary algorithm state.
 
@@ -100,7 +105,8 @@ def load_ckpt(epoch: int, ckpt_dir: str | Path) -> Tuple[
             - Prompt database with evolved prompts, None if not found
             - Solution database with evolved programs, None if not found
             - Dictionary with the evolution algorithm state, None if not found
-            - Exploration scheduler, None if not found
+            - Exploration rate scheduler, None if not found
+            - Timeout scheduler, None if not found
     """
     if isinstance(ckpt_dir, str):
         ckpt_dir = Path(ckpt_dir)
@@ -113,6 +119,7 @@ def load_ckpt(epoch: int, ckpt_dir: str | Path) -> Tuple[
         data.get("sol_db", None),
         data.get("evolve_state", None),
         data.get("scheduler", None),
+        data.get("timeout_scheduler", None),
     )
 
 

@@ -6,7 +6,8 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 #
-# This file implements exploration rate schedulers.
+# This file implements generic bounded-value schedulers used for exploration
+# rate scheduling, timeout scheduling, and other per-epoch parameter control.
 #
 # ===--------------------------------------------------------------------------------------===#
 
@@ -20,170 +21,173 @@ import numpy as np
 # ---------------------------------------------------------------------------
 
 
-class ExplorationRateScheduler(ABC):
-    """
-    Abstract base class for exploration rate schedulers in genetic algorithms.
+class Scheduler(ABC):
+    """Abstract base class for bounded-value schedulers.
 
-    Exploration rate schedulers dynamically adjust the exploration-exploitation
-    balance during evolutionary optimization. Higher rates encourage exploration
-    of the search space, while lower rates favor exploitation of known solutions.
+    A scheduler manages a single numeric value that is adjusted each epoch
+    according to a concrete scheduling strategy.  The value is always kept
+    within ``[min_value, max_value]``.
+
+    Concrete subclasses are used for exploration-rate scheduling, evaluation
+    timeout scheduling, and any other per-epoch parameter that needs
+    adaptive or predetermined control.
 
     Attributes:
-        exploration_rate: Current exploration rate value.
-        max_rate: Maximum allowed exploration rate (upper bound).
-        min_rate: Minimum allowed exploration rate (lower bound).
+        value: Current scheduled value.
+        max_value: Upper bound (inclusive).
+        min_value: Lower bound (inclusive).
     """
 
-    def __init__(self, exploration_rate: float, max_rate: float, min_rate: float):
+    def __init__(self, value: float, max_value: float, min_value: float):
         """
-        Initialize the exploration rate scheduler.
+        Initialize the scheduler.
 
         Args:
-            exploration_rate: Initial exploration rate.
-            max_rate: Maximum exploration rate to clip to.
-            min_rate: Minimum exploration rate to clip to.
+            value: Initial value.
+            max_value: Maximum value to clip to.
+            min_value: Minimum value to clip to.
 
         Raises:
-            ValueError: If min_rate > max_rate or exploration_rate is outside bounds.
+            ValueError: If min_value > max_value or value is outside bounds.
         """
-        if min_rate > max_rate:
-            raise ValueError(f"min_rate ({min_rate}) must be <= max_rate ({max_rate})")
-        if not (min_rate <= exploration_rate <= max_rate):
+        if min_value > max_value:
+            raise ValueError(f"min_value ({min_value}) must be <= max_value ({max_value})")
+        if not (min_value <= value <= max_value):
             raise ValueError(
-                f"exploration_rate ({exploration_rate}) must be between "
-                f"min_rate ({min_rate}) and max_rate ({max_rate})"
+                f"value ({value}) must be between "
+                f"min_value ({min_value}) and max_value ({max_value})"
             )
 
-        self.exploration_rate: float = exploration_rate
-        self.max_rate: float = max_rate
-        self.min_rate: float = min_rate
+        self.value: float = value
+        self.max_value: float = max_value
+        self.min_value: float = min_value
 
     @abstractmethod
     def __call__(self, **kwargs) -> float:
         """
-        Compute and update the exploration rate.
+        Compute and update the scheduled value.
 
         Args:
             **kwargs: Scheduler-specific arguments (e.g., epoch, fitness).
 
         Returns:
-            Updated exploration rate after applying scheduling logic.
+            Updated value after applying the scheduling logic.
         """
         pass
 
-    def reset(self, exploration_rate: Optional[float] = None) -> None:
+    def reset(self, value: Optional[float] = None) -> None:
         """
         Reset the scheduler to its initial state.
 
         Args:
-            exploration_rate: New initial rate. If None, keeps current rate.
+            value: New initial value. If None, keeps current value.
         """
-        if exploration_rate is not None:
-            if not (self.min_rate <= exploration_rate <= self.max_rate):
+        if value is not None:
+            if not (self.min_value <= value <= self.max_value):
                 raise ValueError(
-                    f"exploration_rate ({exploration_rate}) must be between "
-                    f"min_rate ({self.min_rate}) and max_rate ({self.max_rate})"
+                    f"value ({value}) must be between "
+                    f"min_value ({self.min_value}) and max_value ({self.max_value})"
                 )
-            self.exploration_rate = exploration_rate
+            self.value = value
 
 
-class ExponentialDecayScheduler(ExplorationRateScheduler):
-    """
-    Exponential decay scheduler that reduces exploration rate over time.
 
-    The exploration rate decays exponentially according to:
-        rate(t) = rate(0) * (decay_weight ^ t)
+class ExponentialScheduler(Scheduler):
+    """Exponential scheduler that scales a value geometrically over epochs.
 
-    This scheduler is useful when you want gradual reduction in exploration
-    as the algorithm progresses, transitioning from exploration to exploitation.
+    The value evolves according to::
+
+        value(t) = initial_value * (weight ^ t)
+
+    Use ``weight < 1`` for decay (e.g. exploration rate) and ``weight > 1``
+    for growth (e.g. evaluation timeout ramp-up).
 
     Attributes:
-        decay_weight: Multiplicative decay factor applied each epoch (0 < decay_weight < 1).
+        weight: Multiplicative factor applied each epoch.
+        initial_value: Value at epoch 0 (used for reset).
     """
 
     def __init__(
-        self, exploration_rate: float, max_rate: float, min_rate: float, decay_weight: float
+        self, value: float, max_value: float, min_value: float, weight: float
     ):
         """
-        Initialize the exponential decay scheduler.
+        Initialize the exponential scheduler.
 
         Args:
-            exploration_rate: Initial exploration rate.
-            max_rate: Maximum exploration rate bound.
-            min_rate: Minimum exploration rate bound.
-            decay_weight: Decay factor per epoch (typically 0.9-0.99).
+            value: Initial value.
+            max_value: Upper bound.
+            min_value: Lower bound.
+            weight: Multiplicative factor per epoch. Must be positive.
+                Use values in (0, 1) for decay and values > 1 for growth.
 
         Raises:
-            ValueError: If decay_weight is not in (0, 1].
+            ValueError: If weight is not positive.
         """
-        super().__init__(exploration_rate, max_rate, min_rate)
-        if not (0 < decay_weight <= 1):
-            raise ValueError(f"decay_weight ({decay_weight}) must be in (0, 1]")
-        self.decay_weight: float = decay_weight
-        self.initial_rate: float = exploration_rate
+        super().__init__(value, max_value, min_value)
+        if weight <= 0:
+            raise ValueError(f"weight ({weight}) must be positive")
+        self.weight: float = weight
+        self.initial_value: float = value
 
     def __repr__(self) -> str:
-        """Returns a string representation of the ExponentialDecayScheduler instance.
-
-        Returns:
-            A formatted string showing the scheduler's configuration.
-        """
         return (
             f"{self.__class__.__name__}"
             "("
-            f"exploration_rate={self.exploration_rate},"
-            f"min_rate={self.min_rate},"
-            f"max_rate={self.max_rate},"
-            f"decay_weight={self.decay_weight},"
-            f"initial_rate={self.initial_rate}"
+            f"value={self.value},"
+            f"min_value={self.min_value},"
+            f"max_value={self.max_value},"
+            f"weight={self.weight},"
+            f"initial_value={self.initial_value}"
             ")"
         )
 
     def __call__(self, epoch: int, **kwargs) -> float:
         """
-        Compute exploration rate with exponential decay.
+        Compute value with exponential scaling.
 
         Args:
             epoch: Current epoch number (0-indexed).
             **kwargs: Additional arguments (ignored).
 
         Returns:
-            Updated exploration rate after decay.
+            Updated value after scaling.
         """
-        rate: float = self.initial_rate * (self.decay_weight**epoch)
-        self.exploration_rate = float(np.clip(rate, self.min_rate, self.max_rate))
-        return self.exploration_rate
+        raw: float = self.initial_value * (self.weight**epoch)
+        self.value = float(np.clip(raw, self.min_value, self.max_value))
+        return self.value
 
-    def reset(self, exploration_rate: Optional[float] = None) -> None:
-        """Reset scheduler and update initial rate if provided."""
-        super().reset(exploration_rate)
-        if exploration_rate is not None:
-            self.initial_rate = exploration_rate
+    def reset(self, value: Optional[float] = None) -> None:
+        """Reset scheduler and update initial value if provided."""
+        super().reset(value)
+        if value is not None:
+            self.initial_value = value
 
 
-class PlateauScheduler(ExplorationRateScheduler):
-    """
-    Adaptive scheduler that adjusts exploration rate based on fitness improvements.
+class PlateauScheduler(Scheduler):
+    """Adaptive scheduler that adjusts value based on fitness improvements.
 
-    This scheduler monitors fitness progress and adapts the exploration rate:
-    - Decreases rate when fitness improves (exploit good solutions)
-    - Increases rate after plateau threshold (explore when stuck)
+    This scheduler monitors fitness progress and reacts:
 
-    This creates a dynamic balance that responds to optimization progress.
+    * **Improvement** — multiplies by ``decrease_factor`` (shrinks value).
+    * **Plateau** (no improvement for ``plateau_threshold`` epochs) —
+      multiplies by ``increase_factor`` (grows value).
+
+    For exploration-rate scheduling, this means exploring more when stuck.
+    For timeout scheduling, it means giving programs more time when stuck.
 
     Attributes:
-        plateau_threshold: Number of epochs without improvement before increasing rate.
-        increase_factor: Multiplicative factor when increasing rate (> 1.0).
-        decrease_factor: Multiplicative factor when decreasing rate (< 1.0).
+        plateau_threshold: Epochs without improvement before increasing.
+        increase_factor: Multiplicative factor when increasing (> 1.0).
+        decrease_factor: Multiplicative factor when decreasing (in (0, 1)).
         epochs_without_improvement: Counter for stagnant epochs.
         last_best_fitness: Best fitness value seen so far.
     """
 
     def __init__(
         self,
-        exploration_rate: float,
-        max_rate: float,
-        min_rate: float,
+        value: float,
+        max_value: float,
+        min_value: float,
         plateau_threshold: int,
         increase_factor: float,
         decrease_factor: float,
@@ -192,17 +196,17 @@ class PlateauScheduler(ExplorationRateScheduler):
         Initialize the plateau-based scheduler.
 
         Args:
-            exploration_rate: Initial exploration rate.
-            max_rate: Maximum exploration rate bound.
-            min_rate: Minimum exploration rate bound.
-            plateau_threshold: Epochs without improvement before rate increase.
-            increase_factor: Factor to multiply rate by when stuck (> 1.0).
-            decrease_factor: Factor to multiply rate by when improving (< 1.0).
+            value: Initial value.
+            max_value: Upper bound.
+            min_value: Lower bound.
+            plateau_threshold: Epochs without improvement before value increase.
+            increase_factor: Factor to multiply value by when stuck (> 1.0).
+            decrease_factor: Factor to multiply value by when improving (in (0, 1)).
 
         Raises:
             ValueError: If factors are invalid or plateau_threshold is non-positive.
         """
-        super().__init__(exploration_rate, max_rate, min_rate)
+        super().__init__(value, max_value, min_value)
         if plateau_threshold <= 0:
             raise ValueError(f"plateau_threshold ({plateau_threshold}) must be positive")
         if increase_factor <= 1.0:
@@ -217,17 +221,12 @@ class PlateauScheduler(ExplorationRateScheduler):
         self.last_best_fitness: float = float("-inf")
 
     def __repr__(self) -> str:
-        """Returns a string representation of the PlateauScheduler instance.
-
-        Returns:
-            A formatted string showing the scheduler's configuration.
-        """
         return (
             f"{self.__class__.__name__}"
             "("
-            f"exploration_rate={self.exploration_rate},"
-            f"min_rate={self.min_rate},"
-            f"max_rate={self.max_rate},"
+            f"value={self.value},"
+            f"min_value={self.min_value},"
+            f"max_value={self.max_value},"
             f"plateau_threshold={self.plateau_threshold},"
             f"increase_factor={self.increase_factor},"
             f"decrease_factor={self.decrease_factor},"
@@ -236,107 +235,101 @@ class PlateauScheduler(ExplorationRateScheduler):
 
     def __call__(self, best_fitness: float, **kwargs) -> float:
         """
-        Adjust exploration rate based on fitness improvement.
+        Adjust value based on fitness improvement.
 
         Args:
             best_fitness: Best fitness value in current epoch.
             **kwargs: Additional arguments (ignored).
 
         Returns:
-            Updated exploration rate after adjustment.
+            Updated value after adjustment.
         """
-        rate: float = self.exploration_rate
+        raw: float = self.value
 
         if best_fitness > self.last_best_fitness:
-            rate *= self.decrease_factor
+            raw *= self.decrease_factor
             self.epochs_without_improvement = 0
             self.last_best_fitness = best_fitness
         else:
             self.epochs_without_improvement += 1
             if self.epochs_without_improvement >= self.plateau_threshold:
-                rate *= self.increase_factor
+                raw *= self.increase_factor
                 self.epochs_without_improvement = 0
 
-        self.exploration_rate = float(np.clip(rate, self.min_rate, self.max_rate))
-        return self.exploration_rate
+        self.value = float(np.clip(raw, self.min_value, self.max_value))
+        return self.value
 
-    def reset(self, exploration_rate: Optional[float] = None) -> None:
+    def reset(self, value: Optional[float] = None) -> None:
         """Reset scheduler state including fitness tracking."""
-        super().reset(exploration_rate)
+        super().reset(value)
         self.epochs_without_improvement = 0
         self.last_best_fitness = float("-inf")
 
 
-class CosineScheduler(ExplorationRateScheduler):
-    """Cosine annealing scheduler that cycles exploration rate between bounds.
+class CosineScheduler(Scheduler):
+    """Cosine annealing scheduler that cycles value between bounds.
 
-    The exploration rate follows a cosine curve, smoothly transitioning between
-    max_rate and min_rate over a configurable cycle length. This creates periodic
-    phases of high exploration followed by exploitation.
+    The value follows a cosine curve, smoothly transitioning between
+    ``max_value`` and ``min_value`` over a configurable cycle length.
 
     Attributes:
         cycle_length: Number of epochs per complete cosine cycle.
     """
 
     def __init__(
-        self, exploration_rate: float, max_rate: float, min_rate: float, cycle_length: int
+        self, value: float, max_value: float, min_value: float, cycle_length: int
     ):
         """Initialize the cosine annealing scheduler.
 
         Args:
-            exploration_rate: Initial exploration rate.
-            max_rate: Maximum exploration rate bound.
-            min_rate: Minimum exploration rate bound.
+            value: Initial value.
+            max_value: Upper bound.
+            min_value: Lower bound.
             cycle_length: Number of epochs for one complete cycle.
 
         Raises:
             ValueError: If cycle_length is not positive.
         """
-        super().__init__(exploration_rate, max_rate, min_rate)
+        super().__init__(value, max_value, min_value)
         if cycle_length <= 0:
             raise ValueError(f"cycle_length ({cycle_length}) must be positive")
         self.cycle_length: int = cycle_length
 
     def __repr__(self) -> str:
-        """Returns a string representation of the CosineScheduler instance.
-
-        Returns:
-            A formatted string showing the scheduler's configuration.
-        """
         return (
             f"{self.__class__.__name__}"
             "("
-            f"exploration_rate={self.exploration_rate},"
-            f"min_rate={self.min_rate},"
-            f"max_rate={self.max_rate},"
+            f"value={self.value},"
+            f"min_value={self.min_value},"
+            f"max_value={self.max_value},"
             f"cycle_length={self.cycle_length}"
             ")"
         )
 
     def __call__(self, epoch: int, **kwargs) -> float:
-        """Compute exploration rate using cosine annealing.
+        """Compute value using cosine annealing.
 
         Args:
             epoch: Current epoch number (0-indexed).
             **kwargs: Additional arguments (ignored).
 
         Returns:
-            Updated exploration rate following cosine curve.
+            Updated value following cosine curve.
         """
         cycle_progress: float = (epoch % self.cycle_length) / self.cycle_length
         cosine_factor: float = 0.5 * (1 + np.cos(np.pi * cycle_progress))
-        rate: float = self.min_rate + (self.max_rate - self.min_rate) * cosine_factor
+        raw: float = self.min_value + (self.max_value - self.min_value) * cosine_factor
 
-        self.exploration_rate = float(rate)
-        return self.exploration_rate
+        self.value = float(raw)
+        return self.value
 
 
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
-SCHEDULER_TYPES: Dict[str, Type[ExplorationRateScheduler]] = {
-    "ExponentialDecayScheduler": ExponentialDecayScheduler,
+SCHEDULER_TYPES: Dict[str, Type[Scheduler]] = {
+    "ExponentialScheduler": ExponentialScheduler,
     "PlateauScheduler": PlateauScheduler,
     "CosineScheduler": CosineScheduler,
 }

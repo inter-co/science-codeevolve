@@ -44,7 +44,7 @@
 
 <div align="center">
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.3-green" alt="v0.3.1"></a>
+  <img src="https://img.shields.io/badge/version-v0.3.1-green" alt="v0.3.1"></a>
   <a href="https://arxiv.org/abs/2510.14150"><img src="https://img.shields.io/badge/arxiv-2510.14150-red" alt="Arxiv"></a>
   <a href="https://github.com/inter-co/science-codeevolve/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License"></a>
 </p>
@@ -188,10 +188,12 @@ Each island maintains:
 - Implements multiple selection strategies
 - Implements the MAP-Elites algorithm for improved diversity, with Classic grid-based archive and Central Voronoi Tesselations variant
 
-#### Exploration Schedulers (`scheduler.py`)
-- **ExponentialDecayScheduler**: Reduces exploration rate over epochs
-- **PlateauScheduler**: Adapts rate based on fitness improvements
-- **CosineScheduler**: Cycles exploration rate using cosine annealing
+#### Schedulers (`scheduler.py`)
+- **ExponentialScheduler**: Exponential growth or decay over epochs (configurable via `weight`)
+- **PlateauScheduler**: Adapts value based on fitness improvements (decrease on progress, increase on plateau)
+- **CosineScheduler**: Cycles value using cosine annealing
+
+Schedulers are used for both exploration rate and evaluation timeout scheduling.
 
 #### Evaluator (`evaluator.py`)
 - Sandboxed program execution with resource limits (time, memory)
@@ -346,6 +348,11 @@ SYS_MSG: |
   the given code to maximize the objective function.
   # PROMPT-BLOCK-END
 
+BUDGET_CONFIG:
+  eval_timeout: 10
+  max_mem_bytes: 1000000000
+  mem_check_interval_s: 0.1
+
 ENSEMBLE:
   - model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
     temp: 0.8
@@ -360,16 +367,13 @@ SAMPLER_AUX_LM:
 EVOLVE_CONFIG:
   num_epochs: 50
   num_islands: 2
-  migration_topology: "directed_ring"
-  migration_interval: 10
-  
-  selection_policy: "tournament"
-  selection_kwargs:
-    tournament_size: 3
-  
+  migration: {topology: "directed_ring", interval: 10, rate: 0.1}
+
+  selection: {policy: "tournament", kwargs: {tournament_size: 3}}
+
   num_inspirations: 2
   exploration_rate: 0.3
-  
+
   fitness_key: "fitness"
   ckpt: 10
   early_stopping_rounds: 20
@@ -465,42 +469,61 @@ This companion repository contains all code necessary to reproduce the results f
 Key configuration parameters in your YAML file:
 
 ```yaml
+# Resource limits and timeout scheduling
+BUDGET_CONFIG:
+  eval_timeout: 60               # Static evaluation timeout (seconds)
+  max_mem_bytes: 1000000000      # Memory limit (~1 GB)
+  mem_check_interval_s: 0.1     # Memory polling interval
+  # Optional: adaptive timeout scheduling (overrides eval_timeout)
+  timeout_scheduler:
+    type: "ExponentialScheduler"
+    kwargs: {min_value: 5, max_value: 60, weight: 1.05}
+
 EVOLVE_CONFIG:
   # Basic settings
   num_epochs: 100              # Total iterations
   num_islands: 4               # Parallel populations
   init_pop: 20                 # Initial population per island
   max_size: 50                 # Max population size (null = unlimited)
-  
+
   # Selection
-  selection_policy: "tournament"  # or "roulette", "random", "best"
-  selection_kwargs:
-    tournament_size: 3
-  
+  selection:
+    policy: "tournament"       # or "roulette", "random", "best"
+    kwargs: {tournament_size: 3}
+
   # Exploration/Exploitation
   exploration_rate: 0.3        # Probability of exploration
-  use_scheduler: true          # Use adaptive scheduling
-  type: "ExponentialDecayScheduler"
-  scheduler_kwargs:
-    decay_rate: 0.995
-  
+  # Optional: adaptive exploration rate scheduling (presence enables it)
+  exploration_scheduler:
+    type: "PlateauScheduler"
+    kwargs: {min_value: 0.2, max_value: 0.5, plateau_threshold: 5,
+             increase_factor: 1.05, decrease_factor: 0.95}
+
   # Operators
   num_inspirations: 3          # Inspiration programs for crossover
   meta_prompting: true         # Enable prompt evolution
   max_chat_depth: 5            # Conversation history depth
-  
+
   # Migration
-  migration_topology: "directed_ring"  # Island topology
-  migration_interval: 20       # Epochs between migrations
-  migration_rate: 0.1          # Fraction to migrate
-  
+  migration:
+    topology: "directed_ring"  # Island topology
+    interval: 20               # Epochs between migrations
+    rate: 0.1                  # Fraction to migrate
+
+  # Block markers (optional, defaults shown)
+  markers:
+    evolve_start_marker: "# EVOLVE-BLOCK-START"
+    evolve_end_marker: "# EVOLVE-BLOCK-END"
+    mp_start_marker: "# PROMPT-BLOCK-START"
+    mp_end_marker: "# PROMPT-BLOCK-END"
+
   # Quality-Diversity (optional)
   use_map_elites: false        # Enable MAP-Elites
-  
+
   # Checkpointing
   ckpt: 10                     # Checkpoint frequency
   early_stopping_rounds: 50    # Stop after N epochs without improvement
-  
+
   # Fitness
   fitness_key: "fitness"       # Metric name from evaluation JSON
 ```

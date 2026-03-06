@@ -19,7 +19,7 @@ import pytest
 
 from codeevolve.database import Program, ProgramDatabase
 from codeevolve.islands.sync import GlobalBestProg
-from codeevolve.scheduler import ExplorationRateScheduler, ExponentialDecayScheduler
+from codeevolve.scheduler import ExponentialScheduler, Scheduler
 from codeevolve.utils.ckpt import load_ckpt, load_run_metadata, save_ckpt, save_run_metadata
 from codeevolve.utils.constants import RUN_METADATA_FILE
 
@@ -103,13 +103,17 @@ class TestCheckpointing:
         loaded_prompt_db: Optional[ProgramDatabase]
         loaded_sol_db: Optional[ProgramDatabase]
         loaded_state: Optional[Dict[str, Any]]
-        loaded_sched: Optional[ExplorationRateScheduler]
-        loaded_prompt_db, loaded_sol_db, loaded_state, loaded_sched = load_ckpt(10, ckpt_dir)
+        loaded_sched: Optional[Scheduler]
+        loaded_ts: Optional[Scheduler]
+        loaded_prompt_db, loaded_sol_db, loaded_state, loaded_sched, loaded_ts = load_ckpt(
+            10, ckpt_dir
+        )
 
         assert loaded_sol_db is not None
         assert loaded_prompt_db is not None
         assert loaded_state is not None
         assert loaded_sched is None
+        assert loaded_ts is None
         assert loaded_sol_db.best_prog_id == "test_prog"
         assert loaded_state["early_stop_counter"] == 3
 
@@ -119,8 +123,8 @@ class TestCheckpointing:
         prompt_db: ProgramDatabase = ProgramDatabase(id=0, seed=42)
         prompt_db.add(Program(id="pr", code="p", language="text"))
 
-        scheduler: ExponentialDecayScheduler = ExponentialDecayScheduler(
-            exploration_rate=0.5, max_rate=1.0, min_rate=0.01, decay_weight=0.99
+        scheduler: ExponentialScheduler = ExponentialScheduler(
+            value=0.5, max_value=1.0, min_value=0.01, weight=0.99
         )
 
         logger: logging.Logger = logging.getLogger("test_ckpt_sched")
@@ -146,10 +150,10 @@ class TestCheckpointing:
             logger=logger,
         )
 
-        _, _, _, loaded_sched = load_ckpt(5, ckpt_dir)
+        _, _, _, loaded_sched, _ = load_ckpt(5, ckpt_dir)
         assert loaded_sched is not None
-        assert isinstance(loaded_sched, ExponentialDecayScheduler)
-        assert loaded_sched.decay_weight == 0.99
+        assert isinstance(loaded_sched, ExponentialScheduler)
+        assert loaded_sched.weight == 0.99
 
     def test_best_files_content(self, tmp_path: Path):
         """Tests that best solution and prompt files contain correct code."""
