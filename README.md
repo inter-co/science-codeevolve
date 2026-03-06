@@ -44,7 +44,7 @@
 
 <div align="center">
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.3-green" alt="v0.3"></a>
+  <img src="https://img.shields.io/badge/version-v0.3-green" alt="v0.3.1"></a>
   <a href="https://arxiv.org/abs/2510.14150"><img src="https://img.shields.io/badge/arxiv-2510.14150-red" alt="Arxiv"></a>
   <a href="https://github.com/inter-co/science-codeevolve/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License"></a>
 </p>

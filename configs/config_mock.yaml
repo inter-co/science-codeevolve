@@ -8,16 +8,14 @@ SYS_MSG: |
   1. **benchmark_ratio**: fitness of the solution (higher is better)
   2. **eval_time**: Execution time in seconds (keep reasonable)
 
-  COMPUTATIONAL BUDGET:
-  - **Time limit**: 60 seconds maximum execution time
-  - **Memory limit**: 1 GB
-
   # PROMPT-BLOCK-END
       
 CODEBASE_PATH: 'src/'
 INIT_FILE_DATA: {filename: 'init_program.py', language: 'python'}
 EVAL_FILE_NAME: 'evaluate.py'
-EVAL_TIMEOUT: 60
+EVAL_TIMEOUT: 60            
+EVAL_MIN_TIMEOUT: 5          
+DYNAMIC_EVAL_TIMEOUT: true   
 
 MAX_MEM_BYTES: 1000000000
 MEM_CHECK_INTERVAL_S: 0.1

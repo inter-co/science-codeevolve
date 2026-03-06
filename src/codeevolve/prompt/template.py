@@ -10,6 +10,8 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
+from typing import Optional
+
 # ---------------------------------------------------------------------------
 # Reusable template sections
 # ---------------------------------------------------------------------------
@@ -507,6 +509,44 @@ Present your proposed prompt changes using the following structure:
     You are an expert mathematician. Your goal is to design an integer exponentiation function using recursive properties or binary decomposition.
     >>>>>>> REPLACE
 """
+
+
+# ---------------------------------------------------------------------------
+# Evaluation budget template
+# ---------------------------------------------------------------------------
+
+_EVAL_BUDGET_TEMPLATE = """
+## COMPUTATIONAL BUDGET:
+- **Time limit**: {timeout_s} seconds maximum execution time{mem_line}
+"""
+
+
+def format_eval_budget(timeout_s: int, max_mem_b: Optional[int] = None) -> str:
+    """Formats the evaluation budget into a string for injection into the system prompt.
+
+    This ensures the LLM is always informed of the actual resource limits
+    that will be enforced during evaluation, keeping the prompt in sync
+    with the evaluator configuration.
+
+    Args:
+        timeout_s: Maximum execution time in seconds.
+        max_mem_b: Maximum memory usage in bytes. If None, the memory line
+            is omitted from the output.
+
+    Returns:
+        A formatted budget string ready to be inserted into the system prompt.
+    """
+    mem_line = ""
+    if max_mem_b is not None:
+        if max_mem_b >= 1024**3:
+            mem_display = f"{max_mem_b / (1024**3):.1f} GB"
+        elif max_mem_b >= 1024**2:
+            mem_display = f"{max_mem_b / (1024**2):.1f} MB"
+        else:
+            mem_display = f"{max_mem_b} bytes"
+        mem_line = f"\n- **Memory limit**: {mem_display}"
+
+    return _EVAL_BUDGET_TEMPLATE.format(timeout_s=timeout_s, mem_line=mem_line)
 
 
 # ---------------------------------------------------------------------------

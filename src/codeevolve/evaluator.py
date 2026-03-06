@@ -195,7 +195,7 @@ class Evaluator:
         )
 
     def execute(
-        self, prog: Program
+        self, prog: Program, timeout_s: Optional[int] = None
     ) -> Tuple[int, Optional[str], Optional[str], Optional[str], Dict[str, Any]]:
         """Executes a program and updates it with execution results and metrics.
 
@@ -211,6 +211,8 @@ class Evaluator:
             prog: Program object containing the code to execute. This object will be
                 modified in-place with execution results including returncode, error
                 messages, and evaluation metrics.
+            timeout_s: Optional timeout override in seconds.  When provided,
+                this value is used instead of ``self.timeout_s``.
 
         Returns:
             returncode: Exit code of the program (0 for success)
@@ -219,7 +221,10 @@ class Evaluator:
             error: String with stderr
             eval_metrics: Dictionary of evaluation metrics if successful
         """
-        self.logger.info("Attempting to evaluate program...")
+        effective_timeout: int = timeout_s if timeout_s is not None else self.timeout_s
+        self.logger.info(
+            f"Attempting to evaluate program (depth={prog.depth}, timeout={effective_timeout}s)..."
+        )
 
         extension: str = LANGUAGE_TO_EXTENSION.get(prog.language, DEFAULT_EXTENSION)
         returncode: int = 1
@@ -297,7 +302,7 @@ class Evaluator:
                 mem_monitor_daemon.start()
 
             try:
-                stdout, stderr = process.communicate(timeout=self.timeout_s)
+                stdout, stderr = process.communicate(timeout=effective_timeout)
                 kill_flag.set()
                 if mem_monitor_daemon is not None:
                     mem_monitor_daemon.join(timeout=1)
@@ -328,7 +333,7 @@ class Evaluator:
                     process.communicate(timeout=1)
                 except Exception:
                     pass
-                error = f"TimeoutError: Evaluation time usage exceeded maximum time limit of {self.timeout_s} seconds."
+                error = f"TimeoutError: Evaluation time usage exceeded maximum time limit of {effective_timeout} seconds."
 
         except Exception as err:
             self.logger.error(f"Unexpected error during evaluation: {err}")

@@ -17,6 +17,7 @@ import pytest
 from codeevolve.database import Program, ProgramDatabase
 from codeevolve.prompt.sampler import PromptSampler, format_prog_msg
 from codeevolve.prompt.template import (
+    format_eval_budget,
     get_evolve_prompt_task_template,
     get_evolve_task_template,
     get_evolve_with_inspirations_task_template,
@@ -68,6 +69,50 @@ class TestFormatProgMsg:
         prog: Program = Program(id="p1", code="x=1", language="python")
         with pytest.raises(ValueError, match="returncode"):
             format_prog_msg(prog)
+
+
+# ---------------------------------------------------------------------------
+# format_eval_budget
+# ---------------------------------------------------------------------------
+
+
+class TestFormatEvalBudget:
+    """Test suite for the format_eval_budget utility function."""
+
+    def test_timeout_only(self):
+        """Tests formatting with only a timeout (no memory limit)."""
+        result: str = format_eval_budget(timeout_s=60)
+        assert "60 seconds" in result
+        assert "Time limit" in result
+        assert "Memory limit" not in result
+
+    def test_timeout_with_memory_gb(self):
+        """Tests formatting with a memory limit in the GB range."""
+        result: str = format_eval_budget(timeout_s=120, max_mem_b=2 * 1024**3)
+        assert "120 seconds" in result
+        assert "2.0 GB" in result
+
+    def test_timeout_with_memory_mb(self):
+        """Tests formatting with a memory limit in the MB range."""
+        result: str = format_eval_budget(timeout_s=30, max_mem_b=512 * 1024**2)
+        assert "30 seconds" in result
+        assert "512.0 MB" in result
+
+    def test_timeout_with_memory_bytes(self):
+        """Tests formatting with a memory limit below the MB range."""
+        result: str = format_eval_budget(timeout_s=10, max_mem_b=1024)
+        assert "10 seconds" in result
+        assert "1024 bytes" in result
+
+    def test_memory_none(self):
+        """Tests that memory line is omitted when max_mem_b is None."""
+        result: str = format_eval_budget(timeout_s=60, max_mem_b=None)
+        assert "Memory limit" not in result
+
+    def test_exact_gb_boundary(self):
+        """Tests formatting at exactly 1 GB."""
+        result: str = format_eval_budget(timeout_s=60, max_mem_b=1024**3)
+        assert "1.0 GB" in result
 
 
 # ---------------------------------------------------------------------------
@@ -172,6 +217,43 @@ class TestPromptSampler:
             prompt=prompt, prog=p3, db=db, max_chat_depth=1, exploitation=True
         )
         assert len(messages_limited) < len(messages_full)
+
+    def test_build_with_eval_budget(self):
+        """Tests that eval_budget is injected into the system message."""
+        sampler: PromptSampler = self._make_sampler()
+        db: ProgramDatabase = ProgramDatabase(id=0, seed=42)
+
+        prompt: Program = Program(id="prompt1", code="You are an expert.", language="text")
+        prog: Program = self._make_evaluated_prog("p1")
+        db.add(prog)
+
+        budget: str = format_eval_budget(timeout_s=60, max_mem_b=1024**3)
+        messages: List[Dict[str, str]] = sampler.build(
+            prompt=prompt, prog=prog, db=db, inspirations=[], exploitation=False,
+            eval_budget=budget,
+        )
+
+        sys_content: str = messages[0]["content"]
+        assert "You are an expert." in sys_content
+        assert "60 seconds" in sys_content
+        assert "1.0 GB" in sys_content
+
+    def test_build_without_eval_budget(self):
+        """Tests that system message has no budget section when eval_budget is None."""
+        sampler: PromptSampler = self._make_sampler()
+        db: ProgramDatabase = ProgramDatabase(id=0, seed=42)
+
+        prompt: Program = Program(id="prompt1", code="You are an expert.", language="text")
+        prog: Program = self._make_evaluated_prog("p1")
+        db.add(prog)
+
+        messages: List[Dict[str, str]] = sampler.build(
+            prompt=prompt, prog=prog, db=db, inspirations=[], exploitation=False,
+        )
+
+        sys_content: str = messages[0]["content"]
+        assert "You are an expert." in sys_content
+        assert "COMPUTATIONAL BUDGET" not in sys_content
 
     @pytest.mark.asyncio
     async def test_meta_prompt(self):

@@ -195,6 +195,7 @@ class PromptSampler:
         inspirations: Optional[List[Program]] = None,
         max_chat_depth: Optional[int] = None,
         exploitation: bool = False,
+        eval_budget: Optional[str] = None,
     ) -> List[Dict[str, str]]:
         """Builds a conversation prompt from program lineage and inspirations.
 
@@ -202,6 +203,9 @@ class PromptSampler:
         a program's evolutionary lineage, creating a chat-like sequence that
         can be used to generate the next program iteration. It optionally
         includes inspiration programs and limits conversation depth.
+
+        The system message is assembled as:
+            [user's SYS_MSG] + [eval_budget] + [task template]
 
         Args:
             prompt: The system prompt program defining the task and instructions.
@@ -211,6 +215,9 @@ class PromptSampler:
             max_chat_depth: Maximum depth to trace back in the conversation history.
                            If None, traces back to the root program.
             exploitation: If True, use exploitation templates; if False, use exploration templates.
+            eval_budget: Optional pre-formatted evaluation budget string (from
+                ``format_eval_budget``) to inject between the user's system
+                prompt and the task template.
 
         Returns:
             A list of message dictionaries following the OpenAI chat format,
@@ -240,7 +247,10 @@ class PromptSampler:
                 "content": EVOLVE_PROG_TEMPLATE.format(program=db.programs[curr_pid].prog_msg),
             }
         )
-        messages.appendleft({"role": "system", "content": prompt.code})
+        sys_content: str = prompt.code
+        if eval_budget:
+            sys_content += "\n" + eval_budget
+        messages.appendleft({"role": "system", "content": sys_content})
 
         task_template: str
         if inspirations and len(inspirations):

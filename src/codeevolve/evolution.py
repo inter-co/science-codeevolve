@@ -27,11 +27,13 @@ from codeevolve.islands.migration import sync_migrate
 from codeevolve.islands.sync import GlobalSyncData
 from codeevolve.lm.openai import OpenAIEmbedding, OpenAIEnsemble
 from codeevolve.prompt.sampler import PromptSampler, format_prog_msg
+from codeevolve.prompt.template import format_eval_budget
 from codeevolve.scheduler import SCHEDULER_TYPES, ExplorationRateScheduler
 from codeevolve.utils.ckpt import load_ckpt, save_ckpt, save_run_metadata
 from codeevolve.utils.constants import (
     BEST_PROMPT_FILE,
     BEST_SOLUTION_FILE,
+    DEFAULT_EVAL_MIN_TIMEOUT_S,
     DEFAULT_EVAL_TIMEOUT_S,
     DEFAULT_EVOLVE_END_MARKER,
     DEFAULT_EVOLVE_START_MARKER,
@@ -46,6 +48,34 @@ from codeevolve.utils.constants import (
 )
 from codeevolve.utils.logging import get_elapsed_time, get_logger
 from codeevolve.utils.parsing import apply_diff
+
+# ---------------------------------------------------------------------------
+# Dynamic timeout
+# ---------------------------------------------------------------------------
+
+
+def compute_dynamic_timeout(
+    depth: int,
+    max_timeout_s: int,
+    min_timeout_s: int,
+    max_depth: int,
+) -> int:
+    """Computes the effective timeout for a program based on its depth.
+
+    Scales linearly from ``min_timeout_s`` at depth 0 up to
+    ``max_timeout_s`` at depth >= ``max_depth``.
+
+    Args:
+        depth: Evolutionary depth of the program.
+        max_timeout_s: Maximum timeout in seconds (upper bound).
+        min_timeout_s: Minimum timeout in seconds (floor at depth 0).
+        max_depth: Reference depth at which the full timeout is reached.
+
+    Returns:
+        Effective timeout in seconds, always in [min_timeout_s, max_timeout_s].
+    """
+    ratio: float = min(depth / max_depth, 1.0)
+    return max(min_timeout_s, int(min_timeout_s + (max_timeout_s - min_timeout_s) * ratio))
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -352,6 +382,7 @@ async def generate_solution(
     chat_depth: Optional[int],
     exploitation: bool,
     logger: logging.Logger,
+    eval_budget: Optional[str] = None,
 ) -> Tuple[Optional[Program], bool]:
     """
     Generate a new solution program by querying an LLM ensemble with structured context.
@@ -383,6 +414,8 @@ async def generate_solution(
             evolve_state: State dictionary for tracking token usage and errors
             gen_init_pop: Whether generating initial population
             logger: Logger instance
+            eval_budget: Optional pre-formatted evaluation budget string to inject
+                into the system prompt so the LLM is aware of resource constraints.
 
         Returns:
             Tuple of (child_sol, success) where:
@@ -401,6 +434,7 @@ async def generate_solution(
         inspirations=inspirations,
         max_chat_depth=chat_depth,
         exploitation=exploitation,
+        eval_budget=eval_budget,
     )
     logger.info(f"Chat consists of {len(messages)} messages (max_chat_depth = {chat_depth}).")
 
@@ -480,6 +514,7 @@ async def evaluate_and_store(
     evolve_state: Dict[str, Any],
     epoch: int,
     logger: logging.Logger,
+    timeout_s: Optional[int] = None,
 ) -> bool:
     """
     Evaluate a solution program and add it to the database if valid.
@@ -510,13 +545,14 @@ async def evaluate_and_store(
         evolve_state: State dictionary for tracking token usage and errors
         epoch: Current epoch number
         logger: Logger instance
+        timeout_s: Optional timeout override passed to the evaluator.
 
     Returns:
         Boolean indicating whether this child became the new global best solution
     """
     ## EVALUATING CHILD PROGRAM
     child_sol.returncode, _, _, child_sol.error, child_sol.eval_metrics = evaluator.execute(
-        child_sol
+        child_sol, timeout_s=timeout_s
     )
     child_sol.fitness = child_sol.eval_metrics.get(evolve_config["fitness_key"], 0)
 
@@ -636,6 +672,7 @@ async def codeevolve_loop(
     evolve_state: Dict[str, Any],
     init_sol: Program,
     init_prompt: Program,
+    config: Dict[str, Any],
     evolve_config: Dict[str, Any],
     args: Dict[str, Any],
     isl_data: IslandCommunicationData,
@@ -670,8 +707,8 @@ async def codeevolve_loop(
         evolve_state: Dictionary tracking algorithm state.
         init_sol: Initial solution program.
         init_prompt: Initial prompt program.
-        config: Full configuration dictionary.
-        evolve_config: Evolution-specific configuration.
+        config: Full configuration dictionary (top-level YAML).
+        evolve_config: Evolution-specific configuration subset.
         args: Command-line arguments.
         isl_data: Island communication data.
         global_data: Shared data structures.
@@ -714,6 +751,19 @@ async def codeevolve_loop(
     use_map_elites: bool = evolve_config.get("use_map_elites", False)
     exploration_rate: float = (
         scheduler.exploration_rate if scheduler is not None else evolve_config["exploration_rate"]
+    )
+    dynamic_timeout: bool = config.get("DYNAMIC_EVAL_TIMEOUT", False)
+    min_timeout_s: int = config.get("EVAL_MIN_TIMEOUT", DEFAULT_EVAL_MIN_TIMEOUT_S)
+    max_depth: Optional[int] = None
+    if dynamic_timeout:
+        raw_mcd: Optional[int] = evolve_config.get("max_chat_depth")
+        if raw_mcd is not None and raw_mcd > 0:
+            max_depth = raw_mcd
+        else:
+            max_depth = evolve_config["num_epochs"]
+
+    eval_budget: str = format_eval_budget(
+        timeout_s=evaluator.timeout_s, max_mem_b=evaluator.max_mem_b
     )
     epoch: int = start_epoch + 1
 
@@ -789,6 +839,18 @@ async def codeevolve_loop(
         )
         chat_depth: Optional[int] = evolve_config.get("max_chat_depth", None) if exploitation else 0
 
+        child_timeout: Optional[int] = None
+        if dynamic_timeout and max_depth is not None:
+            child_timeout = compute_dynamic_timeout(
+                depth=parent_sol.depth + 1,
+                max_timeout_s=evaluator.timeout_s,
+                min_timeout_s=min_timeout_s,
+                max_depth=max_depth,
+            )
+            eval_budget = format_eval_budget(
+                timeout_s=child_timeout, max_mem_b=evaluator.max_mem_b
+            )
+
         child_sol, evolve_success = await generate_solution(
             ensemble=ensemble,
             prompt_sampler=prompt_sampler,
@@ -804,6 +866,7 @@ async def codeevolve_loop(
             chat_depth=chat_depth,
             exploitation=exploitation,
             logger=logger,
+            eval_budget=eval_budget,
         )
 
         # EVALUATE AND ADD TO DB
@@ -820,6 +883,7 @@ async def codeevolve_loop(
                 evolve_state=evolve_state,
                 epoch=epoch,
                 logger=logger,
+                timeout_s=child_timeout,
             )
 
         # MIGRATION
@@ -1377,6 +1441,7 @@ async def codeevolve(
         components.evolve_state,
         components.init_sol,
         components.init_prompt,
+        components.config,
         components.evolve_config,
         args,
         isl_data,

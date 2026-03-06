@@ -182,6 +182,27 @@ time.sleep(60)
         assert returncode == 1
         assert "TimeoutError" in error
 
+    def test_evaluation_timeout_override(self, tmp_path: Path):
+        """Tests that a timeout_s override on execute() is respected."""
+        eval_script: str = """
+import sys, time
+time.sleep(60)
+"""
+        eval_path: Path = _make_eval_script(tmp_path, eval_script)
+        evaluator: Evaluator = Evaluator(
+            eval_path=eval_path,
+            cwd=tmp_path,
+            timeout_s=30,
+            max_mem_b=None,
+            mem_check_interval_s=None,
+        )
+
+        prog: Program = _make_program("x = 1")
+        returncode, _, _, error, _ = evaluator.execute(prog, timeout_s=1)
+        assert returncode == 1
+        assert "TimeoutError" in error
+        assert "1 seconds" in error
+
     def test_evaluation_invalid_json(self, tmp_path: Path):
         """Tests that invalid JSON in results causes an error."""
         eval_script: str = """

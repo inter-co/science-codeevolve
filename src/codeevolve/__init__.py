@@ -9,4 +9,4 @@
 # This file initializes the main module for CodeEvolve.
 #
 # ===--------------------------------------------------------------------------------------===#
-__version__ = "0.3"
+__version__ = "0.3.1"
