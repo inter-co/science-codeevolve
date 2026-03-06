@@ -23,6 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0.0",
+    "pytest-asyncio>=1.0.0",
     "black>=25.1.0",
     "isort>=6.0.0",
 ]
