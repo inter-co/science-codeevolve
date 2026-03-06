@@ -223,7 +223,7 @@ class Evaluator:
         """
         effective_timeout: int = timeout_s if timeout_s is not None else self.timeout_s
         self.logger.info(
-            f"Attempting to evaluate program (depth={prog.depth}, timeout={effective_timeout}s)..."
+            f"Attempting to evaluate program (timeout={effective_timeout}s)..."
         )
 
         extension: str = LANGUAGE_TO_EXTENSION.get(prog.language, DEFAULT_EXTENSION)
