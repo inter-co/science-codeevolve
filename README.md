@@ -412,7 +412,6 @@ For complete experimental configurations, benchmark implementations, and step-by
 
 This companion repository contains all code necessary to reproduce the results from CodeEvolve's [paper](https://arxiv.org/abs/2510.14150), including:
 
-- All benchmark problem implementations
 - Experimental configurations for each problem
 - Raw results and checkpoints from paper runs
 - Analysis notebooks with visualizations
