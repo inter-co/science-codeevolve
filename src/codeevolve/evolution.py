@@ -77,6 +77,7 @@ def compute_dynamic_timeout(
     ratio: float = min(depth / max_depth, 1.0)
     return max(min_timeout_s, int(min_timeout_s + (max_timeout_s - min_timeout_s) * ratio))
 
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -847,9 +848,7 @@ async def codeevolve_loop(
                 min_timeout_s=min_timeout_s,
                 max_depth=max_depth,
             )
-            eval_budget = format_eval_budget(
-                timeout_s=child_timeout, max_mem_b=evaluator.max_mem_b
-            )
+            eval_budget = format_eval_budget(timeout_s=child_timeout, max_mem_b=evaluator.max_mem_b)
 
         child_sol, evolve_success = await generate_solution(
             ensemble=ensemble,
