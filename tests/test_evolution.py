@@ -19,7 +19,6 @@ import pytest
 from codeevolve.database import Program, ProgramDatabase
 from codeevolve.evolution import _get_markers, select_parents
 
-
 # ---------------------------------------------------------------------------
 # _get_markers
 # ---------------------------------------------------------------------------
@@ -92,9 +91,7 @@ class TestSelectParents:
         prompt_db: ProgramDatabase = ProgramDatabase(id=0, seed=42)
 
         init_sol: Program = self._make_prog("init_sol", fitness=1.0)
-        init_prompt: Program = Program(
-            id="init_prompt", code="prompt", language="text"
-        )
+        init_prompt: Program = Program(id="init_prompt", code="prompt", language="text")
 
         sol_db.add(init_sol)
         prompt_db.add(init_prompt)

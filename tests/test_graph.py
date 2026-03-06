@@ -22,7 +22,6 @@ from codeevolve.islands.graph import (
     setup_island_topology,
 )
 
-
 # ---------------------------------------------------------------------------
 # get_edge_list
 # ---------------------------------------------------------------------------
@@ -185,9 +184,7 @@ class TestIslandCommunicationData:
 
     def test_creation(self):
         """Tests that IslandCommunicationData can be created."""
-        data: IslandCommunicationData = IslandCommunicationData(
-            id=0, in_neigh=None, out_neigh=None
-        )
+        data: IslandCommunicationData = IslandCommunicationData(id=0, in_neigh=None, out_neigh=None)
         assert data.id == 0
         assert data.in_neigh is None
         assert data.out_neigh is None

@@ -24,7 +24,6 @@ from codeevolve.prompt.template import (
     get_explore_with_inspirations_task_template,
 )
 
-
 # ---------------------------------------------------------------------------
 # format_prog_msg
 # ---------------------------------------------------------------------------

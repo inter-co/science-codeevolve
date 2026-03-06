@@ -19,10 +19,9 @@ import pytest
 
 from codeevolve.database import Program, ProgramDatabase
 from codeevolve.islands.sync import GlobalBestProg
-from codeevolve.scheduler import ExponentialDecayScheduler, ExplorationRateScheduler
+from codeevolve.scheduler import ExplorationRateScheduler, ExponentialDecayScheduler
 from codeevolve.utils.ckpt import load_ckpt, load_run_metadata, save_ckpt, save_run_metadata
 from codeevolve.utils.constants import RUN_METADATA_FILE
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -132,7 +131,14 @@ class TestCheckpointing:
             curr_epoch=5,
             prompt_db=prompt_db,
             sol_db=sol_db,
-            evolve_state={"early_stop_counter": 0, "best_fit_hist": [], "avg_fit_hist": [], "errors": [], "tok_usage": [], "exploration": []},
+            evolve_state={
+                "early_stop_counter": 0,
+                "best_fit_hist": [],
+                "avg_fit_hist": [],
+                "errors": [],
+                "tok_usage": [],
+                "exploration": [],
+            },
             scheduler=scheduler,
             best_sol_path=tmp_path / "best.py",
             best_prompt_path=tmp_path / "best_prompt.txt",
@@ -162,7 +168,14 @@ class TestCheckpointing:
             curr_epoch=1,
             prompt_db=prompt_db,
             sol_db=sol_db,
-            evolve_state={"early_stop_counter": 0, "best_fit_hist": [], "avg_fit_hist": [], "errors": [], "tok_usage": [], "exploration": []},
+            evolve_state={
+                "early_stop_counter": 0,
+                "best_fit_hist": [],
+                "avg_fit_hist": [],
+                "errors": [],
+                "tok_usage": [],
+                "exploration": [],
+            },
             scheduler=None,
             best_sol_path=best_sol_path,
             best_prompt_path=best_prompt_path,
@@ -192,7 +205,9 @@ class TestRunMetadata:
         best_sol.island_found.value = 0
         best_sol.depth.value = 5
 
-        save_run_metadata(tmp_path, epoch=10, elapsed_time=120.5, cpu_count=8, global_best_sol=best_sol)
+        save_run_metadata(
+            tmp_path, epoch=10, elapsed_time=120.5, cpu_count=8, global_best_sol=best_sol
+        )
 
         metadata: Optional[Dict[str, Any]] = load_run_metadata(tmp_path, epoch=10)
         assert metadata is not None
@@ -208,7 +223,9 @@ class TestRunMetadata:
     def test_load_missing_epoch(self, tmp_path: Path):
         """Tests loading metadata for a missing epoch returns empty dict."""
         best_sol: GlobalBestProg = GlobalBestProg()
-        save_run_metadata(tmp_path, epoch=10, elapsed_time=100.0, cpu_count=4, global_best_sol=best_sol)
+        save_run_metadata(
+            tmp_path, epoch=10, elapsed_time=100.0, cpu_count=4, global_best_sol=best_sol
+        )
 
         metadata: Optional[Dict[str, Any]] = load_run_metadata(tmp_path, epoch=99)
         assert metadata == {}
@@ -216,8 +233,12 @@ class TestRunMetadata:
     def test_metadata_accumulates(self, tmp_path: Path):
         """Tests that multiple saves accumulate in the same file."""
         best_sol: GlobalBestProg = GlobalBestProg()
-        save_run_metadata(tmp_path, epoch=10, elapsed_time=100.0, cpu_count=4, global_best_sol=best_sol)
-        save_run_metadata(tmp_path, epoch=20, elapsed_time=200.0, cpu_count=4, global_best_sol=best_sol)
+        save_run_metadata(
+            tmp_path, epoch=10, elapsed_time=100.0, cpu_count=4, global_best_sol=best_sol
+        )
+        save_run_metadata(
+            tmp_path, epoch=20, elapsed_time=200.0, cpu_count=4, global_best_sol=best_sol
+        )
 
         metadata_file: Path = tmp_path / RUN_METADATA_FILE
         with open(metadata_file, "r") as f:

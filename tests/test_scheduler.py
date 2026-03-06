@@ -19,7 +19,6 @@ from codeevolve.scheduler import (
     PlateauScheduler,
 )
 
-
 # ---------------------------------------------------------------------------
 # ExponentialDecayScheduler
 # ---------------------------------------------------------------------------
@@ -78,6 +77,7 @@ class TestExponentialDecayScheduler:
         sched.reset(exploration_rate=0.8)
         assert sched.exploration_rate == 0.8
         assert sched.initial_rate == 0.8
+
 
 # ---------------------------------------------------------------------------
 # PlateauScheduler
@@ -201,9 +201,7 @@ class TestCosineScheduler:
     def test_invalid_cycle_length(self):
         """Tests that non-positive cycle_length raises ValueError."""
         with pytest.raises(ValueError):
-            CosineScheduler(
-                exploration_rate=0.5, max_rate=1.0, min_rate=0.0, cycle_length=0
-            )
+            CosineScheduler(exploration_rate=0.5, max_rate=1.0, min_rate=0.0, cycle_length=0)
 
     def test_rate_at_epoch_zero(self):
         """Tests that rate at epoch 0 equals max_rate."""

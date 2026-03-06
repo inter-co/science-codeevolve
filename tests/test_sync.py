@@ -17,7 +17,6 @@ import pytest
 from codeevolve.database import Program
 from codeevolve.islands.sync import GlobalBestProg
 
-
 # ---------------------------------------------------------------------------
 # GlobalBestProg
 # ---------------------------------------------------------------------------

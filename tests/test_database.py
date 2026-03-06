@@ -20,7 +20,6 @@ from codeevolve.database import (
     ProgramDatabase,
 )
 
-
 # ---------------------------------------------------------------------------
 # Program dataclass
 # ---------------------------------------------------------------------------
@@ -188,9 +187,7 @@ class TestCVTEliteMap:
         features: list[EliteFeature] = [
             EliteFeature(name="f1", min_val=0.0, max_val=1.0),
         ]
-        cvt_map: CVTEliteMap = CVTEliteMap(
-            features=features, num_centroids=5, num_init_samples=50
-        )
+        cvt_map: CVTEliteMap = CVTEliteMap(features=features, num_centroids=5, num_init_samples=50)
         prog: Program = Program(
             id="p1", code="", language="python", fitness=0.5, features={"f1": 0.3}
         )
@@ -202,9 +199,7 @@ class TestCVTEliteMap:
         features: list[EliteFeature] = [
             EliteFeature(name="f1", min_val=0.0, max_val=1.0),
         ]
-        cvt_map: CVTEliteMap = CVTEliteMap(
-            features=features, num_centroids=1, num_init_samples=50
-        )
+        cvt_map: CVTEliteMap = CVTEliteMap(features=features, num_centroids=1, num_init_samples=50)
         prog1: Program = Program(
             id="p1", code="", language="python", fitness=0.3, features={"f1": 0.5}
         )
@@ -318,9 +313,7 @@ class TestProgramDatabase:
         db.add(self._make_prog("p2", fitness=2.0))
         db.add(self._make_prog("p3", fitness=3.0))
 
-        parent, inspirations = db.sample(
-            selection_policy="random", num_inspirations=1
-        )
+        parent, inspirations = db.sample(selection_policy="random", num_inspirations=1)
         assert parent is not None
         assert parent.id in {"p1", "p2", "p3"}
 
@@ -345,9 +338,7 @@ class TestProgramDatabase:
         db.add(self._make_prog("p2", fitness=2.0))
         db.add(self._make_prog("p3", fitness=3.0))
 
-        parent, inspirations = db.sample(
-            selection_policy="roulette", num_inspirations=0
-        )
+        parent, inspirations = db.sample(selection_policy="roulette", num_inspirations=0)
         assert parent is not None
 
     def test_roulette_selection_by_rank(self):
@@ -386,9 +377,7 @@ class TestProgramDatabase:
         db.add(self._make_prog("p2", fitness=2.0))
         db.add(self._make_prog("p3", fitness=3.0))
 
-        parent, inspirations = db.sample(
-            selection_policy="random", num_inspirations=2
-        )
+        parent, inspirations = db.sample(selection_policy="random", num_inspirations=2)
         assert parent is not None
         assert len(inspirations) <= 2
         for insp in inspirations:

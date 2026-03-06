@@ -28,7 +28,6 @@ from codeevolve.utils.cli_setup import (
     validate_paths,
 )
 
-
 # ---------------------------------------------------------------------------
 # validate_environment
 # ---------------------------------------------------------------------------
@@ -238,7 +237,9 @@ class TestSetupIslandArgs:
             "out_dir": out_dir,
             "load_ckpt": 0,
         }
-        isl2args: Dict[int, Dict[str, Any]] = setup_island_args(args, num_islands=3, cfg_copy_path=cfg_path)
+        isl2args: Dict[int, Dict[str, Any]] = setup_island_args(
+            args, num_islands=3, cfg_copy_path=cfg_path
+        )
 
         assert len(isl2args) == 3
         for i in range(3):

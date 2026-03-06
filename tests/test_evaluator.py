@@ -21,7 +21,6 @@ import pytest
 from codeevolve.database import Program
 from codeevolve.evaluator import Evaluator
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -63,22 +62,44 @@ class TestEvaluatorInit:
     def test_invalid_timeout(self, tmp_path: Path):
         """Tests that non-positive timeout raises ValueError."""
         with pytest.raises(ValueError, match="timeout_s must be positive"):
-            Evaluator(eval_path="eval.py", cwd=tmp_path, timeout_s=0, max_mem_b=None, mem_check_interval_s=None)
+            Evaluator(
+                eval_path="eval.py",
+                cwd=tmp_path,
+                timeout_s=0,
+                max_mem_b=None,
+                mem_check_interval_s=None,
+            )
 
     def test_invalid_max_mem(self, tmp_path: Path):
         """Tests that non-positive max_mem_b raises ValueError."""
         with pytest.raises(ValueError, match="max_mem_b must be positive"):
-            Evaluator(eval_path="eval.py", cwd=tmp_path, timeout_s=10, max_mem_b=-1, mem_check_interval_s=0.1)
+            Evaluator(
+                eval_path="eval.py",
+                cwd=tmp_path,
+                timeout_s=10,
+                max_mem_b=-1,
+                mem_check_interval_s=0.1,
+            )
 
     def test_invalid_mem_check_interval(self, tmp_path: Path):
         """Tests that invalid mem_check_interval_s raises ValueError."""
         with pytest.raises(ValueError, match="mem_check_interval_s must be positive"):
-            Evaluator(eval_path="eval.py", cwd=tmp_path, timeout_s=10, max_mem_b=1024, mem_check_interval_s=0)
+            Evaluator(
+                eval_path="eval.py",
+                cwd=tmp_path,
+                timeout_s=10,
+                max_mem_b=1024,
+                mem_check_interval_s=0,
+            )
 
     def test_no_mem_limit(self, tmp_path: Path):
         """Tests that Evaluator can be created without memory limit."""
         evaluator: Evaluator = Evaluator(
-            eval_path="eval.py", cwd=tmp_path, timeout_s=10, max_mem_b=None, mem_check_interval_s=None
+            eval_path="eval.py",
+            cwd=tmp_path,
+            timeout_s=10,
+            max_mem_b=None,
+            mem_check_interval_s=None,
         )
         assert evaluator.max_mem_b is None
 

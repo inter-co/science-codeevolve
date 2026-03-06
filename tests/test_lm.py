@@ -21,7 +21,6 @@ from codeevolve.lm.openai import (
     _create_lm_from_config,
 )
 
-
 # ---------------------------------------------------------------------------
 # MockOpenAILM
 # ---------------------------------------------------------------------------
@@ -38,9 +37,7 @@ class TestMockOpenAILM:
 
     def test_custom_markers(self):
         """Tests that custom markers can be set."""
-        mock: MockOpenAILM = MockOpenAILM(
-            start_marker="// START", end_marker="// END"
-        )
+        mock: MockOpenAILM = MockOpenAILM(start_marker="// START", end_marker="// END")
         assert mock.start_marker == "// START"
         assert mock.end_marker == "// END"
 
@@ -207,7 +204,10 @@ class TestOpenAIEnsemble:
         """Tests that ensemble generate returns the expected 4-tuple."""
         ensemble: OpenAIEnsemble = self._make_mock_ensemble(2)
         messages: List[Dict[str, str]] = [
-            {"role": "user", "content": "```python\n# EVOLVE-BLOCK-START\nx=1\n# EVOLVE-BLOCK-END\n```"},
+            {
+                "role": "user",
+                "content": "```python\n# EVOLVE-BLOCK-START\nx=1\n# EVOLVE-BLOCK-END\n```",
+            },
         ]
         result: Tuple[int, str, int, int] = await ensemble.generate(messages)
         assert len(result) == 4

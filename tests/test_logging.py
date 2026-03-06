@@ -22,7 +22,6 @@ from codeevolve.utils.logging import (
     get_logger,
 )
 
-
 # ---------------------------------------------------------------------------
 # format_elapsed_time
 # ---------------------------------------------------------------------------
@@ -77,25 +76,31 @@ class TestSizeLimitedFormatter:
 
     def test_short_message_not_truncated(self):
         """Tests that short messages are not truncated."""
-        fmt: SizeLimitedFormatter = SizeLimitedFormatter(
-            fmt="%(message)s", max_msg_sz=100
-        )
+        fmt: SizeLimitedFormatter = SizeLimitedFormatter(fmt="%(message)s", max_msg_sz=100)
         record: logging.LogRecord = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="short message", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="short message",
+            args=(),
+            exc_info=None,
         )
         result: str = fmt.format(record)
         assert result == "short message"
 
     def test_long_message_truncated(self):
         """Tests that long messages are truncated with indicator."""
-        fmt: SizeLimitedFormatter = SizeLimitedFormatter(
-            fmt="%(message)s", max_msg_sz=30
-        )
+        fmt: SizeLimitedFormatter = SizeLimitedFormatter(fmt="%(message)s", max_msg_sz=30)
         long_msg: str = "A" * 100
         record: logging.LogRecord = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg=long_msg, args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg=long_msg,
+            args=(),
+            exc_info=None,
         )
         result: str = fmt.format(record)
         assert len(result) < 100
@@ -103,13 +108,16 @@ class TestSizeLimitedFormatter:
 
     def test_exact_limit_not_truncated(self):
         """Tests that messages at exactly the limit are not truncated."""
-        fmt: SizeLimitedFormatter = SizeLimitedFormatter(
-            fmt="%(message)s", max_msg_sz=20
-        )
+        fmt: SizeLimitedFormatter = SizeLimitedFormatter(fmt="%(message)s", max_msg_sz=20)
         msg: str = "A" * 20
         record: logging.LogRecord = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg=msg, args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg=msg,
+            args=(),
+            exc_info=None,
         )
         result: str = fmt.format(record)
         assert result == msg
@@ -141,9 +149,7 @@ class TestGetLogger:
         log_file: Path = tmp_path / "island.log"
         log_file.write_text("existing content\n")
 
-        logger: logging.Logger = get_logger(
-            island_id=0, results_dir=tmp_path, append_mode=True
-        )
+        logger: logging.Logger = get_logger(island_id=0, results_dir=tmp_path, append_mode=True)
         logger.info("new message")
 
         content: str = log_file.read_text()
