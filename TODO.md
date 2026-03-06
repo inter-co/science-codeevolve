@@ -38,6 +38,10 @@ Instead of asking the users to specify the evaluation budgets, installed package
 
 All configs within the code are dicts. This can get quite confusing and hard to read. We should implement dataclasses with these configs and defaults. This is conceptually easy, but would require a major refactor of the code.
 
+### Better dependency handling for problems
+
+Each benchmark problem should have its own dependencies, and they should be installed whenever the problem is first run. Currently, we bundle all dependencies into CodeEvolve itself, which isn't great.
+
 ## Unit tests
 
 We currently only have a really simple test suite for the SEARCH/REPLACE operator. We need to vastly increase this: from basic tests of our classes, to more complicated simulated runs with the MOCK LLM setting.
