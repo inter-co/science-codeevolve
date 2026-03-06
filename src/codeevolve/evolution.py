@@ -1189,7 +1189,7 @@ def _initialize_from_checkpoint(
     return prompt_db, sol_db, evolve_state, init_prompt, init_sol, final_scheduler, final_ts
 
 
-def _initialize_new(
+def _initialize_new_run(
     config: Dict[str, Any],
     evolve_config: Dict[str, Any],
     args: Dict[str, Any],
@@ -1360,7 +1360,7 @@ def setup_codeevolve_components(
             _initialize_from_checkpoint(args, exploration_scheduler, timeout_scheduler)
         )
     else:
-        prompt_db, sol_db, evolve_state, init_prompt, init_sol = _initialize_new(
+        prompt_db, sol_db, evolve_state, init_prompt, init_sol = _initialize_new_run(
             config, evolve_config, args, isl_data.id, evaluator, logger
         )
 
