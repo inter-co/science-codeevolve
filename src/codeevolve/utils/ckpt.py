@@ -28,7 +28,7 @@ def save_ckpt(
     prompt_db: ProgramDatabase,
     sol_db: ProgramDatabase,
     evolve_state: Dict[str, Any],
-    scheduler: Optional[Scheduler],
+    exploration_scheduler: Optional[Scheduler],
     best_sol_path: str | Path,
     best_prompt_path: str | Path,
     ckpt_dir: str | Path,
@@ -46,7 +46,7 @@ def save_ckpt(
         prompt_db: Database containing prompt population.
         sol_db: Database containing solution population.
         evolve_state: Dictionary containing the current state of the evolution algorithm.
-        scheduler: Exploration rate scheduler.
+        exploration_scheduler: Exploration rate scheduler.
         best_sol_path: File path where the best solution code will be saved.
         best_prompt_path: File path where the best prompt code will be saved.
         ckpt_dir: Directory where the checkpoint file will be saved.
@@ -59,8 +59,8 @@ def save_ckpt(
         "sol_db": sol_db,
         "evolve_state": evolve_state,
     }
-    if scheduler is not None:
-        data["scheduler"] = scheduler
+    if exploration_scheduler is not None:
+        data["exploration_scheduler"] = exploration_scheduler
     if timeout_scheduler is not None:
         data["timeout_scheduler"] = timeout_scheduler
     if isinstance(best_sol_path, str):
@@ -118,7 +118,7 @@ def load_ckpt(epoch: int, ckpt_dir: str | Path) -> Tuple[
         data.get("prompt_db", None),
         data.get("sol_db", None),
         data.get("evolve_state", None),
-        data.get("scheduler", None),
+        data.get("exploration_scheduler", None),
         data.get("timeout_scheduler", None),
     )
 

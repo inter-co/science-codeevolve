@@ -691,8 +691,8 @@ async def codeevolve_loop(
         exploitation_ensemble: Ensemble for exploitation.
         evaluator: Program evaluator.
         embedding: Embedding model (optional).
-        exploration_scheduler: Exploration rate exploration_scheduler (optional).
-        timeout_scheduler: Timeout exploration_scheduler (optional). When provided,
+        exploration_scheduler: Exploration rate scheduler (optional).
+        timeout_scheduler: Timeout scheduler (optional). When provided,
             the evaluation timeout is adjusted each epoch.
         logger: Logger instance.
     """
@@ -943,8 +943,8 @@ class CodeEvolveComponents:
         prompt_sampler: Sampler for building conversation prompts from lineages.
         evaluator: Program evaluator with sandboxing and resource limits.
         embedding: Optional embedding model for code vectorization.
-        exploration_scheduler: Optional exploration rate exploration_scheduler.
-        timeout_scheduler: Optional timeout exploration_scheduler for dynamic evaluation timeouts.
+        exploration_scheduler: Optional exploration rate scheduler.
+        timeout_scheduler: Optional timeout scheduler for dynamic evaluation timeouts.
         logger: Logger instance for this island.
     """
 
@@ -1163,8 +1163,8 @@ def _initialize_from_checkpoint(
 
     Args:
         args: Command-line arguments containing checkpoint path.
-        exploration_scheduler: Previously created exploration_scheduler (may be replaced by checkpoint).
-        timeout_scheduler: Previously created timeout exploration_scheduler
+        exploration_scheduler: Previously created exploration scheduler (may be replaced by checkpoint).
+        timeout_scheduler: Previously created timeout scheduler
             (may be replaced by checkpoint).
 
     Returns:
@@ -1308,7 +1308,7 @@ def setup_codeevolve_components(
     - LLM ensemble creation (exploration and exploitation)
     - Prompt sampler creation
     - Evaluator creation with resource limits
-    - Optional embedding model and exploration_scheduler creation
+    - Optional embedding model and scheduler creation
     - Database initialization (either from checkpoint or new)
     - Initial solution evaluation
 

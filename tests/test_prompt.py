@@ -229,7 +229,11 @@ class TestPromptSampler:
 
         budget: str = format_eval_budget(timeout_s=60, max_mem_b=1024**3)
         messages: List[Dict[str, str]] = sampler.build(
-            prompt=prompt, prog=prog, db=db, inspirations=[], exploitation=False,
+            prompt=prompt,
+            prog=prog,
+            db=db,
+            inspirations=[],
+            exploitation=False,
             eval_budget=budget,
         )
 
@@ -248,7 +252,11 @@ class TestPromptSampler:
         db.add(prog)
 
         messages: List[Dict[str, str]] = sampler.build(
-            prompt=prompt, prog=prog, db=db, inspirations=[], exploitation=False,
+            prompt=prompt,
+            prog=prog,
+            db=db,
+            inspirations=[],
+            exploitation=False,
         )
 
         sys_content: str = messages[0]["content"]
