@@ -285,7 +285,7 @@ class Evaluator:
             ) as results_file:
                 result_file_path: str = results_file.name
 
-            # Resolve eval_path against temp_cwd when absolute so that sys.path[0]
+            # resolve eval_path against temp_cwd when absolute so that sys.path[0]
             # inside the subprocess points to the isolated copy, not the original cwd.
             effective_eval_path: Path = self.eval_path
             if temp_cwd is not None and self.eval_path.is_absolute() and self.cwd is not None:
@@ -294,7 +294,7 @@ class Evaluator:
                 except ValueError:
                     pass
 
-            # Launch evaluation subprocess
+            # launch evaluation subprocess
             process = subprocess.Popen(
                 [sys.executable, str(effective_eval_path), code_file_path, result_file_path],
                 stdout=subprocess.PIPE,
