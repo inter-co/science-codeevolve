@@ -310,7 +310,8 @@ class Evaluator:
                 target=resource_monitor,
                 kwargs=dict(
                     process=ps_process,
-                    check_interval_s=self.resource_check_interval_s or DEFAULT_RESOURCE_CHECK_INTERVAL_S,
+                    check_interval_s=self.resource_check_interval_s
+                    or DEFAULT_RESOURCE_CHECK_INTERVAL_S,
                     kill_flag=kill_flag,
                     mem_exceeded_flag=mem_exceeded_flag,
                     cpu_exceeded_flag=cpu_exceeded_flag,

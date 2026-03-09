@@ -38,11 +38,11 @@ from codeevolve.utils.constants import (
     DEFAULT_EVOLVE_START_MARKER,
     DEFAULT_MAX_LOG_MSG_SIZE,
     DEFAULT_MAX_MEM_BYTES,
-    DEFAULT_RESOURCE_CHECK_INTERVAL_S,
     DEFAULT_MIGRATION_INTERVAL,
     DEFAULT_MIGRATION_RATE,
     DEFAULT_PROMPT_END_MARKER,
     DEFAULT_PROMPT_START_MARKER,
+    DEFAULT_RESOURCE_CHECK_INTERVAL_S,
     LANGUAGE_TO_EXTENSION,
 )
 from codeevolve.utils.logging import get_elapsed_time, get_logger
@@ -1065,7 +1065,9 @@ def _create_evaluator(
         cwd=args["inpt_dir"],
         timeout_s=budget.get("eval_timeout", DEFAULT_EVAL_TIMEOUT_S),
         max_mem_b=budget.get("max_mem_bytes", DEFAULT_MAX_MEM_BYTES),
-        resource_check_interval_s=budget.get("resource_check_interval_s", DEFAULT_RESOURCE_CHECK_INTERVAL_S),
+        resource_check_interval_s=budget.get(
+            "resource_check_interval_s", DEFAULT_RESOURCE_CHECK_INTERVAL_S
+        ),
         logger=logger,
     )
 
