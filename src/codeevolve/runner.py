@@ -138,7 +138,9 @@ def async_run_codeevolve(
         try:
             isl_logs_dir: Path = run_args.get("logs_dir")
             if isl_logs_dir:
-                _write_island_crash_log(isl_logs_dir, error_msg, full_traceback, int(global_data.start_time.value))
+                _write_island_crash_log(
+                    isl_logs_dir, error_msg, full_traceback, int(global_data.start_time.value)
+                )
         except Exception:
             pass
 
@@ -247,7 +249,9 @@ def cleanup_log_daemon(
 # ---------------------------------------------------------------------------
 
 
-def _write_island_crash_log(isl_logs_dir: Path, error_msg: str, full_traceback: str, time: int = 0) -> None:
+def _write_island_crash_log(
+    isl_logs_dir: Path, error_msg: str, full_traceback: str, time: int = 0
+) -> None:
     """Writes detailed crash information to an island's crash log file.
 
     Called from within the child process where the exception occurred.
@@ -269,7 +273,9 @@ def _write_island_crash_log(isl_logs_dir: Path, error_msg: str, full_traceback: 
         f.write(f"{'='*60}\n\n")
 
 
-def _write_crash_summary(out_dir: Path, island_id: int, exit_code: int, message: str, time: int = 0) -> None:
+def _write_crash_summary(
+    out_dir: Path, island_id: int, exit_code: int, message: str, time: int = 0
+) -> None:
     """Writes crash summary to the main output directory's crash log.
 
     Called from the parent process when it detects an island has crashed.
@@ -289,7 +295,9 @@ def _write_crash_summary(out_dir: Path, island_id: int, exit_code: int, message:
         f.write(f"Island: {island_id}\n")
         f.write(f"Exit Code: {exit_code}\n")
         f.write(f"Message: {message}\n")
-        f.write(f"See island_{island_id}/logs/{CRASH_LOG_FILE.format(time=time)} for full traceback.\n")
+        f.write(
+            f"See island_{island_id}/logs/{CRASH_LOG_FILE.format(time=time)} for full traceback.\n"
+        )
         f.write(f"{'='*60}\n\n")
 
 

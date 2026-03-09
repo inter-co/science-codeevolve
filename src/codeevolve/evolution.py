@@ -719,13 +719,22 @@ async def codeevolve_loop(
         if isl_data.id == 0:
             elapsed_s: float = get_elapsed_time(global_data)
             cpus: int = global_data.cpu_count.value
-            save_run_metadata(args["out_dir"], epoch_num, elapsed_s, cpus, global_data.best_sol,global_data.early_stop_counter.value)
+            save_run_metadata(
+                args["out_dir"],
+                epoch_num,
+                elapsed_s,
+                cpus,
+                global_data.best_sol,
+                global_data.early_stop_counter.value,
+            )
             logger.info(f"Saved run metadata for epoch {epoch_num}.")
 
     meta_prompting: bool = evolve_config.get("meta_prompting", False)
     use_map_elites: bool = evolve_config.get("use_map_elites", False)
     exploration_rate: float = (
-        exploration_scheduler.value if exploration_scheduler is not None else evolve_config["exploration_rate"]
+        exploration_scheduler.value
+        if exploration_scheduler is not None
+        else evolve_config["exploration_rate"]
     )
     eval_budget: str = format_eval_budget(
         timeout_s=evaluator.timeout_s, max_mem_b=evaluator.max_mem_b
@@ -806,13 +815,13 @@ async def codeevolve_loop(
 
         child_timeout: Optional[int] = None
         if not gen_init_pop and timeout_scheduler is not None:
-            child_timeout = int(timeout_scheduler(
-                epoch=epoch,
-                best_fitness=sol_db.programs[sol_db.best_prog_id].fitness,
-            ))
-            eval_budget = format_eval_budget(
-                timeout_s=child_timeout, max_mem_b=evaluator.max_mem_b
+            child_timeout = int(
+                timeout_scheduler(
+                    epoch=epoch,
+                    best_fitness=sol_db.programs[sol_db.best_prog_id].fitness,
+                )
             )
+            eval_budget = format_eval_budget(timeout_s=child_timeout, max_mem_b=evaluator.max_mem_b)
 
         child_sol, evolve_success = await generate_solution(
             ensemble=ensemble,
@@ -1356,9 +1365,15 @@ def setup_codeevolve_components(
     init_sol: Program
 
     if args["load_ckpt"]:
-        prompt_db, sol_db, evolve_state, init_prompt, init_sol, exploration_scheduler, timeout_scheduler = (
-            _initialize_from_checkpoint(args, exploration_scheduler, timeout_scheduler)
-        )
+        (
+            prompt_db,
+            sol_db,
+            evolve_state,
+            init_prompt,
+            init_sol,
+            exploration_scheduler,
+            timeout_scheduler,
+        ) = _initialize_from_checkpoint(args, exploration_scheduler, timeout_scheduler)
     else:
         prompt_db, sol_db, evolve_state, init_prompt, init_sol = _initialize_new_run(
             config, evolve_config, args, isl_data.id, evaluator, logger
@@ -1442,7 +1457,7 @@ async def codeevolve(
     components.logger.info("Waiting for other islands to finish setup...")
     global_data.barrier.wait()
     components.logger.info("All islands finished. Starting CodeEvolve loop.")
-    
+
     await codeevolve_loop(
         components.start_epoch,
         components.evolve_state,

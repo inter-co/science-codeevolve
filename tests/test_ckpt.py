@@ -210,7 +210,12 @@ class TestRunMetadata:
         best_sol.depth.value = 5
 
         save_run_metadata(
-            tmp_path, epoch=10, elapsed_time=120.5, cpu_count=8, global_best_sol=best_sol,early_stop_counter=5
+            tmp_path,
+            epoch=10,
+            elapsed_time=120.5,
+            cpu_count=8,
+            global_best_sol=best_sol,
+            early_stop_counter=5,
         )
 
         metadata: Optional[Dict[str, Any]] = load_run_metadata(tmp_path, epoch=10)
@@ -229,7 +234,12 @@ class TestRunMetadata:
         """Tests loading metadata for a missing epoch returns empty dict."""
         best_sol: GlobalBestProg = GlobalBestProg()
         save_run_metadata(
-            tmp_path, epoch=10, elapsed_time=100.0, cpu_count=4, global_best_sol=best_sol, early_stop_counter=5
+            tmp_path,
+            epoch=10,
+            elapsed_time=100.0,
+            cpu_count=4,
+            global_best_sol=best_sol,
+            early_stop_counter=5,
         )
 
         metadata: Optional[Dict[str, Any]] = load_run_metadata(tmp_path, epoch=99)
@@ -239,10 +249,20 @@ class TestRunMetadata:
         """Tests that multiple saves accumulate in the same file."""
         best_sol: GlobalBestProg = GlobalBestProg()
         save_run_metadata(
-            tmp_path, epoch=10, elapsed_time=100.0, cpu_count=4, global_best_sol=best_sol, early_stop_counter=5
+            tmp_path,
+            epoch=10,
+            elapsed_time=100.0,
+            cpu_count=4,
+            global_best_sol=best_sol,
+            early_stop_counter=5,
         )
         save_run_metadata(
-            tmp_path, epoch=20, elapsed_time=200.0, cpu_count=4, global_best_sol=best_sol, early_stop_counter=10
+            tmp_path,
+            epoch=20,
+            elapsed_time=200.0,
+            cpu_count=4,
+            global_best_sol=best_sol,
+            early_stop_counter=10,
         )
 
         metadata_file: Path = tmp_path / RUN_METADATA_FILE
