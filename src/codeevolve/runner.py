@@ -12,12 +12,13 @@
 
 import asyncio
 import multiprocessing as mp
+import os
 import signal
 import sys
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from codeevolve.evolution import codeevolve
 from codeevolve.islands.graph import IslandCommunicationData, PipeEdge
@@ -129,6 +130,13 @@ def async_run_codeevolve(
     signal.signal(signal.SIGTERM, signal.SIG_DFL)
     signal.signal(signal.SIGTSTP, signal.SIG_DFL)
     signal.signal(signal.SIGQUIT, signal.SIG_DFL)
+
+    cpu_affinity_set: Optional[Set[int]] = run_args.get("cpu_affinity_set")
+    if cpu_affinity_set is not None:
+        try:
+            os.sched_setaffinity(0, cpu_affinity_set)
+        except (AttributeError, OSError):
+            pass
 
     try:
         asyncio.run(codeevolve(run_args, isl_data, global_data))

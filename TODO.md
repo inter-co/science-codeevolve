@@ -14,9 +14,11 @@ Allow the agent to do a full rewrite of the target file. This should be simple t
 
 ### Overhaul of the evaluation logic
 
-Here's an overview of the current situation as potential issues: currently, each island has a separate process, and each process can call the evaluator function to run a given solution. Thus, if we have N islands, there may be N parallel processes competing for CPU/Mem resources to run the solution. The solution itself may want to use all CPUs, so this can get a bit messy and unfair, since our evaluator timeout measures wall-clock time. 
+Here's an overview of the current situation as potential issues: currently, each island has a separate process, and each process can call the evaluator function to run a given solution. Thus, if we have N islands, there may be N parallel processes competing for CPU/Mem resources to run the solution. The solution itself may want to use all CPUs, so this can get a bit messy and unfair, since our evaluator timeout measures wall-clock time.
 
-The easiest way of improving this I can see would be for the user to specify how many CPUs a given solution is allowed to use, and then internally launch the solution process with taskset, in order to guarantee an independence of resource access. The might be better ways of improving this, so we should think it carefully.
+**Fix 1 implemented:** The `resource_monitor` thread (previously `mem_monitor`) now also tracks accumulated CPU time (user + system) across the entire process tree via `psutil`. When the total CPU time exceeds `timeout_s`, the process is killed with a `CPUTimeExceededError`. This makes timeouts fairer under CPU contention — a program that is CPU-starved gets its full budget of actual computation rather than being killed early by a wall-clock timer. It also catches multi-threaded or multi-process evaluations that burn more CPU time than wall-clock time.
+
+**Fix 2 implemented:** Users can now set `num_cpus_per_eval` in `BUDGET_CONFIG`. When set, CodeEvolve partitions the available CPUs (as reported by `os.sched_getaffinity`) into consecutive slices and pins each island process to its own slice via `os.sched_setaffinity` at startup. This eliminates cross-island CPU contention and makes wall-clock time roughly equal to CPU time, removing the need for a separate CPU-time budget. Requires Linux; falls back gracefully with a warning on other platforms or when insufficient CPUs are available.
 
 ### Better SEARCH/REPLACE
 

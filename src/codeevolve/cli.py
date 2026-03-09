@@ -17,7 +17,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from codeevolve.islands.graph import PipeEdge, setup_island_topology
 from codeevolve.islands.sync import GlobalBestProg, GlobalSyncData
@@ -31,6 +31,7 @@ from codeevolve.runner import (
 )
 from codeevolve.utils.ckpt import load_run_metadata
 from codeevolve.utils.cli_setup import (
+    compute_cpu_affinity_sets,
     create_config_copy,
     display_run_data,
     load_config,
@@ -142,9 +143,17 @@ def main() -> int:
         config, cfg_copy_path = create_config_copy(args)
 
     evolve_config: Dict[str, Any] = config["EVOLVE_CONFIG"]
+    budget_config: Dict[str, Any] = config.get("BUDGET_CONFIG", {})
+
+    cpu_affinity_sets: List[Optional[Set[int]]]
+    affinity_warnings: List[str]
+    cpu_affinity_sets, affinity_warnings = compute_cpu_affinity_sets(
+        budget_config, evolve_config["num_islands"]
+    )
+    warnings.extend(affinity_warnings)
 
     isl2args: Dict[int, Dict[str, Any]] = setup_island_args(
-        args, evolve_config["num_islands"], cfg_copy_path
+        args, evolve_config["num_islands"], cfg_copy_path, cpu_affinity_sets
     )
 
     global_best_sol: GlobalBestProg = GlobalBestProg()

@@ -189,8 +189,77 @@ def determine_checkpoint_to_load(common_ckpts: Set[str], requested_ckpt: int) ->
         return latest_epoch
 
 
+def compute_cpu_affinity_sets(
+    budget_config: Dict[str, Any],
+    num_islands: int,
+) -> Tuple[List[Optional[Set[int]]], List[str]]:
+    """Partitions available CPUs across islands when num_cpus_per_eval is configured.
+
+    When ``num_cpus_per_eval`` is set in budget_config, this function partitions the
+    process-available CPUs (as reported by ``os.sched_getaffinity``) into consecutive
+    slices — one per island. Each island then pins itself to its slice at startup,
+    preventing cross-island CPU contention and making wall-clock evaluation time
+    roughly equal to CPU time.
+
+    Falls back to unpartitioned execution (all-None, no pinning) when:
+    - ``num_cpus_per_eval`` is absent or ``None``
+    - ``num_cpus_per_eval`` is not a positive integer
+    - The platform does not support ``os.sched_getaffinity`` (non-Linux)
+    - The required total CPUs exceed available CPUs
+
+    Args:
+        budget_config: The ``BUDGET_CONFIG`` dictionary from the run config.
+        num_islands: Total number of islands.
+
+    Returns:
+        Tuple of (affinity_sets, warnings):
+          - affinity_sets: List indexed by island ID; each element is a set of CPU
+            indices to pin to, or ``None`` if no pinning should be applied.
+          - warnings: List of human-readable warning strings describing any fallback.
+    """
+    no_pinning: List[Optional[Set[int]]] = [None] * num_islands
+    warnings: List[str] = []
+
+    num_cpus_per_eval: Optional[int] = budget_config.get("num_cpus_per_eval", None)
+    if num_cpus_per_eval is None:
+        return no_pinning, warnings
+
+    if not isinstance(num_cpus_per_eval, int) or num_cpus_per_eval < 1:
+        warnings.append(
+            f"Warning: num_cpus_per_eval must be a positive integer, "
+            f"got {num_cpus_per_eval!r}. Falling back to unpartitioned execution."
+        )
+        return no_pinning, warnings
+
+    if not hasattr(os, "sched_getaffinity"):
+        warnings.append(
+            "Warning: num_cpus_per_eval is set but CPU affinity pinning is not supported "
+            "on this platform (requires Linux). Falling back to unpartitioned execution."
+        )
+        return no_pinning, warnings
+
+    available_cpus: List[int] = sorted(os.sched_getaffinity(0))
+    total_needed: int = num_cpus_per_eval * num_islands
+    if total_needed > len(available_cpus):
+        warnings.append(
+            f"Warning: num_cpus_per_eval={num_cpus_per_eval} × num_islands={num_islands} "
+            f"= {total_needed} CPUs needed, but only {len(available_cpus)} are available. "
+            "Falling back to unpartitioned execution."
+        )
+        return no_pinning, warnings
+
+    affinity_sets: List[Optional[Set[int]]] = []
+    for isl_id in range(num_islands):
+        start: int = isl_id * num_cpus_per_eval
+        affinity_sets.append(set(available_cpus[start : start + num_cpus_per_eval]))
+    return affinity_sets, warnings
+
+
 def setup_island_args(
-    args: Dict[str, Any], num_islands: int, cfg_copy_path: Path
+    args: Dict[str, Any],
+    num_islands: int,
+    cfg_copy_path: Path,
+    cpu_affinity_sets: Optional[List[Optional[Set[int]]]] = None,
 ) -> Dict[int, Dict[str, Any]]:
     """Sets up island-specific arguments with synchronized checkpoint loading.
 
@@ -201,6 +270,10 @@ def setup_island_args(
         args: Global command-line arguments dictionary.
         num_islands: Total number of islands in the distributed system.
         cfg_copy_path: Path to config file copy in experiment directory.
+        cpu_affinity_sets: Optional list of per-island CPU affinity sets computed
+            by ``compute_cpu_affinity_sets``. When provided, each island's args
+            receive a ``cpu_affinity_set`` key with its assigned core set (or
+            ``None`` if no pinning applies to that island).
 
     Returns:
         Dictionary mapping island IDs to their specific argument configurations.
@@ -218,6 +291,9 @@ def setup_island_args(
         isl_args["ckpt_dir"] = ckpt_dir
         isl_args["logs_dir"] = logs_dir
         isl_args["cfg_path"] = cfg_copy_path
+        isl_args["cpu_affinity_set"] = (
+            cpu_affinity_sets[island_id] if cpu_affinity_sets is not None else None
+        )
 
         os.makedirs(isl_out_dir, exist_ok=True)
         os.makedirs(ckpt_dir, exist_ok=True)

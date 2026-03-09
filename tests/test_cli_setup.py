@@ -17,7 +17,9 @@ from typing import Any, Dict, List, Optional, Set
 import pytest
 import yaml
 
+import codeevolve.utils.cli_setup as _cli_setup_mod
 from codeevolve.utils.cli_setup import (
+    compute_cpu_affinity_sets,
     create_config_copy,
     determine_checkpoint_to_load,
     find_common_checkpoints,
@@ -246,3 +248,123 @@ class TestSetupIslandArgs:
             assert isl2args[i]["isl_out_dir"].exists()
             assert isl2args[i]["ckpt_dir"].exists()
             assert isl2args[i]["load_ckpt"] == 0
+
+    def test_cpu_affinity_set_stored(self, tmp_path: Path):
+        """Tests that cpu_affinity_set is stored in each island's args."""
+        out_dir: Path = tmp_path / "output"
+        out_dir.mkdir()
+        cfg_path: Path = tmp_path / "config.yaml"
+        cfg_path.write_text("key: value")
+
+        args: Dict[str, Any] = {"out_dir": out_dir, "load_ckpt": 0}
+        affinity: List[Optional[Set[int]]] = [{0, 1}, {2, 3}, {4, 5}]
+        isl2args: Dict[int, Dict[str, Any]] = setup_island_args(
+            args, num_islands=3, cfg_copy_path=cfg_path, cpu_affinity_sets=affinity
+        )
+
+        assert isl2args[0]["cpu_affinity_set"] == {0, 1}
+        assert isl2args[1]["cpu_affinity_set"] == {2, 3}
+        assert isl2args[2]["cpu_affinity_set"] == {4, 5}
+
+    def test_cpu_affinity_none_when_not_provided(self, tmp_path: Path):
+        """Tests that cpu_affinity_set is None when no sets are supplied."""
+        out_dir: Path = tmp_path / "output"
+        out_dir.mkdir()
+        cfg_path: Path = tmp_path / "config.yaml"
+        cfg_path.write_text("key: value")
+
+        args: Dict[str, Any] = {"out_dir": out_dir, "load_ckpt": 0}
+        isl2args: Dict[int, Dict[str, Any]] = setup_island_args(
+            args, num_islands=2, cfg_copy_path=cfg_path
+        )
+
+        assert isl2args[0]["cpu_affinity_set"] is None
+        assert isl2args[1]["cpu_affinity_set"] is None
+
+
+# ---------------------------------------------------------------------------
+# compute_cpu_affinity_sets
+# ---------------------------------------------------------------------------
+
+
+class TestComputeCpuAffinitySets:
+    """Test suite for the compute_cpu_affinity_sets function."""
+
+    def test_no_pinning_when_not_configured(self):
+        """Returns all-None sets and no warnings when num_cpus_per_eval is absent."""
+        result: List[Optional[Set[int]]]
+        warnings: List[str]
+        result, warnings = compute_cpu_affinity_sets({}, num_islands=3)
+        assert result == [None, None, None]
+        assert warnings == []
+
+    def test_no_pinning_when_explicitly_none(self):
+        """Returns all-None sets when num_cpus_per_eval is explicitly None."""
+        result, warnings = compute_cpu_affinity_sets({"num_cpus_per_eval": None}, num_islands=2)
+        assert result == [None, None]
+        assert warnings == []
+
+    def test_invalid_value_warns_and_falls_back(self):
+        """Returns all-None sets with a warning for non-positive num_cpus_per_eval."""
+        for bad in (-1, 0, 1.5, "two"):
+            result, warnings = compute_cpu_affinity_sets(
+                {"num_cpus_per_eval": bad}, num_islands=2
+            )
+            assert result == [None, None], f"expected no pinning for {bad!r}"
+            assert len(warnings) == 1
+            assert "positive integer" in warnings[0]
+
+    def test_no_sched_getaffinity_warns(self, monkeypatch: pytest.MonkeyPatch):
+        """Returns all-None with warning when platform lacks sched_getaffinity."""
+        monkeypatch.delattr(_cli_setup_mod.os, "sched_getaffinity", raising=False)
+        result, warnings = compute_cpu_affinity_sets({"num_cpus_per_eval": 2}, num_islands=2)
+        assert result == [None, None]
+        assert len(warnings) == 1
+        assert "platform" in warnings[0].lower()
+
+    def test_insufficient_cpus_warns(self, monkeypatch: pytest.MonkeyPatch):
+        """Returns all-None with warning when required CPUs exceed available CPUs."""
+        monkeypatch.setattr(
+            _cli_setup_mod.os, "sched_getaffinity", lambda _: {0, 1}, raising=False
+        )
+        result, warnings = compute_cpu_affinity_sets({"num_cpus_per_eval": 2}, num_islands=3)
+        assert result == [None, None, None]
+        assert len(warnings) == 1
+        assert "6 CPUs needed" in warnings[0]
+        assert "2 are available" in warnings[0]
+
+    def test_correct_partition_consecutive(self, monkeypatch: pytest.MonkeyPatch):
+        """Assigns consecutive CPU slices to each island."""
+        monkeypatch.setattr(
+            _cli_setup_mod.os, "sched_getaffinity", lambda _: {0, 1, 2, 3}, raising=False
+        )
+        result, warnings = compute_cpu_affinity_sets({"num_cpus_per_eval": 2}, num_islands=2)
+        assert result == [{0, 1}, {2, 3}]
+        assert warnings == []
+
+    def test_partial_cpu_use(self, monkeypatch: pytest.MonkeyPatch):
+        """Uses only the first num_cpus_per_eval * num_islands CPUs; leaves extras unassigned."""
+        monkeypatch.setattr(
+            _cli_setup_mod.os, "sched_getaffinity", lambda _: {0, 1, 2, 3, 4, 5}, raising=False
+        )
+        result, warnings = compute_cpu_affinity_sets({"num_cpus_per_eval": 2}, num_islands=2)
+        assert result == [{0, 1}, {2, 3}]
+        assert warnings == []
+
+    def test_single_cpu_per_island(self, monkeypatch: pytest.MonkeyPatch):
+        """Works correctly when each island gets exactly one CPU."""
+        monkeypatch.setattr(
+            _cli_setup_mod.os, "sched_getaffinity", lambda _: {0, 1, 2}, raising=False
+        )
+        result, warnings = compute_cpu_affinity_sets({"num_cpus_per_eval": 1}, num_islands=3)
+        assert result == [{0}, {1}, {2}]
+        assert warnings == []
+
+    def test_non_contiguous_cpus_sorted(self, monkeypatch: pytest.MonkeyPatch):
+        """Partitions are assigned in sorted CPU order even for non-contiguous sets."""
+        monkeypatch.setattr(
+            _cli_setup_mod.os, "sched_getaffinity", lambda _: {0, 2, 4, 6}, raising=False
+        )
+        result, warnings = compute_cpu_affinity_sets({"num_cpus_per_eval": 2}, num_islands=2)
+        assert result == [{0, 2}, {4, 6}]
+        assert warnings == []

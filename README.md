@@ -62,6 +62,7 @@ CodeEvolve democratizes algorithmic discovery by making LLM-driven evolutionary 
 - [How It Works](#how-it-works)
 - [Architecture](#architecture)
 - [Performance Highlights](#performance-highlights)
+- [Platform Support](#platform-support)
 - [Quick Start](#quick-start)
 - [Use Cases](#use-cases)
 - [Reproducing Research Results](#reproducing-research-results)
@@ -237,6 +238,17 @@ CodeEvolve demonstrates superior performance on several benchmarks previously us
 - **Extensive ablations** quantifying each component's contribution to search efficiency
 
 For comprehensive evaluation details and specific results, see CodeEvolve's [paper](https://arxiv.org/abs/2510.14150).
+
+## Platform Support
+
+CodeEvolve has been developed and tested on **Linux**. It may run on macOS and Windows, but the following features are Linux-specific and may behave differently or be unavailable on other platforms:
+
+- **`taskset` CPU pinning** — used in `scripts/run.sh` to restrict the process to specific CPU cores. Not available on macOS or Windows; use `cpuset` or OS-level scheduling tools as alternatives.
+- **Per-island CPU partitioning (`num_cpus_per_eval`)** — when set in `BUDGET_CONFIG`, CodeEvolve divides the available CPU cores into consecutive slices and pins each island process to its own slice via `os.sched_setaffinity`. This eliminates cross-island CPU contention and makes wall-clock evaluation time predictable. Requires Linux; the option is silently ignored on macOS and Windows with a warning printed at startup.
+- **Resource monitoring** — the `resource_monitor` thread uses `psutil` to enforce memory and CPU-time limits. While `psutil` is cross-platform, CPU-time accounting for child processes may be less accurate on macOS and is unsupported on Windows.
+- **Process tree management** — SIGTERM/SIGKILL-based process tree teardown behaves as expected on Linux; macOS behaves similarly, but Windows uses a different termination model.
+
+If you encounter platform-specific issues, contributions and bug reports are welcome.
 
 ## Quick Start
 
@@ -473,7 +485,11 @@ Key configuration parameters in your YAML file:
 BUDGET_CONFIG:
   eval_timeout: 60               # Static evaluation timeout (seconds)
   max_mem_bytes: 1000000000      # Memory limit (~1 GB)
-  resource_check_interval_s: 0.1     # Memory polling interval
+  resource_check_interval_s: 0.1     # Resource (memory/CPU) polling interval
+  # Optional (Linux only): pin each island to N dedicated CPU cores.
+  # Total cores reserved = num_cpus_per_eval × num_islands.
+  # Omit or set to null to let all islands share CPUs freely.
+  # num_cpus_per_eval: 2
   # Optional: adaptive timeout scheduling (overrides eval_timeout)
   timeout_scheduler:
     type: "ExponentialScheduler"
