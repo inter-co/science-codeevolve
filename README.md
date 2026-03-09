@@ -351,7 +351,7 @@ SYS_MSG: |
 BUDGET_CONFIG:
   eval_timeout: 10
   max_mem_bytes: 1000000000
-  mem_check_interval_s: 0.1
+  resource_check_interval_s: 0.1
 
 ENSEMBLE:
   - model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
@@ -473,7 +473,7 @@ Key configuration parameters in your YAML file:
 BUDGET_CONFIG:
   eval_timeout: 60               # Static evaluation timeout (seconds)
   max_mem_bytes: 1000000000      # Memory limit (~1 GB)
-  mem_check_interval_s: 0.1     # Memory polling interval
+  resource_check_interval_s: 0.1     # Memory polling interval
   # Optional: adaptive timeout scheduling (overrides eval_timeout)
   timeout_scheduler:
     type: "ExponentialScheduler"

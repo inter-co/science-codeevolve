@@ -54,7 +54,7 @@ class TestEvaluatorInit:
             cwd=tmp_path,
             timeout_s=10,
             max_mem_b=1024 * 1024,
-            mem_check_interval_s=0.1,
+            resource_check_interval_s=0.1,
         )
         assert evaluator.timeout_s == 10
         assert evaluator.max_mem_b == 1024 * 1024
@@ -67,7 +67,7 @@ class TestEvaluatorInit:
                 cwd=tmp_path,
                 timeout_s=0,
                 max_mem_b=None,
-                mem_check_interval_s=None,
+                resource_check_interval_s=None,
             )
 
     def test_invalid_max_mem(self, tmp_path: Path):
@@ -78,18 +78,18 @@ class TestEvaluatorInit:
                 cwd=tmp_path,
                 timeout_s=10,
                 max_mem_b=-1,
-                mem_check_interval_s=0.1,
+                resource_check_interval_s=0.1,
             )
 
-    def test_invalid_mem_check_interval(self, tmp_path: Path):
-        """Tests that invalid mem_check_interval_s raises ValueError."""
-        with pytest.raises(ValueError, match="mem_check_interval_s must be positive"):
+    def test_invalid_resource_check_interval(self, tmp_path: Path):
+        """Tests that invalid resource_check_interval_s raises ValueError."""
+        with pytest.raises(ValueError, match="resource_check_interval_s must be positive"):
             Evaluator(
                 eval_path="eval.py",
                 cwd=tmp_path,
                 timeout_s=10,
                 max_mem_b=1024,
-                mem_check_interval_s=0,
+                resource_check_interval_s=0,
             )
 
     def test_no_mem_limit(self, tmp_path: Path):
@@ -99,7 +99,7 @@ class TestEvaluatorInit:
             cwd=tmp_path,
             timeout_s=10,
             max_mem_b=None,
-            mem_check_interval_s=None,
+            resource_check_interval_s=None,
         )
         assert evaluator.max_mem_b is None
 
@@ -127,7 +127,7 @@ with open(results_path, 'w') as f:
             cwd=tmp_path,
             timeout_s=30,
             max_mem_b=None,
-            mem_check_interval_s=None,
+            resource_check_interval_s=None,
         )
 
         prog: Program = _make_program("x = 1")
@@ -154,7 +154,7 @@ sys.exit(1)
             cwd=tmp_path,
             timeout_s=30,
             max_mem_b=None,
-            mem_check_interval_s=None,
+            resource_check_interval_s=None,
         )
 
         prog: Program = _make_program("x = 1")
@@ -174,7 +174,7 @@ time.sleep(60)
             cwd=tmp_path,
             timeout_s=1,
             max_mem_b=None,
-            mem_check_interval_s=None,
+            resource_check_interval_s=None,
         )
 
         prog: Program = _make_program("x = 1")
@@ -194,7 +194,7 @@ time.sleep(60)
             cwd=tmp_path,
             timeout_s=30,
             max_mem_b=None,
-            mem_check_interval_s=None,
+            resource_check_interval_s=None,
         )
 
         prog: Program = _make_program("x = 1")
@@ -217,13 +217,51 @@ with open(results_path, 'w') as f:
             cwd=tmp_path,
             timeout_s=30,
             max_mem_b=None,
-            mem_check_interval_s=None,
+            resource_check_interval_s=None,
         )
 
         prog: Program = _make_program("x = 1")
         returncode, _, _, error, eval_metrics = evaluator.execute(prog)
         assert returncode == 1
         assert "Failed to load evaluation metrics" in error
+
+    def test_evaluation_cpu_exceeded(self, tmp_path: Path):
+        """Tests that programs whose cumulative CPU time exceeds the limit are killed.
+
+        Spawns several worker processes that each burn CPU in a tight loop so that
+        their combined CPU time accumulates faster than wall-clock time.  With a
+        generous wall-clock timeout (30 s) and a short CPU limit (timeout_s=3),
+        the CPU budget should be exhausted well before the wall-clock guard fires.
+        """
+        eval_script: str = """
+import sys
+from multiprocessing import Process
+
+def _burn():
+    while True:
+        pass
+
+if __name__ == "__main__":
+    workers = [Process(target=_burn) for _ in range(4)]
+    for w in workers:
+        w.start()
+    for w in workers:
+        w.join()
+"""
+        eval_path: Path = _make_eval_script(tmp_path, eval_script)
+        evaluator: Evaluator = Evaluator(
+            eval_path=eval_path,
+            cwd=tmp_path,
+            timeout_s=3,
+            max_mem_b=None,
+            resource_check_interval_s=0.1,
+        )
+
+        prog: Program = _make_program("x = 1")
+        returncode, _, _, error, _ = evaluator.execute(prog)
+        assert returncode == 1
+        assert error is not None
+        assert "CPUTimeExceededError" in error or "TimeoutError" in error
 
     def test_evaluation_with_cwd_copy(self, tmp_path: Path):
         """Tests that evaluation copies the cwd to a temp directory."""
@@ -245,7 +283,7 @@ with open(results_path, 'w') as f:
             cwd=cwd_dir,
             timeout_s=30,
             max_mem_b=None,
-            mem_check_interval_s=None,
+            resource_check_interval_s=None,
         )
 
         prog: Program = _make_program("x = 1")

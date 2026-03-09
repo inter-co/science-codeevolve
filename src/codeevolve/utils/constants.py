@@ -55,7 +55,7 @@ CHECKPOINT_FILE_FORMAT: str = "ckpt_{epoch}.pkl"
 # Evaluation defaults
 DEFAULT_EVAL_TIMEOUT_S: int = 60
 DEFAULT_MAX_MEM_BYTES: int = 1 * 1024 * 1024 * 1024
-DEFAULT_MEM_CHECK_INTERVAL_S: float = 0.1
+DEFAULT_RESOURCE_CHECK_INTERVAL_S: float = 0.1
 
 # Migration defaults
 DEFAULT_MIGRATION_INTERVAL: int = 20

@@ -16,7 +16,7 @@ EVAL_FILE_NAME: 'evaluate.py'
 
 BUDGET_CONFIG: {eval_timeout: 60,
                 max_mem_bytes: 1000000000,
-                mem_check_interval_s: 0.1}
+                resource_check_interval_s: 0.1}
 
 EVOLVE_CONFIG: {fitness_key: 'benchmark_ratio',
                 num_epochs: 100,ckpt: 10,max_size: null,init_pop: 10,

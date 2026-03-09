@@ -24,7 +24,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import psutil
 
 from codeevolve.database import Program
-from codeevolve.utils.constants import DEFAULT_EXTENSION, LANGUAGE_TO_EXTENSION
+from codeevolve.utils.constants import (
+    DEFAULT_EXTENSION,
+    DEFAULT_RESOURCE_CHECK_INTERVAL_S,
+    LANGUAGE_TO_EXTENSION,
+)
 
 # ---------------------------------------------------------------------------
 # Process utilities
@@ -74,25 +78,34 @@ def kill_process_tree(parent: psutil.Process) -> None:
             pass
 
 
-def mem_monitor(
+def resource_monitor(
     process: psutil.Process,
-    max_mem_b: int,
-    mem_check_interval_s: float,
+    check_interval_s: float,
     kill_flag: threading.Event,
     mem_exceeded_flag: threading.Event,
+    cpu_exceeded_flag: threading.Event,
+    max_mem_b: Optional[int] = None,
+    cpu_limit_s: Optional[float] = None,
 ) -> None:
-    """Monitors memory usage of a process and kills it if it exceeds the limit.
+    """Monitors resource usage of a process tree and kills it when any limit is exceeded.
 
-    This function runs in a separate thread to continuously monitor the memory
-    usage of a subprocess and its entire process tree. It terminates the process
-    tree if total memory consumption exceeds the specified threshold.
+    This function runs in a separate thread, polling the entire process tree at
+    a fixed interval.  On each tick it optionally checks:
+
+    * **Memory** (RSS across the tree) against ``max_mem_b``.
+    * **CPU time** (accumulated user + system time across the tree) against
+      ``cpu_limit_s``.
 
     Args:
-        process: The psutil Process object to monitor.
-        max_mem_b: Maximum memory usage in bytes before killing the process.
-        mem_check_interval_s: Time interval in seconds between memory checks.
-        kill_flag: Event to signal when monitoring should stop.
-        mem_exceeded_flag: Event to signal when memory limit is exceeded.
+        process: The root psutil Process of the evaluation subprocess tree.
+        check_interval_s: Seconds to sleep between resource checks.
+        kill_flag: Event set by the caller to stop monitoring.
+        mem_exceeded_flag: Event set by this function when memory limit is exceeded.
+        cpu_exceeded_flag: Event set by this function when CPU time limit is exceeded.
+        max_mem_b: Maximum combined RSS in bytes across the process tree.
+            If None, memory is not checked.
+        cpu_limit_s: Maximum combined CPU time (user + system) in seconds across
+            the process tree.  If None, CPU time is not checked.
     """
     try:
         while not kill_flag.is_set():
@@ -100,20 +113,28 @@ def mem_monitor(
                 if not process.is_running():
                     return
                 total_mem: int = 0
+                total_cpu_s: float = 0.0
                 processes: List[psutil.Process] = get_process_tree(process)
                 for proc in processes:
                     try:
-                        mem_info = proc.memory_info()
-                        total_mem += mem_info.rss
+                        if max_mem_b is not None:
+                            total_mem += proc.memory_info().rss
+                        if cpu_limit_s is not None:
+                            cpu = proc.cpu_times()
+                            total_cpu_s += cpu.user + cpu.system
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
                         pass
-                if total_mem > max_mem_b:
+                if max_mem_b is not None and total_mem > max_mem_b:
                     kill_process_tree(process)
                     mem_exceeded_flag.set()
                     return
+                if cpu_limit_s is not None and total_cpu_s > cpu_limit_s:
+                    kill_process_tree(process)
+                    cpu_exceeded_flag.set()
+                    return
             except psutil.NoSuchProcess:
                 return
-            time.sleep(mem_check_interval_s)
+            time.sleep(check_interval_s)
     except Exception:
         return
 
@@ -138,7 +159,7 @@ class Evaluator:
         cwd: Optional[Path | str],
         timeout_s: int,
         max_mem_b: Optional[int],
-        mem_check_interval_s: Optional[float],
+        resource_check_interval_s: Optional[float],
         logger: Optional[logging.Logger] = None,
     ):
         """Initializes the evaluator with execution parameters and resource limits.
@@ -149,14 +170,14 @@ class Evaluator:
                 copied to a temporary directory for isolated execution.
             timeout_s: Maximum execution time in seconds before killing the process.
             max_mem_b: Maximum memory usage in bytes. If None, no memory limit is enforced.
-            mem_check_interval_s: Interval for memory usage checks in seconds. Defaults to 0.1.
-                Only used if max_mem_b is specified.
+            resource_check_interval_s: Polling interval in seconds for the resource monitor
+                thread (memory and CPU). Defaults to 0.1. Required when max_mem_b is specified.
             logger: Logger instance for logging evaluation activities. If None, creates
                 a default logger.
 
         Raises:
             ValueError: If timeout_s is not positive, or if max_mem_b is specified but
-                mem_check_interval_s is None or not positive.
+                resource_check_interval_s is None or not positive.
         """
         if timeout_s <= 0:
             raise ValueError("timeout_s must be positive")
@@ -164,16 +185,16 @@ class Evaluator:
         if max_mem_b is not None:
             if max_mem_b <= 0:
                 raise ValueError("max_mem_b must be positive if specified")
-            if mem_check_interval_s is None or mem_check_interval_s <= 0:
+            if resource_check_interval_s is None or resource_check_interval_s <= 0:
                 raise ValueError(
-                    "mem_check_interval_s must be positive when max_mem_b is specified"
+                    "resource_check_interval_s must be positive when max_mem_b is specified"
                 )
 
         self.eval_path: Path = Path(eval_path)
         self.cwd: Optional[Path] = Path(cwd) if cwd is not None else None
         self.timeout_s: int = timeout_s
         self.max_mem_b: Optional[int] = max_mem_b
-        self.mem_check_interval_s: Optional[float] = mem_check_interval_s
+        self.resource_check_interval_s: Optional[float] = resource_check_interval_s
         self.logger: logging.Logger = logger if logger is not None else logging.getLogger(__name__)
 
     def __repr__(self):
@@ -190,7 +211,7 @@ class Evaluator:
             f"cwd={self.cwd},"
             f"timeout_s={self.timeout_s},"
             f"max_mem_b={self.max_mem_b},"
-            f"mem_check_interval_s={self.mem_check_interval_s}"
+            f"resource_check_interval_s={self.resource_check_interval_s}"
             ")"
         )
 
@@ -233,9 +254,10 @@ class Evaluator:
 
         process: Optional[subprocess.Popen] = None
         ps_process: Optional[psutil.Process] = None
-        mem_monitor_daemon: Optional[threading.Thread] = None
+        monitor_daemon: Optional[threading.Thread] = None
         kill_flag: threading.Event = threading.Event()
         mem_exceeded_flag: threading.Event = threading.Event()
+        cpu_exceeded_flag: threading.Event = threading.Event()
 
         tmp_dir: Optional[tempfile.TemporaryDirectory] = None
         temp_cwd_dir: Optional[tempfile.TemporaryDirectory] = None
@@ -244,22 +266,12 @@ class Evaluator:
         try:
             # we copy cwd to temp and pass this temp directory as
             # the cwd for the program being executed
-            tmp_dir = tempfile.TemporaryDirectory(delete=False)
+            tmp_dir = tempfile.TemporaryDirectory()
 
             if self.cwd:
-                temp_cwd_dir = tempfile.TemporaryDirectory(delete=False)
+                temp_cwd_dir = tempfile.TemporaryDirectory()
                 temp_cwd = Path(temp_cwd_dir.name)
-                try:
-                    shutil.copytree(self.cwd, temp_cwd, dirs_exist_ok=True)
-                except Exception as err:
-                    self.logger.warning(f"Failed to copy cwd directory: {err}. Using original cwd.")
-                    temp_cwd = self.cwd
-                    if temp_cwd_dir:
-                        try:
-                            temp_cwd_dir.cleanup()
-                        except Exception:
-                            pass
-                        temp_cwd_dir = None
+                shutil.copytree(self.cwd, temp_cwd, dirs_exist_ok=True)
 
             with tempfile.NamedTemporaryFile(
                 mode="w", delete=False, suffix=extension, dir=tmp_dir.name
@@ -273,9 +285,18 @@ class Evaluator:
             ) as results_file:
                 result_file_path: str = results_file.name
 
+            # Resolve eval_path against temp_cwd when absolute so that sys.path[0]
+            # inside the subprocess points to the isolated copy, not the original cwd.
+            effective_eval_path: Path = self.eval_path
+            if temp_cwd is not None and self.eval_path.is_absolute() and self.cwd is not None:
+                try:
+                    effective_eval_path = temp_cwd / self.eval_path.relative_to(self.cwd)
+                except ValueError:
+                    pass
+
             # Launch evaluation subprocess
             process = subprocess.Popen(
-                [sys.executable, str(self.eval_path), code_file_path, result_file_path],
+                [sys.executable, str(effective_eval_path), code_file_path, result_file_path],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 bufsize=1,
@@ -285,30 +306,34 @@ class Evaluator:
 
             ps_process = psutil.Process(process.pid)
 
-            if self.max_mem_b is not None:
-                mem_monitor_daemon = threading.Thread(
-                    target=mem_monitor,
-                    args=(
-                        ps_process,
-                        self.max_mem_b,
-                        self.mem_check_interval_s,
-                        kill_flag,
-                        mem_exceeded_flag,
-                    ),
-                    daemon=True,
-                )
-                mem_monitor_daemon.start()
+            monitor_daemon = threading.Thread(
+                target=resource_monitor,
+                kwargs=dict(
+                    process=ps_process,
+                    check_interval_s=self.resource_check_interval_s or DEFAULT_RESOURCE_CHECK_INTERVAL_S,
+                    kill_flag=kill_flag,
+                    mem_exceeded_flag=mem_exceeded_flag,
+                    cpu_exceeded_flag=cpu_exceeded_flag,
+                    max_mem_b=self.max_mem_b,
+                    cpu_limit_s=float(effective_timeout),
+                ),
+                daemon=True,
+            )
+            monitor_daemon.start()
 
             try:
                 stdout, stderr = process.communicate(timeout=effective_timeout)
                 kill_flag.set()
-                if mem_monitor_daemon is not None:
-                    mem_monitor_daemon.join(timeout=1)
+                if monitor_daemon is not None:
+                    monitor_daemon.join(timeout=1)
 
                 output = stdout
 
                 if mem_exceeded_flag.is_set():
                     error = f"MemoryExceededError: Evaluation memory usage exceeded maximum limit of {self.max_mem_b} bytes."
+                    returncode = 1
+                elif cpu_exceeded_flag.is_set():
+                    error = f"CPUTimeExceededError: Evaluation CPU time usage exceeded maximum limit of {effective_timeout} seconds."
                     returncode = 1
                 elif process.returncode == 0:
                     try:
@@ -331,6 +356,8 @@ class Evaluator:
                     process.communicate(timeout=1)
                 except Exception:
                     pass
+                if monitor_daemon is not None:
+                    monitor_daemon.join(timeout=1)
                 error = f"TimeoutError: Evaluation time usage exceeded maximum time limit of {effective_timeout} seconds."
 
         except Exception as err:
@@ -346,8 +373,8 @@ class Evaluator:
                 else:
                     process.kill()
 
-            if mem_monitor_daemon is not None:
-                mem_monitor_daemon.join(timeout=1)
+            if monitor_daemon is not None:
+                monitor_daemon.join(timeout=1)
 
             if tmp_dir is not None:
                 try:
