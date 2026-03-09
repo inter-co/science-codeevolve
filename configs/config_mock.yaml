@@ -14,8 +14,8 @@ CODEBASE_PATH: 'src/'
 INIT_FILE_DATA: {filename: 'init_program.py', language: 'python'}
 EVAL_FILE_NAME: 'evaluate.py'
 
-BUDGET_CONFIG: {eval_timeout: 5,
-                timeout_scheduler: {type: 'ExponentialScheduler', kwargs: {min_value: 5, max_value: 60, weight: 1.05}},
+BUDGET_CONFIG: {eval_timeout: 10,
+                timeout_scheduler: {type: 'ExponentialScheduler', kwargs: {min_value: 10, max_value: 360, weight: 1.05}},
                 max_mem_bytes: 1000000000,
                 mem_check_interval_s: 0.1}
 

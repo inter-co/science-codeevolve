@@ -805,7 +805,7 @@ async def codeevolve_loop(
         chat_depth: Optional[int] = evolve_config.get("max_chat_depth", None) if exploitation else 0
 
         child_timeout: Optional[int] = None
-        if timeout_scheduler is not None:
+        if not gen_init_pop and timeout_scheduler is not None:
             child_timeout = int(timeout_scheduler(
                 epoch=epoch,
                 best_fitness=sol_db.programs[sol_db.best_prog_id].fitness,
@@ -1141,7 +1141,7 @@ def _create_timeout_scheduler(
     kwargs: Dict[str, Any] = timeout_cfg.get("kwargs", {})
     scheduler_type: str = timeout_cfg.get("type", "ExponentialScheduler")
     return SCHEDULER_TYPES[scheduler_type](
-        value=float(kwargs["min_value"]),
+        value=float(budget["eval_timeout"]),
         **kwargs,
     )
 
@@ -1213,7 +1213,6 @@ def _initialize_new_run(
     Raises:
         AssertionError: If use_map_elites is True but MAP_ELITES config is missing.
     """
-    logger.info("Starting anew.")
 
     evolve_state: Dict[str, Any] = {
         "early_stop_counter": 0,
@@ -1324,12 +1323,13 @@ def setup_codeevolve_components(
     """
     logger: logging.Logger = get_logger(
         island_id=isl_data.id,
-        results_dir=args["isl_out_dir"],
-        append_mode=(args["load_ckpt"] != 0),
+        logs_dir=args["logs_dir"],
+        time=int(global_data.start_time.value),
         log_queue=global_data.log_queue,
         max_msg_sz=DEFAULT_MAX_LOG_MSG_SIZE,
     )
     logger.info("=== CodeEvolve ===")
+    logger.info(f"Starting from epoch {args["load_ckpt"]}")
     logger.info("====== PREPARING COMPONENTS ======")
 
     with open(args["cfg_path"], "r") as f:

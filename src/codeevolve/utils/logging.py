@@ -178,29 +178,29 @@ class QueueHandler(logging.Handler):
 
 def get_logger(
     island_id: int = 0,
-    results_dir: Optional[Path] = None,
-    append_mode: bool = False,
+    logs_dir: Optional[Path] = None,
+    time: int = 0,
     log_queue: Optional[mp.Queue] = None,
     max_msg_sz: int = DEFAULT_MAX_LOG_MSG_SIZE,
 ) -> logging.Logger:
     """Creates a logger instance for an island with file and optional queue handlers.
     This function sets up a logger that writes to both a file and optionally to
     a multiprocessing queue for centralized log collection. Each log message
-    is prefixed with the island ID for identification.
+    is prefixed with the island ID + start time of the run for identification.
 
-    If no results_dir is provided, the logger will only output to stdout.
+    If no logs_dir is provided, the logger will only output to stdout.
 
     Args:
         island_id: Unique identifier for the island creating the logger.
-        results_dir: Directory where the log file will be created. If None, logs only to stdout.
-        append_mode: If True, append to existing log file; if False, overwrite.
+        logs_dir: Directory where the log file will be created. If None, logs only to stdout.
+        time: Int representing current time. Defaults to zero.
         log_queue: Optional multiprocessing queue for centralized logging.
         max_msg_sz: Maximum size for log messages in characters.
     Returns:
         Configured Logger instance for the island.
     """
-    if results_dir:
-        sanitized_dir: str = str(results_dir).replace("/", "_").replace("\\", "_")
+    if logs_dir:
+        sanitized_dir: str = str(logs_dir).replace("/", "_").replace("\\", "_")
         logger_name: str = f"logger_{sanitized_dir}"
     else:
         logger_name: str = f"logger_stdout_{island_id}"
@@ -223,9 +223,9 @@ def get_logger(
             logStreamHandler.setFormatter(logFormatter)
             logger.addHandler(logStreamHandler)
 
-        if results_dir:
+        if logs_dir:
             fh: logging.FileHandler = logging.FileHandler(
-                results_dir.joinpath(ISLAND_LOG_FILE), mode="a" if append_mode else "w"
+                logs_dir.joinpath(ISLAND_LOG_FILE.format(time=time)), mode="w"
             )
             fh.setLevel(logging.INFO)
             fh.setFormatter(logFormatter)

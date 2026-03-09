@@ -175,7 +175,7 @@ def determine_checkpoint_to_load(common_ckpts: Set[str], requested_ckpt: int) ->
     Returns:
         Checkpoint epoch number to load (0 if starting new).
     """
-    if not common_ckpts:
+    if not common_ckpts or requested_ckpt == 0:
         return 0
 
     checkpoint_epochs: List[int] = [
@@ -212,13 +212,16 @@ def setup_island_args(
         isl_args: Dict[str, Any] = args.copy()
         isl_out_dir: Path = args["out_dir"].joinpath(f"{island_id}")
         ckpt_dir: Path = isl_out_dir.joinpath("ckpt")
+        logs_dir: Path = isl_out_dir.joinpath("logs")
 
         isl_args["isl_out_dir"] = isl_out_dir
         isl_args["ckpt_dir"] = ckpt_dir
+        isl_args["logs_dir"] = logs_dir
         isl_args["cfg_path"] = cfg_copy_path
 
         os.makedirs(isl_out_dir, exist_ok=True)
         os.makedirs(ckpt_dir, exist_ok=True)
+        os.makedirs(logs_dir, exist_ok=True)
 
         isl2args[island_id] = isl_args
         ckpt_dirs.append(ckpt_dir)

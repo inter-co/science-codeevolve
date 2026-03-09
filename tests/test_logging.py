@@ -138,23 +138,11 @@ class TestGetLogger:
         assert logger.level == logging.INFO
 
     def test_logger_with_results_dir(self, tmp_path: Path):
-        """Tests that a logger creates a log file in results_dir."""
-        logger: logging.Logger = get_logger(island_id=0, results_dir=tmp_path)
+        """Tests that a logger creates a log file in logs_dir."""
+        logger: logging.Logger = get_logger(island_id=0, logs_dir=tmp_path, time=100)
         logger.info("test message")
-        log_file: Path = tmp_path / "island.log"
+        log_file: Path = tmp_path / "island_100.log"
         assert log_file.exists()
-
-    def test_logger_append_mode(self, tmp_path: Path):
-        """Tests that append mode writes to existing log file."""
-        log_file: Path = tmp_path / "island.log"
-        log_file.write_text("existing content\n")
-
-        logger: logging.Logger = get_logger(island_id=0, results_dir=tmp_path, append_mode=True)
-        logger.info("new message")
-
-        content: str = log_file.read_text()
-        assert "existing content" in content
-        assert "new message" in content
 
     def test_logger_unique_names(self, tmp_path: Path):
         """Tests that loggers for different directories have unique names."""
@@ -163,6 +151,6 @@ class TestGetLogger:
         dir1.mkdir()
         dir2.mkdir()
 
-        logger1: logging.Logger = get_logger(island_id=0, results_dir=dir1)
-        logger2: logging.Logger = get_logger(island_id=1, results_dir=dir2)
+        logger1: logging.Logger = get_logger(island_id=0, logs_dir=dir1)
+        logger2: logging.Logger = get_logger(island_id=1, logs_dir=dir2)
         assert logger1.name != logger2.name
