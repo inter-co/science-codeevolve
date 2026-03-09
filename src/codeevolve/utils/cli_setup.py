@@ -316,7 +316,11 @@ def setup_island_args(
 # ---------------------------------------------------------------------------
 
 
-def print_dict_rec(base_dict: Dict[str, Any], forbidden_keys: Optional[List[str]] = None) -> None:
+def print_dict_rec(
+    base_dict: Dict[str, Any],
+    forbidden_keys: Optional[List[str]] = None,
+    indent: int = 0,
+) -> None:
     """Recursively prints a dictionary in a formatted hierarchical structure.
 
     For nested dictionaries, prints a header with the key name surrounded by
@@ -328,17 +332,18 @@ def print_dict_rec(base_dict: Dict[str, Any], forbidden_keys: Optional[List[str]
             dictionaries will be recursively printed with indentation headers.
         forbidden_keys: List of forbidden keys that will not be printed.
                         Recursively passed to nested dicts.
+        indent: Auxiliary integer for indentation.
     """
+    prefix: str = "  " * indent
     for key, value in base_dict.items():
         if isinstance(value, dict):
-            print(f" === {key} START ===")
-            print_dict_rec(value, forbidden_keys)
-            print(f" === {key} END ===")
+            print(f"{prefix}{key}:")
+            print_dict_rec(value, forbidden_keys, indent + 1)
         else:
             if forbidden_keys is None or key not in forbidden_keys:
-                print(f"{key}:{value}")
+                print(f"{prefix}{key}: {value}")
             else:
-                print(f"{key}:***")
+                print(f"{prefix}{key}: ***")
 
 
 def display_run_data(

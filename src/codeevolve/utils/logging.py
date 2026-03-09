@@ -250,13 +250,14 @@ def _print_global_status(args: Dict[str, Any], global_data: GlobalSyncData) -> N
     elapsed_str: str = format_elapsed_time(elapsed)
     print("=" * 100)
     print(ASCII_NAME)
-    print("=" * 100)
-    print("=" * 46 + " STATUS " + "=" * 46)
-    print(f"> ELAPSED TIME = {elapsed_str}")
+    print("=" * 46 + " INFO " + "=" * 46)
     print(f"> CPU COUNT = {global_data.cpu_count.value}")
     print(f"> INPT DIR = {args['inpt_dir']}")
     print(f"> CFG PATH = {args['cfg_path']}")
     print(f"> OUT DIR = {args['out_dir']}")
+
+    print("=" * 46 + " STATUS " + "=" * 46)
+    print(f"> ELAPSED TIME = {elapsed_str}")
     print(f"> GLOBAL BEST SOLUTION = {global_data.best_sol}")
     print(f"> GLOBAL EARLY STOPPING COUNTER = {global_data.early_stop_counter.value}")
 
@@ -314,6 +315,7 @@ def cli_logger(
         os.system("cls" if os.name == "nt" else "clear")
 
         _print_global_status(args, global_data)
+        print("=" * 46 + " LOGS " + "=" * 46)
         for i in sorted(island_logs.keys()):
             current_epoch = island_epochs.get(i, "N/A")
             print(f"=== ISLAND {i} | EPOCH {current_epoch} ===")
