@@ -12,7 +12,7 @@ Allow the agent to do a full rewrite of the target file. This should be simple t
 
 ## Systems
 
-### Overhaul of the evaluation logic
+### Overhaul of the evaluation logic (Done)
 
 Here's an overview of the current situation as potential issues: currently, each island has a separate process, and each process can call the evaluator function to run a given solution. Thus, if we have N islands, there may be N parallel processes competing for CPU/Mem resources to run the solution. The solution itself may want to use all CPUs, so this can get a bit messy and unfair, since our evaluator timeout measures wall-clock time.
 
