@@ -136,9 +136,9 @@ def async_run_codeevolve(
         error_msg = f"Island {isl_data.id} crashed with exception: {type(e).__name__}: {str(e)}"
         full_traceback = traceback.format_exc()
         try:
-            isl_out_dir: Path = run_args.get("isl_out_dir")
-            if isl_out_dir:
-                _write_island_crash_log(isl_out_dir, error_msg, full_traceback)
+            isl_logs_dir: Path = run_args.get("logs_dir")
+            if isl_logs_dir:
+                _write_island_crash_log(isl_logs_dir, error_msg, full_traceback, int(global_data.start_time.value))
         except Exception:
             pass
 
@@ -247,21 +247,21 @@ def cleanup_log_daemon(
 # ---------------------------------------------------------------------------
 
 
-def _write_island_crash_log(isl_out_dir: Path, error_msg: str, full_traceback: str) -> None:
+def _write_island_crash_log(isl_logs_dir: Path, error_msg: str, full_traceback: str, time: int = 0) -> None:
     """Writes detailed crash information to an island's crash log file.
 
     Called from within the child process where the exception occurred.
 
     Args:
-        isl_out_dir: Island's output directory.
+        isl_logs_dir: Island's logs directory.
         error_msg: Summary error message.
         full_traceback: Full Python traceback string.
+        time: Int identifying global time of the run.
     """
-    crash_log_path: Path = isl_out_dir.joinpath(CRASH_LOG_FILE)
-    timestamp: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    crash_log_path: Path = isl_logs_dir.joinpath(CRASH_LOG_FILE.format(time=time))
     with open(crash_log_path, "a") as f:
         f.write(f"\n{'='*60}\n")
-        f.write(f"CRASH REPORT - {timestamp}\n")
+        f.write(f"CRASH REPORT\n")
         f.write(f"{'='*60}\n")
         f.write(f"{error_msg}\n\n")
         f.write("Full Traceback:\n")
@@ -269,7 +269,7 @@ def _write_island_crash_log(isl_out_dir: Path, error_msg: str, full_traceback: s
         f.write(f"{'='*60}\n\n")
 
 
-def _write_crash_summary(out_dir: Path, island_id: int, exit_code: int, message: str) -> None:
+def _write_crash_summary(out_dir: Path, island_id: int, exit_code: int, message: str, time: int = 0) -> None:
     """Writes crash summary to the main output directory's crash log.
 
     Called from the parent process when it detects an island has crashed.
@@ -279,18 +279,17 @@ def _write_crash_summary(out_dir: Path, island_id: int, exit_code: int, message:
         island_id: ID of the island that crashed.
         exit_code: Exit code of the crashed process.
         message: Summary message.
+        time: Int identifying global time of the run.
     """
-    crash_log_path: Path = out_dir.joinpath(CRASH_LOG_FILE)
-    timestamp: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+    crash_log_path: Path = out_dir.joinpath(CRASH_LOG_FILE.format(time=time))
     with open(crash_log_path, "a") as f:
         f.write(f"\n{'='*60}\n")
-        f.write(f"CRASH REPORT - {timestamp}\n")
+        f.write(f"CRASH REPORT\n")
         f.write(f"{'='*60}\n")
         f.write(f"Island: {island_id}\n")
         f.write(f"Exit Code: {exit_code}\n")
         f.write(f"Message: {message}\n")
-        f.write(f"See island {island_id}/{CRASH_LOG_FILE} for full traceback.\n")
+        f.write(f"See island_{island_id}/logs/{CRASH_LOG_FILE.format(time=time)} for full traceback.\n")
         f.write(f"{'='*60}\n\n")
 
 
@@ -327,6 +326,7 @@ def monitor_island_processes(
     """
     num_islands: int = len(processes)
     completed: List[bool] = [False] * num_islands
+    time: int = int(global_data.start_time.value)
 
     try:
         while not all(completed):
@@ -345,13 +345,12 @@ def monitor_island_processes(
                         error_msg: str = (
                             f"Island {i} died unexpectedly with exit code {process.exitcode}"
                         )
-
-                        _write_crash_summary(out_dir, i, process.exitcode, error_msg)
+                        _write_crash_summary(out_dir, i, process.exitcode, error_msg, time)
 
                         print(f"\n{'='*60}", file=sys.stderr)
                         print(f"ERROR: {error_msg}", file=sys.stderr)
                         print(
-                            f"See {out_dir}/{CRASH_LOG_FILE} and island logs for details.",
+                            f"See {out_dir}/{CRASH_LOG_FILE.format(time=time)} and island logs for details.",
                             file=sys.stderr,
                         )
                         print(f"{'='*60}\n", file=sys.stderr)

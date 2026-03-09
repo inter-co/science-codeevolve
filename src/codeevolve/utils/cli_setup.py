@@ -210,7 +210,7 @@ def setup_island_args(
 
     for island_id in range(num_islands):
         isl_args: Dict[str, Any] = args.copy()
-        isl_out_dir: Path = args["out_dir"].joinpath(f"{island_id}")
+        isl_out_dir: Path = args["out_dir"].joinpath(f"island_{island_id}")
         ckpt_dir: Path = isl_out_dir.joinpath("ckpt")
         logs_dir: Path = isl_out_dir.joinpath("logs")
 

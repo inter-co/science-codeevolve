@@ -549,7 +549,10 @@ Optional:
 output_directory/
 ├── config.yaml              # Copy of configuration used
 ├── 0/                       # Island 0 results
-│   ├── island.log          # Detailed execution log
+│   └── logs/                # Logs
+│       ├── run_1.log
+│       ├── run_2.log
+│       └── ...
 │   ├── best_sol.py          # Best solution found
 │   ├── best_prompt.txt      # Best prompt evolved
 │   └── ckpt/                # Checkpoints

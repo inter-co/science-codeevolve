@@ -137,11 +137,11 @@ class TestGetLogger:
         assert logger is not None
         assert logger.level == logging.INFO
 
-    def test_logger_with_results_dir(self, tmp_path: Path):
+    def test_logger_with_logs_dir(self, tmp_path: Path):
         """Tests that a logger creates a log file in logs_dir."""
         logger: logging.Logger = get_logger(island_id=0, logs_dir=tmp_path, time=100)
         logger.info("test message")
-        log_file: Path = tmp_path / "island_100.log"
+        log_file: Path = tmp_path / "run_100.log"
         assert log_file.exists()
 
     def test_logger_unique_names(self, tmp_path: Path):

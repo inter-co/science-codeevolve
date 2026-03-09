@@ -1141,7 +1141,7 @@ def _create_timeout_scheduler(
     kwargs: Dict[str, Any] = timeout_cfg.get("kwargs", {})
     scheduler_type: str = timeout_cfg.get("type", "ExponentialScheduler")
     return SCHEDULER_TYPES[scheduler_type](
-        value=float(budget["eval_timeout"]),
+        value=float(kwargs["min_value"]),
         **kwargs,
     )
 
@@ -1442,7 +1442,7 @@ async def codeevolve(
     components.logger.info("Waiting for other islands to finish setup...")
     global_data.barrier.wait()
     components.logger.info("All islands finished. Starting CodeEvolve loop.")
-
+    
     await codeevolve_loop(
         components.start_epoch,
         components.evolve_state,
