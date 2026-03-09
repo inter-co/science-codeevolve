@@ -8,10 +8,6 @@ SYS_MSG: |
   1. **benchmark_ratio**: fitness of the solution (higher is better)
   2. **eval_time**: Execution time in seconds (keep reasonable)
 
-  COMPUTATIONAL BUDGET:
-  - **Time limit**: 60 seconds maximum execution time
-  - **Memory limit**: 1 GB
-
   # PROMPT-BLOCK-END
       
 CODEBASE_PATH: 'src/'
