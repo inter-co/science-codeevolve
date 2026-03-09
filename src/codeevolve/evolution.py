@@ -719,7 +719,7 @@ async def codeevolve_loop(
         if isl_data.id == 0:
             elapsed_s: float = get_elapsed_time(global_data)
             cpus: int = global_data.cpu_count.value
-            save_run_metadata(args["out_dir"], epoch_num, elapsed_s, cpus, global_data.best_sol)
+            save_run_metadata(args["out_dir"], epoch_num, elapsed_s, cpus, global_data.best_sol,global_data.early_stop_counter.value)
             logger.info(f"Saved run metadata for epoch {epoch_num}.")
 
     meta_prompting: bool = evolve_config.get("meta_prompting", False)

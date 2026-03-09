@@ -150,6 +150,7 @@ def main() -> int:
     global_best_sol: GlobalBestProg = GlobalBestProg()
     elapsed_time_offset: float = 0.0
     cpu_count: int = len(os.sched_getaffinity(0))
+    early_stop_counter: int = 0
     global_ckpt: int = 0
     metadata: Optional[Dict[str, Any]] = None
 
@@ -159,6 +160,7 @@ def main() -> int:
         if metadata is not None:
             global_best_sol.from_dict(metadata["best_sol"])
             elapsed_time_offset = metadata["elapsed_time"]
+            early_stop_counter = metadata["early_stop_counter"]
             ckpt_cpu_count: int = metadata["cpu_count"]
             if ckpt_cpu_count > 0 and ckpt_cpu_count != cpu_count:
                 warnings.append(
@@ -171,9 +173,9 @@ def main() -> int:
     global_data: GlobalSyncData = GlobalSyncData(
         best_sol=global_best_sol,
         early_stop_counter=mp.Value(
-            ctypes.c_int, 0, lock=False
-        ),  # early stop counter should be in metadata, need to change this
-        early_stop_aux=mp.Value(ctypes.c_int, 0, lock=False),  # same as above
+            ctypes.c_int, early_stop_counter, lock=False
+        ),
+        early_stop_aux=mp.Value(ctypes.c_int, 0, lock=False),
         lock=mp.Lock(),
         barrier=mp.Barrier(parties=evolve_config["num_islands"]),
         log_queue=mp.Queue(),

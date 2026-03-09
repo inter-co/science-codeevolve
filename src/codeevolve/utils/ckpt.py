@@ -129,6 +129,7 @@ def save_run_metadata(
     elapsed_time: float,
     cpu_count: int,
     global_best_sol: GlobalBestProg,
+    early_stop_counter: int
 ) -> None:
     """Saves run metadata to a JSON file.
 
@@ -140,6 +141,8 @@ def save_run_metadata(
         epoch: Current epoch number.
         elapsed_time: Total elapsed time in seconds up to this checkpoint.
         cpu_count: Number of CPUs available to the process.
+        global_best_prog: best solution found globally
+        early_stop_counter: global early stopping counter
     """
     if isinstance(out_dir, str):
         out_dir = Path(out_dir)
@@ -161,6 +164,7 @@ def save_run_metadata(
             "depth": global_best_sol.depth.value,
             "eval_metrics": dict(global_best_sol.eval_metrics),
         },
+        "early_stop_counter": early_stop_counter
     }
 
     with open(metadata_file, "w") as f:
@@ -175,7 +179,7 @@ def load_run_metadata(out_dir: str | Path, epoch: int) -> Optional[Dict[str, Any
         epoch: Epoch number to load metadata for.
 
     Returns:
-        Dictionary with 'elapsed_time' and 'cpu_count' keys, or None if not found.
+        Dictionary with run metadata.
     """
     if isinstance(out_dir, str):
         out_dir = Path(out_dir)

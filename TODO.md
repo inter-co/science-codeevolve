@@ -2,12 +2,6 @@
 
 ## New Features
 
-### Dynamic Timeout
-
-This consists of allowing the user to set a maximum evaluation timeout in seconds, but to vary the actual timeout afforded to certain solutions. This could be, for instance, proportional to the depth of the solution in the program tree (shallow programs get less time, deeper programs get more time).
-
-In terms of the code itself, this is somewhat straightforward. We'll need to create a prompt template that formats the evaluation budget (we should have this regardless), and then dynamically change it once we sample a new parent solution.
-
 ### Multiple file support
 
 This feature has two independent steps: allowing the agent to read multiple input files when needed, and allowing the agent to modify multiple files. The former essentially boils down to implementing an agentic logic similar to what cursor or claude code does (allow agent to run bash scripts and see the output). This would require a significant refactor of the llm logic, and this would also be a challenge for smaller models like qwen to handle. The latter step is not that difficult: we could for instance ask the SEARCH/REPLACE blocks to also identify which file they are targeted at. This would however add further complexity to the instructions the LLM needs to do.
