@@ -307,9 +307,7 @@ class TestComputeCpuAffinitySets:
     def test_invalid_value_warns_and_falls_back(self):
         """Returns all-None sets with a warning for non-positive num_cpus_per_eval."""
         for bad in (-1, 0, 1.5, "two"):
-            result, warnings = compute_cpu_affinity_sets(
-                {"num_cpus_per_eval": bad}, num_islands=2
-            )
+            result, warnings = compute_cpu_affinity_sets({"num_cpus_per_eval": bad}, num_islands=2)
             assert result == [None, None], f"expected no pinning for {bad!r}"
             assert len(warnings) == 1
             assert "positive integer" in warnings[0]
@@ -324,9 +322,7 @@ class TestComputeCpuAffinitySets:
 
     def test_insufficient_cpus_warns(self, monkeypatch: pytest.MonkeyPatch):
         """Returns all-None with warning when required CPUs exceed available CPUs."""
-        monkeypatch.setattr(
-            _cli_setup_mod.os, "sched_getaffinity", lambda _: {0, 1}, raising=False
-        )
+        monkeypatch.setattr(_cli_setup_mod.os, "sched_getaffinity", lambda _: {0, 1}, raising=False)
         result, warnings = compute_cpu_affinity_sets({"num_cpus_per_eval": 2}, num_islands=3)
         assert result == [None, None, None]
         assert len(warnings) == 1
