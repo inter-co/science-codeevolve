@@ -91,7 +91,6 @@ class Scheduler(ABC):
             self.value = value
 
 
-
 class ExponentialScheduler(Scheduler):
     """Exponential scheduler that scales a value geometrically over epochs.
 
@@ -107,9 +106,7 @@ class ExponentialScheduler(Scheduler):
         initial_value: Value at epoch 0 (used for reset).
     """
 
-    def __init__(
-        self, value: float, max_value: float, min_value: float, weight: float
-    ):
+    def __init__(self, value: float, max_value: float, min_value: float, weight: float):
         """
         Initialize the exponential scheduler.
 
@@ -276,9 +273,7 @@ class CosineScheduler(Scheduler):
         cycle_length: Number of epochs per complete cosine cycle.
     """
 
-    def __init__(
-        self, value: float, max_value: float, min_value: float, cycle_length: int
-    ):
+    def __init__(self, value: float, max_value: float, min_value: float, cycle_length: int):
         """Initialize the cosine annealing scheduler.
 
         Args:

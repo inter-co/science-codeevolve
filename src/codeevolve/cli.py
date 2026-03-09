@@ -172,9 +172,7 @@ def main() -> int:
 
     global_data: GlobalSyncData = GlobalSyncData(
         best_sol=global_best_sol,
-        early_stop_counter=mp.Value(
-            ctypes.c_int, early_stop_counter, lock=False
-        ),
+        early_stop_counter=mp.Value(ctypes.c_int, early_stop_counter, lock=False),
         early_stop_aux=mp.Value(ctypes.c_int, 0, lock=False),
         lock=mp.Lock(),
         barrier=mp.Barrier(parties=evolve_config["num_islands"]),

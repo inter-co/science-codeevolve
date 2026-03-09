@@ -39,13 +39,9 @@ class TestExponentialScheduler:
     def test_invalid_weight(self):
         """Tests that non-positive weight raises ValueError."""
         with pytest.raises(ValueError):
-            ExponentialScheduler(
-                value=0.5, max_value=1.0, min_value=0.01, weight=0.0
-            )
+            ExponentialScheduler(value=0.5, max_value=1.0, min_value=0.01, weight=0.0)
         with pytest.raises(ValueError):
-            ExponentialScheduler(
-                value=0.5, max_value=1.0, min_value=0.01, weight=-1.0
-            )
+            ExponentialScheduler(value=0.5, max_value=1.0, min_value=0.01, weight=-1.0)
 
     def test_decay_over_epochs(self):
         """Tests that value decays over epochs with weight < 1."""
@@ -261,16 +257,12 @@ class TestSchedulerBase:
     def test_invalid_min_max_value(self):
         """Tests that min_value > max_value raises ValueError."""
         with pytest.raises(ValueError):
-            ExponentialScheduler(
-                value=0.5, max_value=0.1, min_value=0.9, weight=0.99
-            )
+            ExponentialScheduler(value=0.5, max_value=0.1, min_value=0.9, weight=0.99)
 
     def test_value_outside_bounds(self):
         """Tests that value outside [min_value, max_value] raises ValueError."""
         with pytest.raises(ValueError):
-            ExponentialScheduler(
-                value=1.5, max_value=1.0, min_value=0.0, weight=0.99
-            )
+            ExponentialScheduler(value=1.5, max_value=1.0, min_value=0.0, weight=0.99)
 
     def test_reset_with_invalid_value(self):
         """Tests that reset with value outside bounds raises ValueError."""

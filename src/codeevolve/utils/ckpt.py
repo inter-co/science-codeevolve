@@ -129,7 +129,7 @@ def save_run_metadata(
     elapsed_time: float,
     cpu_count: int,
     global_best_sol: GlobalBestProg,
-    early_stop_counter: int
+    early_stop_counter: int,
 ) -> None:
     """Saves run metadata to a JSON file.
 
@@ -164,7 +164,7 @@ def save_run_metadata(
             "depth": global_best_sol.depth.value,
             "eval_metrics": dict(global_best_sol.eval_metrics),
         },
-        "early_stop_counter": early_stop_counter
+        "early_stop_counter": early_stop_counter,
     }
 
     with open(metadata_file, "w") as f:
