@@ -377,7 +377,7 @@ def monitor_island_processes(
                         _terminate_processes(processes=other_processes)
 
                         return 1
-    
+
         cleanup_log_daemon(log_daemon, global_data.log_queue)
         print("=" * 45 + " FINISHED " + "=" * 45)
         return 0
