@@ -179,6 +179,8 @@ def main() -> int:
     if args["load_ckpt"] >= 0 and global_ckpt != args["load_ckpt"]:
         warnings.append(f"Warning: ckpt {args["load_ckpt"]}, global ckpt set to {global_ckpt}.")
 
+    display_run_data(args, config, global_ckpt, metadata, warnings)
+
     global_data: GlobalSyncData = GlobalSyncData(
         best_sol=global_best_sol,
         early_stop_counter=mp.Value(ctypes.c_int, early_stop_counter, lock=False),
@@ -196,9 +198,7 @@ def main() -> int:
     in_adj, out_adj = setup_island_topology(
         evolve_config["num_islands"],
         evolve_config.get("migration", {})["topology"],
-    )
-
-    display_run_data(args, config, global_ckpt, metadata, warnings)
+    ) 
 
     directory_lock: DirectoryLock = DirectoryLock(args["out_dir"])
     check_directory_lock(directory_lock)

@@ -251,10 +251,10 @@ def _print_global_status(args: Dict[str, Any], global_data: GlobalSyncData) -> N
     print("=" * 100)
     print(ASCII_NAME)
     print("=" * 46 + " INFO " + "=" * 46)
-    print(f"> CPU COUNT = {global_data.cpu_count.value}")
     print(f"> INPT DIR = {args['inpt_dir']}")
     print(f"> CFG PATH = {args['cfg_path']}")
     print(f"> OUT DIR = {args['out_dir']}")
+    print(f"> CPU COUNT = {global_data.cpu_count.value}")
 
     print("=" * 46 + " STATUS " + "=" * 46)
     print(f"> ELAPSED TIME = {elapsed_str}")
