@@ -198,7 +198,7 @@ def main() -> int:
     in_adj, out_adj = setup_island_topology(
         evolve_config["num_islands"],
         evolve_config.get("migration", {})["topology"],
-    ) 
+    )
 
     directory_lock: DirectoryLock = DirectoryLock(args["out_dir"])
     check_directory_lock(directory_lock)
