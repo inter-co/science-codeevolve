@@ -250,7 +250,7 @@ def _print_global_status(args: Dict[str, Any], global_data: GlobalSyncData) -> N
     elapsed_str: str = format_elapsed_time(elapsed)
     print("=" * 100)
     print(ASCII_NAME)
-    print("=" * 46 + " INFO " + "=" * 46)
+    print("=" * 47 + " INFO " + "=" * 47)
     print(f"> INPT DIR = {args['inpt_dir']}")
     print(f"> CFG PATH = {args['cfg_path']}")
     print(f"> OUT DIR = {args['out_dir']}")
@@ -296,7 +296,6 @@ def cli_logger(
             if message is None:
                 os.system("cls" if os.name == "nt" else "clear")
                 _print_global_status(args, global_data)
-                print("=" * 45 + " FINISHED " + "=" * 45)
                 return
 
             match = island_id_pattern.search(message)
@@ -315,13 +314,11 @@ def cli_logger(
         os.system("cls" if os.name == "nt" else "clear")
 
         _print_global_status(args, global_data)
-        print("=" * 46 + " LOGS " + "=" * 46)
+        print("=" * 47 + " LOGS " + "=" * 47)
         for i in sorted(island_logs.keys()):
-            current_epoch = island_epochs.get(i, "N/A")
+            current_epoch = island_epochs.get(i, "?")
             print(f"=== ISLAND {i} | EPOCH {current_epoch} ===")
-            if not island_logs[i]:
-                print("(Waiting for messages...)")
-            else:
+            if island_logs[i] is not None:
                 for msg in island_logs[i]:
                     print(f"  > {msg}")
             print("-" * 45)

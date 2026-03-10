@@ -85,7 +85,6 @@ def _cleanup_on_signal(signum: int, frame: Any) -> None:
     _cleanup_state["cleaned_up"] = True
 
     signal_name: str = signal.Signals(signum).name
-    print(f"\n\nReceived {signal_name}. Shutting down...", file=sys.stderr)
 
     processes: List[mp.Process] = _cleanup_state["processes"]
     _terminate_processes(processes)
@@ -103,7 +102,6 @@ def _cleanup_on_signal(signum: int, frame: Any) -> None:
     if directory_lock:
         directory_lock.release()
 
-    print("Cleanup complete.", file=sys.stderr)
     sys.exit(128 + signum)
 
 
@@ -363,15 +361,14 @@ def monitor_island_processes(
                         )
                         _write_crash_summary(out_dir, i, process.exitcode, error_msg, time)
 
-                        print(f"\n{'='*60}", file=sys.stderr)
-                        print(f"ERROR: {error_msg}", file=sys.stderr)
+                        print(f"\n{'=' * 46} ERROR {'=' * 47}", file=sys.stderr)
+                        print(f"{error_msg}", file=sys.stderr)
                         print(
                             f"See {out_dir}/{CRASH_LOG_FILE.format(time=time)} and island logs for details.",
                             file=sys.stderr,
                         )
-                        print(f"{'='*60}\n", file=sys.stderr)
+                        print(f"{'='*100}\n", file=sys.stderr)
 
-                        print("Terminating all remaining islands...", file=sys.stderr)
                         other_processes: List[mp.Process] = [
                             other_process
                             for j, other_process in enumerate(processes)
@@ -380,14 +377,14 @@ def monitor_island_processes(
                         _terminate_processes(processes=other_processes)
 
                         return 1
-
-        print("\nAll islands completed successfully.")
+    
+        cleanup_log_daemon(log_daemon, global_data.log_queue)
+        print("=" * 45 + " FINISHED " + "=" * 45)
         return 0
 
     except KeyboardInterrupt:
         cleanup_log_daemon(log_daemon, global_data.log_queue)
 
-        print("\n\nKeyboard interrupt received. Shutting down islands...", file=sys.stderr)
         _terminate_processes(processes)
 
         directory_lock: Optional[DirectoryLock] = _cleanup_state.get("directory_lock")
