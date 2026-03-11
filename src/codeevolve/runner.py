@@ -216,9 +216,6 @@ def start_log_daemon(
     Returns:
         The log daemon process if started, None otherwise.
     """
-    if not args.get("terminal_logging", False):
-        return None
-
     log_daemon: mp.Process = mp.Process(
         target=cli_dashboard,
         args=(args, global_data, global_data.log_queue, num_islands),

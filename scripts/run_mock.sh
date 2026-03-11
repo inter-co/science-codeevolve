@@ -26,5 +26,4 @@ taskset --cpu-list $CPU_LIST codeevolve \
     --inpt_dir=$INPT_DIR \
     --cfg_path=$CFG_PATH \
     --out_dir=$OUT_DIR \
-    --load_ckpt=$LOAD_CKPT \
-    --terminal_logging
+    --load_ckpt=$LOAD_CKPT

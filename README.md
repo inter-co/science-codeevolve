@@ -282,7 +282,6 @@ codeevolve \
   --cfg_path=CFG_PATH \
   --out_dir=RESULTS_DIR \
   --load_ckpt=LOAD_CKPT \
-  --terminal_logging
 ```
 
 **Arguments:**
@@ -290,7 +289,6 @@ codeevolve \
 - `--cfg_path`: Path to YAML configuration file (required for new runs)
 - `--out_dir`: Directory where results will be saved
 - `--load_ckpt`: Checkpoint to load (0 for new run, -1 for latest, or specific epoch)
-- `--terminal_logging`: Enable live progress display (optional)
 
 The `scripts/run.sh` provides a bash script for running CodeEvolve with `taskset` to limit CPU usage. See `src/codeevolve/cli.py` for further details.
 
@@ -397,7 +395,6 @@ codeevolve \
   --inpt_dir=my_problem/input \
   --cfg_path=my_problem/config.yaml \
   --out_dir=my_problem/results \
-  --terminal_logging
 ```
 
 ### Customizing for Your Problem
@@ -556,7 +553,6 @@ Required:
 Optional:
   --cfg_path PATH          Config file (required for new runs)
   --load_ckpt INT          Checkpoint: 0=new, -1=latest, N=epoch N
-  --terminal_logging       Show live progress in terminal
 ```
 
 ### Output Structure
