@@ -245,7 +245,9 @@ def cleanup_log_daemon(
         timeout: Maximum seconds to wait for shutdown.
     """
     if log_daemon and log_daemon.is_alive():
-        sentinel = shutdown if shutdown is not None else DashboardShutdown(reason=ShutdownReason.FINISHED)
+        sentinel = (
+            shutdown if shutdown is not None else DashboardShutdown(reason=ShutdownReason.FINISHED)
+        )
         log_queue.put(sentinel)
         log_daemon.join(timeout=timeout)
         if log_daemon.is_alive():
