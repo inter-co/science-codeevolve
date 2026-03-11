@@ -25,7 +25,7 @@ from codeevolve.islands.graph import IslandCommunicationData, PipeEdge
 from codeevolve.islands.sync import GlobalSyncData
 from codeevolve.utils.constants import CRASH_LOG_FILE
 from codeevolve.utils.lock import DirectoryLock
-from codeevolve.utils.logging import cli_logger
+from codeevolve.utils.logging import DashboardShutdown, ShutdownReason, cli_dashboard
 
 # ---------------------------------------------------------------------------
 # Global cleanup state for signal handlers
@@ -93,7 +93,7 @@ def _cleanup_on_signal(signum: int, frame: Any) -> None:
     log_queue: Optional[mp.Queue] = _cleanup_state["log_queue"]
     if log_daemon and log_daemon.is_alive():
         if log_queue:
-            log_queue.put(None)
+            log_queue.put(DashboardShutdown(reason=ShutdownReason.INTERRUPTED))
         log_daemon.join(timeout=2.0)
         if log_daemon.is_alive():
             log_daemon.terminate()
@@ -220,7 +220,7 @@ def start_log_daemon(
         return None
 
     log_daemon: mp.Process = mp.Process(
-        target=cli_logger,
+        target=cli_dashboard,
         args=(args, global_data, global_data.log_queue, num_islands),
         daemon=True,
     )
@@ -231,20 +231,25 @@ def start_log_daemon(
 def cleanup_log_daemon(
     log_daemon: Optional[mp.Process],
     log_queue: mp.Queue,
+    shutdown: Optional[DashboardShutdown] = None,
     timeout: float = 2.0,
 ) -> None:
     """Shuts down the log daemon process.
 
-    Sends a sentinel value to signal shutdown, waits for termination,
-    and force-terminates if necessary.
+    Sends a :class:`~codeevolve.utils.logging.DashboardShutdown` sentinel to
+    signal shutdown, waits for termination, and force-terminates if necessary.
 
     Args:
         log_daemon: The logging daemon process to shut down (may be None).
         log_queue: Queue to send shutdown signal through.
+        shutdown: Shutdown context forwarded to the dashboard so it can render
+            the appropriate final banner.  Defaults to
+            ``DashboardShutdown(ShutdownReason.FINISHED)`` when not provided.
         timeout: Maximum seconds to wait for shutdown.
     """
     if log_daemon and log_daemon.is_alive():
-        log_queue.put(None)
+        sentinel = shutdown if shutdown is not None else DashboardShutdown(reason=ShutdownReason.FINISHED)
+        log_queue.put(sentinel)
         log_daemon.join(timeout=timeout)
         if log_daemon.is_alive():
             log_daemon.terminate()
@@ -354,20 +359,21 @@ def monitor_island_processes(
                     completed[i] = True
 
                     if process.exitcode != 0:
-                        cleanup_log_daemon(log_daemon, global_data.log_queue)
-
                         error_msg: str = (
                             f"Island {i} died unexpectedly with exit code {process.exitcode}"
                         )
+                        crash_log_path: str = str(out_dir / CRASH_LOG_FILE.format(time=time))
                         _write_crash_summary(out_dir, i, process.exitcode, error_msg, time)
 
-                        print(f"\n{'=' * 46} ERROR {'=' * 47}", file=sys.stderr)
-                        print(f"{error_msg}", file=sys.stderr)
-                        print(
-                            f"See {out_dir}/{CRASH_LOG_FILE.format(time=time)} and island logs for details.",
-                            file=sys.stderr,
+                        cleanup_log_daemon(
+                            log_daemon,
+                            global_data.log_queue,
+                            DashboardShutdown(
+                                reason=ShutdownReason.ERROR,
+                                error_msg=error_msg,
+                                crash_log_path=crash_log_path,
+                            ),
                         )
-                        print(f"{'='*100}\n", file=sys.stderr)
 
                         other_processes: List[mp.Process] = [
                             other_process
@@ -378,12 +384,19 @@ def monitor_island_processes(
 
                         return 1
 
-        cleanup_log_daemon(log_daemon, global_data.log_queue)
-        print("=" * 45 + " FINISHED " + "=" * 45)
+        cleanup_log_daemon(
+            log_daemon,
+            global_data.log_queue,
+            DashboardShutdown(reason=ShutdownReason.FINISHED),
+        )
         return 0
 
     except KeyboardInterrupt:
-        cleanup_log_daemon(log_daemon, global_data.log_queue)
+        cleanup_log_daemon(
+            log_daemon,
+            global_data.log_queue,
+            DashboardShutdown(reason=ShutdownReason.INTERRUPTED),
+        )
 
         _terminate_processes(processes)
 

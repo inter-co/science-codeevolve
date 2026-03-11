@@ -11,13 +11,20 @@
 # ===--------------------------------------------------------------------------------------===#
 
 import logging
+import multiprocessing as mp
+import threading
+import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from codeevolve.utils.logging import (
+    DashboardShutdown,
+    ShutdownReason,
     SizeLimitedFormatter,
+    cli_dashboard,
     format_elapsed_time,
     get_logger,
 )
@@ -154,3 +161,51 @@ class TestGetLogger:
         logger1: logging.Logger = get_logger(island_id=0, logs_dir=dir1)
         logger2: logging.Logger = get_logger(island_id=1, logs_dir=dir2)
         assert logger1.name != logger2.name
+
+
+# ---------------------------------------------------------------------------
+# DashboardShutdown
+# ---------------------------------------------------------------------------
+
+
+class TestDashboardShutdown:
+    """Test suite for the DashboardShutdown dataclass and ShutdownReason enum."""
+
+    def test_finished_defaults(self):
+        """Tests that FINISHED shutdown has None error fields by default."""
+        shutdown: DashboardShutdown = DashboardShutdown(reason=ShutdownReason.FINISHED)
+        assert shutdown.reason == ShutdownReason.FINISHED
+        assert shutdown.error_msg is None
+        assert shutdown.crash_log_path is None
+
+    def test_interrupted_defaults(self):
+        """Tests that INTERRUPTED shutdown has None error fields by default."""
+        shutdown: DashboardShutdown = DashboardShutdown(reason=ShutdownReason.INTERRUPTED)
+        assert shutdown.reason == ShutdownReason.INTERRUPTED
+        assert shutdown.error_msg is None
+        assert shutdown.crash_log_path is None
+
+    def test_error_with_details(self):
+        """Tests that ERROR shutdown carries error_msg and crash_log_path."""
+        shutdown: DashboardShutdown = DashboardShutdown(
+            reason=ShutdownReason.ERROR,
+            error_msg="Island 1 died unexpectedly",
+            crash_log_path="/out/crash_42.log",
+        )
+        assert shutdown.reason == ShutdownReason.ERROR
+        assert shutdown.error_msg == "Island 1 died unexpectedly"
+        assert shutdown.crash_log_path == "/out/crash_42.log"
+
+    def test_error_partial_fields(self):
+        """Tests that ERROR shutdown can be created with only some fields set."""
+        shutdown: DashboardShutdown = DashboardShutdown(
+            reason=ShutdownReason.ERROR,
+            error_msg="crash",
+        )
+        assert shutdown.error_msg == "crash"
+        assert shutdown.crash_log_path is None
+
+    def test_all_reasons_are_distinct(self):
+        """Tests that each ShutdownReason value is distinct."""
+        reasons = {ShutdownReason.FINISHED, ShutdownReason.ERROR, ShutdownReason.INTERRUPTED}
+        assert len(reasons) == 3

@@ -74,11 +74,6 @@ def parse_args() -> argparse.Namespace:
         help="Checkpoint to load: 0 for new run, -1 for latest, or specific epoch number",
     )
     parser.add_argument(
-        "--terminal_logging",
-        action="store_true",
-        help="Enable dynamic log display from all islands in terminal",
-    )
-    parser.add_argument(
         "--y",
         action="store_true",
         help="Skips all user inputs in cli",

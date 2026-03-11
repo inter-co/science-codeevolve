@@ -16,11 +16,44 @@ import os
 import re
 import time
 from collections import deque
+from dataclasses import dataclass, field
+from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from codeevolve.islands.sync import GlobalSyncData
 from codeevolve.utils.constants import ASCII_NAME, DEFAULT_MAX_LOG_MSG_SIZE, ISLAND_LOG_FILE
+
+# ---------------------------------------------------------------------------
+# Dashboard shutdown signalling
+# ---------------------------------------------------------------------------
+
+
+class ShutdownReason(Enum):
+    """Reason why the CLI dashboard is being shut down."""
+
+    FINISHED = auto()
+    ERROR = auto()
+    INTERRUPTED = auto()
+
+
+@dataclass
+class DashboardShutdown:
+    """Sentinel message sent to the dashboard queue to trigger a clean shutdown.
+
+    Replaces the bare ``None`` sentinel so the dashboard can render an
+    appropriate final banner depending on *why* it is being stopped.
+
+    Attributes:
+        reason: The high-level cause of shutdown.
+        error_msg: Human-readable error summary (populated for ERROR reason).
+        crash_log_path: Path to the crash log file (populated for ERROR reason).
+    """
+
+    reason: ShutdownReason
+    error_msg: Optional[str] = field(default=None)
+    crash_log_path: Optional[str] = field(default=None)
+
 
 # ---------------------------------------------------------------------------
 # Time formatting utilities
@@ -235,7 +268,7 @@ def get_logger(
 
 
 # ---------------------------------------------------------------------------
-# CLI dashboard logger
+# CLI dashboard
 # ---------------------------------------------------------------------------
 
 
@@ -262,7 +295,7 @@ def _print_global_status(args: Dict[str, Any], global_data: GlobalSyncData) -> N
     print(f"> GLOBAL EARLY STOPPING COUNTER = {global_data.early_stop_counter.value}")
 
 
-def cli_logger(
+def cli_dashboard(
     args: Dict[str, Any],
     global_data: GlobalSyncData,
     queue: mp.Queue,
@@ -275,6 +308,13 @@ def cli_logger(
     This function runs as a separate process to collect log messages from all islands
     and display them in a continuously updating console dashboard showing the status
     of each island and global progress.
+
+    Shutdown is triggered by placing a :class:`DashboardShutdown` message on the
+    queue.  The ``reason`` field controls which final banner is rendered:
+
+    * ``FINISHED``    — normal algorithm completion
+    * ``ERROR``       — an island crashed; ``error_msg`` and ``crash_log_path`` are shown
+    * ``INTERRUPTED`` — the run was cancelled by the user or a signal
 
     Args:
         args: Dictionary containing command-line arguments and configuration.
@@ -293,9 +333,20 @@ def cli_logger(
     while True:
         while not queue.empty():
             message = queue.get_nowait()
-            if message is None:
+            if isinstance(message, DashboardShutdown):
                 os.system("cls" if os.name == "nt" else "clear")
                 _print_global_status(args, global_data)
+                if message.reason == ShutdownReason.FINISHED:
+                    print("=" * 45 + " FINISHED " + "=" * 45)
+                elif message.reason == ShutdownReason.ERROR:
+                    print(f"\n{'=' * 46} ERROR {'=' * 47}")
+                    if message.error_msg:
+                        print(message.error_msg)
+                    if message.crash_log_path:
+                        print(f"See {message.crash_log_path} and island logs for details.")
+                    print("=" * 100)
+                elif message.reason == ShutdownReason.INTERRUPTED:
+                    print("=" * 43 + " INTERRUPTED " + "=" * 44)
                 return
 
             match = island_id_pattern.search(message)
