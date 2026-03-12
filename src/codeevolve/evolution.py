@@ -755,7 +755,7 @@ async def codeevolve_loop(
         if use_map_elites:
             logger.info(f"sol_db EliteMap: {sol_db.elite_map.map}")
 
-        init_pop_size: int = evolve_config.get("init_pop", sol_db.num_alive)
+        init_pop_size: int = evolve_config.get("init_pop", 0)
         gen_init_pop: bool = sol_db.num_alive < init_pop_size
 
         if not gen_init_pop and exploration_scheduler is not None:
@@ -817,7 +817,7 @@ async def codeevolve_loop(
         if not gen_init_pop and timeout_scheduler is not None:
             child_timeout = int(
                 timeout_scheduler(
-                    epoch=epoch,
+                    epoch=epoch - init_pop_size,
                     best_fitness=sol_db.programs[sol_db.best_prog_id].fitness,
                 )
             )
