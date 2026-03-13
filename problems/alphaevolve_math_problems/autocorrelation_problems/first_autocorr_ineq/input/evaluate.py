@@ -26,9 +26,16 @@ from importlib import __import__
 
 BENCHMARK: float = 1.5031
 
-def evaluate_sequence(sequence: list[float]) -> float:
+def evaluate_sequence(sequence: list[float]) -> dict:
     """
     Evaluates a sequence of coefficients with enhanced security checks.
+
+    Returns:
+        A dict with keys:
+            c1: the autocorrelation constant C1 (minimize this).
+            seq_length: number of steps n.
+            density: fraction of steps with positive height (> 1e-6).
+            conv_concentration: max(b) / sum(b), peakedness of the autoconvolution.
     """
     if not isinstance(sequence, list):
         raise ValueError(f"Sequence type expected to be list, received {type(sequence)}")
@@ -46,15 +53,26 @@ def evaluate_sequence(sequence: list[float]) -> float:
     sequence = [max(0, x) for x in sequence]
     sequence = [min(1000.0, x) for x in sequence]
 
-    n = len(sequence)
-    b_sequence = np.convolve(sequence, sequence)
-    max_b = max(b_sequence)
-    sum_a = np.sum(sequence)
+    seq_arr = np.array(sequence, dtype=np.float64)
+    n = len(seq_arr)
+    b_sequence = np.convolve(seq_arr, seq_arr)
+    max_b = float(np.max(b_sequence))
+    sum_a = float(np.sum(seq_arr))
+    sum_b = float(np.sum(b_sequence))
 
     if sum_a < 0.01:
         raise ValueError(f"Sum of sequence entries too close to zero: {sum_a}.")
 
-    return float(2 * n * max_b / (sum_a**2))
+    c1 = float(2 * n * max_b / (sum_a**2))
+    density = float(np.sum(seq_arr > 1e-6) / n)
+    conv_concentration = float(max_b / sum_b) if sum_b > 0 else 0.0
+
+    return {
+        "c1": c1,
+        "seq_length": n,
+        "density": density,
+        "conv_concentration": conv_concentration,
+    }
 
 def evaluate(program_path: str, results_path: str = None) -> None:
     abs_program_path = os.path.abspath(program_path)
@@ -77,14 +95,18 @@ def evaluate(program_path: str, results_path: str = None) -> None:
         if program_dir in sys.path:
             sys.path.remove(program_dir)
 
-    c1 = evaluate_sequence(sequence)
+    seq_metrics = evaluate_sequence(sequence)
+    c1 = seq_metrics["c1"]
 
     with open(results_path, "w") as f:
         json.dump(
             {
-                "inv_c1": float(1/c1),
-                "benchmark_ratio": float(BENCHMARK/c1),
+                "inv_c1": float(1 / c1),
+                "benchmark_ratio": float(BENCHMARK / c1),
                 "eval_time": float(eval_time),
+                "seq_length": float(seq_metrics["seq_length"]),
+                "density": seq_metrics["density"],
+                "conv_concentration": seq_metrics["conv_concentration"],
             },
             f,
             indent=4,
