@@ -880,7 +880,13 @@ async def codeevolve_loop(
             logger.info("Waiting for other islands to arrive at barrier...")
             global_data.barrier.wait()
             logger.info("All islands arrived. Proceeding to save ckpt.")
+
             _do_checkpoint(epoch)
+
+            logger.info("Waiting for other islands to finish ckpt saving...")
+            global_data.barrier.wait()
+            logger.info("All islands synced.")
+
 
         # EARLY STOPPING
         logger.info("=== GLOBAL EARLY STOPPING CHECK STEP ===")

@@ -162,7 +162,7 @@ def save_run_metadata(
             "iteration_found": global_best_sol.iteration_found.value,
             "island_found": global_best_sol.island_found.value,
             "depth": global_best_sol.depth.value,
-            "eval_metrics": dict(global_best_sol.eval_metrics),
+            "eval_metrics": global_best_sol.eval_metrics.copy(),
         },
         "early_stop_counter": early_stop_counter,
     }
@@ -179,7 +179,7 @@ def load_run_metadata(out_dir: str | Path, epoch: int) -> Optional[Dict[str, Any
         epoch: Epoch number to load metadata for.
 
     Returns:
-        Dictionary with run metadata.
+        Dictionary with run metadata. None if epoch data not found.
     """
     if isinstance(out_dir, str):
         out_dir = Path(out_dir)
@@ -192,5 +192,5 @@ def load_run_metadata(out_dir: str | Path, epoch: int) -> Optional[Dict[str, Any
     with open(metadata_file, "r") as f:
         data: Dict[str, Any] = json.load(f)
 
-    epoch_data = data.get(str(epoch), {})
+    epoch_data = data.get(str(epoch), None)
     return epoch_data
