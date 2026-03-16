@@ -34,7 +34,7 @@ def get_matrix_and_jobs(
 
 | Key | Description | Goal |
 |-----|-------------|------|
-| `fitness` | $-\text{avg\_gap}$ across instances (higher is better) | maximize |
+| `fitness` | avg_gap across instances (higher is better) | maximize |
 | `avg_gap_pct` | average percentage gap to best-known makespan | minimize |
 | `eval_time` | wall-clock seconds | minimize |
 

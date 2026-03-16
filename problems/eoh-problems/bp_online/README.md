@@ -27,7 +27,7 @@ def score(item: float, bins: np.ndarray) -> np.ndarray:
 
 | Key | Description | Goal |
 |-----|-------------|------|
-| `fitness` | $-\text{avg\_excess}$ over all datasets (higher is better) | maximize |
+| `fitness` | avg_excess over all datasets (higher is better) | maximize |
 | `excess_pct` | average excess percentage over L1 lower bound | minimize |
 | `avg_num_bins` | average bins used per instance | minimize |
 | `eval_time` | wall-clock seconds | minimize |

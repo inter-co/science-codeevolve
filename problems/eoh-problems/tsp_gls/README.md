@@ -30,7 +30,7 @@ def update_edge_distance(
 
 | Key | Description | Goal |
 |-----|-------------|------|
-| `fitness` | $-\text{avg\_gap\_pct}$ (higher is better) | maximize |
+| `fitness` | avg_gap_pct (higher is better) | maximize |
 | `avg_gap_pct` | average percentage gap to optimal across 3 instances | minimize |
 | `gaps` | per-instance gaps | minimize |
 | `eval_time` | wall-clock seconds | minimize |
