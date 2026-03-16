@@ -14,7 +14,7 @@
 PROB_NAME="alphaevolve_math_problems/packing_problems/circle_packing_square/26"
 BASE_DIR="problems/${PROB_NAME}"
 INPT_DIR="${BASE_DIR}/input/"
-CFG_PATH="configs/config_mock.yaml"
+CFG_PATH="configs/templates/config_mock.yaml"
 OUT_DIR="debug/${PROB_NAME}/mock/"
 LOAD_CKPT=0
 CPU_LIST="0"

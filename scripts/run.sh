@@ -14,7 +14,7 @@
 PROB_NAME="alphaevolve_math_problems/circle_packing_square/26"
 BASE_DIR="problems/${PROB_NAME}"
 INPT_DIR="${BASE_DIR}/input/"
-CFG_PATH="configs/config_qwen.yaml"
+CFG_PATH="configs/templates/config_qwen.yaml"
 OUT_DIR="experiments/${PROB_NAME}/qwen/"
 LOAD_CKPT=-1
 CPU_LIST="0"
