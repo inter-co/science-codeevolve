@@ -1,9 +1,6 @@
 # EVOLVE-BLOCK-START
 import numpy as np
 
-# You can define functions outside the main function below.
-# Remember that any function used in parallel computation must be defined globally and not locally.
-
 def circle_packing32() -> np.ndarray:
     """
     Places 32 non-overlapping circles in the unit square in order to maximize the sum of radii.
