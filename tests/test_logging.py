@@ -162,6 +162,49 @@ class TestGetLogger:
         logger2: logging.Logger = get_logger(island_id=1, logs_dir=dir2)
         assert logger1.name != logger2.name
 
+    def test_file_handler_not_truncated(self, tmp_path: Path):
+        """Tests that the file log handler does NOT truncate long messages."""
+        import multiprocessing as mp
+
+        long_msg: str = "X" * 2000
+        queue: mp.Queue = mp.Queue()
+        logs_dir: Path = tmp_path / "island_trunc_test"
+        logs_dir.mkdir()
+        logger: logging.Logger = get_logger(
+            island_id=0,
+            logs_dir=logs_dir,
+            time=0,
+            log_queue=queue,
+            max_msg_sz=256,
+        )
+        logger.info(long_msg)
+
+        log_file: Path = logs_dir / "run_0.log"
+        assert log_file.exists()
+        content: str = log_file.read_text()
+        assert "[TRUNCATED]" not in content, "File log should not truncate messages"
+        assert long_msg in content, "Full message should appear in the file log"
+
+    def test_queue_handler_truncated(self, tmp_path: Path):
+        """Tests that the queue log handler truncates long messages."""
+        import multiprocessing as mp
+
+        long_msg: str = "Y" * 2000
+        queue: mp.Queue = mp.Queue()
+        logs_dir: Path = tmp_path / "island_queue_test"
+        logs_dir.mkdir()
+        logger: logging.Logger = get_logger(
+            island_id=0,
+            logs_dir=logs_dir,
+            time=0,
+            log_queue=queue,
+            max_msg_sz=256,
+        )
+        logger.info(long_msg)
+
+        queued: str = queue.get_nowait()
+        assert "[TRUNCATED]" in queued, "Queue log should truncate long messages"
+
 
 # ---------------------------------------------------------------------------
 # DashboardShutdown

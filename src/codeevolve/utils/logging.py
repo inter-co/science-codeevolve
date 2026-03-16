@@ -241,19 +241,21 @@ def get_logger(
     logger: logging.Logger = logging.getLogger(logger_name)
     if not logger.handlers:
         logger.setLevel(logging.INFO)
-        logFormatter = SizeLimitedFormatter(
-            f"[island {island_id}] %(asctime)s | %(levelname)s | %(process)d | %(filename)s:%(lineno)d | %(message)s",
-            max_msg_sz=max_msg_sz,
+        log_fmt_str: str = (
+            f"[island {island_id}] %(asctime)s | %(levelname)s | %(process)d"
+            f" | %(filename)s:%(lineno)d | %(message)s"
         )
+        truncatingFormatter = SizeLimitedFormatter(log_fmt_str, max_msg_sz=max_msg_sz)
+        fullFormatter = logging.Formatter(log_fmt_str)
         logger.propagate = False
 
         if log_queue:
             queue_handler: QueueHandler = QueueHandler(log_queue)
-            queue_handler.setFormatter(logFormatter)
+            queue_handler.setFormatter(truncatingFormatter)
             logger.addHandler(queue_handler)
         else:
             logStreamHandler: logging.StreamHandler = logging.StreamHandler()
-            logStreamHandler.setFormatter(logFormatter)
+            logStreamHandler.setFormatter(truncatingFormatter)
             logger.addHandler(logStreamHandler)
 
         if logs_dir:
@@ -261,7 +263,7 @@ def get_logger(
                 logs_dir.joinpath(ISLAND_LOG_FILE.format(time=time)), mode="w"
             )
             fh.setLevel(logging.INFO)
-            fh.setFormatter(logFormatter)
+            fh.setFormatter(fullFormatter)
             logger.addHandler(fh)
 
     return logger
