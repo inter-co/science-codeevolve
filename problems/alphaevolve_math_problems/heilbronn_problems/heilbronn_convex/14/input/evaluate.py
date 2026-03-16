@@ -65,8 +65,16 @@ def evaluate(program_path: str, results_path: str = None) -> None:
     min_triangle_area = min(
         [triangle_area(p1, p2, p3) for p1, p2, p3 in itertools.combinations(points, 3)]
     )
-    convex_hull_area = ConvexHull(points).volume
+    hull = ConvexHull(points)
+    convex_hull_area = hull.volume
     min_area_normalized = min_triangle_area / convex_hull_area
+
+    # MAP-Elites features
+    convex_hull_fraction = len(hull.vertices) / NUM_POINTS
+    min_nn_dist = float(min(
+        np.linalg.norm(points[i] - points[j])
+        for i, j in itertools.combinations(range(NUM_POINTS), 2)
+    ))
 
     with open(results_path, "w") as f:
         json.dump(
@@ -74,6 +82,8 @@ def evaluate(program_path: str, results_path: str = None) -> None:
                 "min_area_normalized": float(min_area_normalized),
                 "benchmark_ratio": float(min_area_normalized / BENCHMARK),
                 "eval_time": float(eval_time),
+                "convex_hull_fraction": float(convex_hull_fraction),
+                "min_nn_dist": min_nn_dist,
             },
             f,
             indent=4,

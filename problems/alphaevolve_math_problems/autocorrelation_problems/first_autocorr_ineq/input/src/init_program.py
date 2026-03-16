@@ -1,6 +1,3 @@
-# You can define functions outside the main function below.
-# Remember that any function used in parallel computation must be defined globally and not locally.
-
 # EVOLVE-BLOCK-START
 
 import numpy as np

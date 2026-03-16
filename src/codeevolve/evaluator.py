@@ -392,7 +392,6 @@ class Evaluator:
         if not error:
             self.logger.info("Evaluated program without errors.")
         else:
-            error_preview: str = error[:128] + "[...]" if len(error) > 128 else error
-            self.logger.error(f"Error in evaluating program -> '{error_preview}'.")
+            self.logger.error(f"Error in evaluating program -> '{error}'.")
 
         return returncode, output, warning, error, eval_metrics

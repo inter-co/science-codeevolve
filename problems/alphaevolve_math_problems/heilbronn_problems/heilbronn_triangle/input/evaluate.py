@@ -25,6 +25,7 @@ import sys
 import os
 from importlib import __import__
 import itertools
+from scipy.spatial import ConvexHull
 
 BENCHMARK = 0.036529889880030156
 TOL = 1e-6
@@ -89,12 +90,26 @@ def evaluate(program_path: str, results_path: str = None) -> None:
     )
     min_area_normalized = min_triangle_area / triangle_area(a, b, c)
 
+    # MAP-Elites features
+    try:
+        hull = ConvexHull(points)
+        convex_hull_fraction = float(len(hull.vertices) / NUM_POINTS)
+    except Exception:
+        convex_hull_fraction = 0.0
+
+    min_nn_dist = float(min(
+        np.linalg.norm(points[i] - points[j])
+        for i, j in itertools.combinations(range(NUM_POINTS), 2)
+    ))
+
     with open(results_path, "w") as f:
         json.dump(
             {
                 "min_area_normalized": float(min_area_normalized),
                 "benchmark_ratio": float(min_area_normalized / BENCHMARK),
                 "eval_time": float(eval_time),
+                "convex_hull_fraction": float(convex_hull_fraction),
+                "min_nn_dist": min_nn_dist,
             },
             f,
             indent=4,
