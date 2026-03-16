@@ -172,7 +172,9 @@ def main() -> int:
                 )
 
     if args["load_ckpt"] >= 0 and global_ckpt != args["load_ckpt"]:
-        warnings.append(f"Warning: unable to find checkpoint {args["load_ckpt"]} for all islands, using {global_ckpt} instead.")
+        warnings.append(
+            f"Warning: unable to find checkpoint {args["load_ckpt"]} for all islands, using {global_ckpt} instead."
+        )
 
     display_run_data(args, config, global_ckpt, metadata, warnings)
 

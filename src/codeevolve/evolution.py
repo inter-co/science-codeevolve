@@ -887,7 +887,6 @@ async def codeevolve_loop(
             global_data.barrier.wait()
             logger.info("All islands synced.")
 
-
         # EARLY STOPPING
         logger.info("=== GLOBAL EARLY STOPPING CHECK STEP ===")
         if improved_local_fitness and child_sol:
@@ -1194,14 +1193,20 @@ def _initialize_from_checkpoint(
     exp_sched: Optional[Scheduler]
     timeout_sched: Optional[Scheduler]
 
-    prompt_db, sol_db, evolve_state, exp_sched, timeout_sched = load_ckpt(args["load_ckpt"], args["ckpt_dir"])
+    prompt_db, sol_db, evolve_state, exp_sched, timeout_sched = load_ckpt(
+        args["load_ckpt"], args["ckpt_dir"]
+    )
 
     init_prompt: Program = prompt_db.programs[prompt_db.best_prog_id]
     init_sol: Program = sol_db.programs[sol_db.best_prog_id]
     init_sol.prompt_id = init_prompt.id
 
-    final_scheduler: Optional[Scheduler] = exp_sched if exp_sched is not None else exploration_scheduler
-    final_ts: Optional[Scheduler] = timeout_sched if timeout_sched is not None else timeout_scheduler
+    final_scheduler: Optional[Scheduler] = (
+        exp_sched if exp_sched is not None else exploration_scheduler
+    )
+    final_ts: Optional[Scheduler] = (
+        timeout_sched if timeout_sched is not None else timeout_scheduler
+    )
 
     return prompt_db, sol_db, evolve_state, init_prompt, init_sol, final_scheduler, final_ts
 
