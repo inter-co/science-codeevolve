@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, Set
 from codeevolve.evolution import codeevolve
 from codeevolve.islands.graph import IslandCommunicationData, PipeEdge
 from codeevolve.islands.sync import GlobalSyncData
-from codeevolve.utils.constants import CRASH_LOG_FILE
+from codeevolve.utils.constants import CRASH_LOG_FILE, GLOBAL_LOG_FILE
 from codeevolve.utils.lock import DirectoryLock
 from codeevolve.utils.logging import DashboardShutdown, ShutdownReason, cli_dashboard
 
@@ -36,6 +36,7 @@ _cleanup_state: Dict[str, Any] = {
     "log_daemon": None,
     "log_queue": None,
     "directory_lock": None,
+    "out_dir": None,
     "cleaned_up": False,
 }
 
@@ -97,6 +98,17 @@ def _cleanup_on_signal(signum: int, frame: Any) -> None:
         log_daemon.join(timeout=2.0)
         if log_daemon.is_alive():
             log_daemon.terminate()
+
+    out_dir: Optional[Path] = _cleanup_state.get("out_dir")
+    if out_dir:
+        try:
+            write_global_log_event(
+                out_dir,
+                "RUN INTERRUPTED",
+                f"Signal: {signal_name} (signum={signum})",
+            )
+        except Exception:
+            pass
 
     directory_lock: Optional[DirectoryLock] = _cleanup_state["directory_lock"]
     if directory_lock:
@@ -312,6 +324,31 @@ def _write_crash_summary(
 
 
 # ---------------------------------------------------------------------------
+# Global run log
+# ---------------------------------------------------------------------------
+
+
+def write_global_log_event(out_dir: Path, event: str, details: Optional[str] = None) -> None:
+    """Appends a timestamped event entry to the global run log.
+
+    The global log file in *out_dir* records high-level
+    lifecycle events: when a run was started, finished, crashed, or interrupted.
+
+    Args:
+        out_dir: Main output directory where the log file is written.
+        event: Short event label (e.g. ``"RUN STARTED"``, ``"RUN FINISHED"``).
+        details: Optional additional context appended after the event line.
+    """
+    log_path: Path = out_dir / GLOBAL_LOG_FILE
+    timestamp: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(log_path, "a") as f:
+        f.write(f"[{timestamp}] {event}\n")
+        if details:
+            f.write(f"  {details}\n")
+        f.write("\n")
+
+
+# ---------------------------------------------------------------------------
 # Process monitoring
 # ---------------------------------------------------------------------------
 
@@ -363,6 +400,11 @@ def monitor_island_processes(
                         )
                         crash_log_path: str = str(out_dir / CRASH_LOG_FILE.format(time=time))
                         _write_crash_summary(out_dir, i, process.exitcode, error_msg, time)
+                        write_global_log_event(
+                            out_dir,
+                            "RUN FAILED",
+                            f"{error_msg}. See {crash_log_path} for details.",
+                        )
 
                         cleanup_log_daemon(
                             log_daemon,
@@ -383,6 +425,7 @@ def monitor_island_processes(
 
                         return 1
 
+        write_global_log_event(out_dir, "RUN FINISHED", "All islands completed successfully.")
         cleanup_log_daemon(
             log_daemon,
             global_data.log_queue,
@@ -391,6 +434,7 @@ def monitor_island_processes(
         return 0
 
     except KeyboardInterrupt:
+        write_global_log_event(out_dir, "RUN INTERRUPTED", "KeyboardInterrupt received.")
         cleanup_log_daemon(
             log_daemon,
             global_data.log_queue,

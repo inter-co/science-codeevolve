@@ -28,6 +28,7 @@ from codeevolve.runner import (
     setup_signal_handlers,
     spawn_island_processes,
     start_log_daemon,
+    write_global_log_event,
 )
 from codeevolve.utils.ckpt import load_run_metadata
 from codeevolve.utils.cli_setup import (
@@ -207,6 +208,15 @@ def main() -> int:
 
     cleanup_state["log_daemon"] = log_daemon
     cleanup_state["log_queue"] = global_data.log_queue
+    cleanup_state["out_dir"] = args["out_dir"]
+
+    write_global_log_event(
+        args["out_dir"],
+        "RUN STARTED",
+        f"inpt_dir={args['inpt_dir']}, cfg_path={args['cfg_path']}, "
+        f"out_dir={args['out_dir']}, load_ckpt={args['load_ckpt']}, "
+        f"num_islands={evolve_config['num_islands']}",
+    )
 
     processes: List[mp.Process] = spawn_island_processes(
         num_islands=evolve_config["num_islands"],

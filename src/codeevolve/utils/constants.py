@@ -43,6 +43,7 @@ CHECKPOINT_PATTERN: str = r"ckpt_(\d+)\.pkl$"  # must match CHECKPOINT_FILE_FORM
 LOCK_FILE: str = ".codeevolve.lock"
 ISLAND_LOG_FILE: str = "run_{time}.log"
 CRASH_LOG_FILE: str = "crash_{time}.log"
+GLOBAL_LOG_FILE: str = "runs.log"
 RUN_METADATA_FILE: str = "run_metadata.json"
 BEST_SOLUTION_FILE: str = "best_sol"
 BEST_PROMPT_FILE: str = "best_prompt.txt"
