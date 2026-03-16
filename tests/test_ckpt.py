@@ -243,7 +243,7 @@ class TestRunMetadata:
         )
 
         metadata: Optional[Dict[str, Any]] = load_run_metadata(tmp_path, epoch=99)
-        assert metadata == {}
+        assert metadata == None
 
     def test_metadata_accumulates(self, tmp_path: Path):
         """Tests that multiple saves accumulate in the same file."""
