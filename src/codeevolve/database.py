@@ -477,8 +477,14 @@ class ProgramDatabase:
         This method rebuilds the program cache, sorts programs by fitness,
         updates rank mappings, and identifies best and worst programs.
         """
+
         if self.elite_map is not None:
-            self._pids_pool_cache = self.elite_map.get_elite_ids()
+            elite_ids: List[str] = self.elite_map.get_elite_ids()
+            if elite_ids:
+                self._pids_pool_cache = elite_ids
+            else:
+                # use alive pids as fallback if all programs have no features in map-elites, e.g., errors
+                self._pids_pool_cache = [pid for pid, is_alive in self.is_alive.items() if is_alive]
         else:
             self._pids_pool_cache = [pid for pid, is_alive in self.is_alive.items() if is_alive]
 
