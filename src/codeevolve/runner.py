@@ -179,16 +179,16 @@ def spawn_island_processes(
     """
 
     processes: List[mp.Process] = []
-    for island_id in range(num_islands):
+    for isl_id in range(num_islands):
         isl_data: IslandCommunicationData = IslandCommunicationData(
-            id=island_id,
-            in_neigh=in_adj[island_id] if in_adj else None,
-            out_neigh=out_adj[island_id] if out_adj else None,
+            id=isl_id,
+            in_neigh=in_adj[isl_id] if in_adj else None,
+            out_neigh=out_adj[isl_id] if out_adj else None,
         )
 
         process: mp.Process = mp.Process(
             target=async_run_codeevolve,
-            args=(isl2args[island_id], isl_data, global_data),
+            args=(isl2args[isl_id], isl_data, global_data),
         )
         processes.append(process)
         process.start()
