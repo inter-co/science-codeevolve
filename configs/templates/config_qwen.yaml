@@ -1,0 +1,50 @@
+SYS_MSG: |
+  # PROMPT-BLOCK-START
+
+  SETTING:
+  You are an expert software developer tasked with iteratively optimizing a given codebase, in order to maximize certain score metrics.
+
+  PERFORMANCE METRICS:
+  1. **benchmark_ratio**: fitness of the solution (higher is better)
+  2. **eval_time**: Execution time in seconds (keep reasonable)
+
+  # PROMPT-BLOCK-END
+      
+CODEBASE_PATH: 'src/'
+INIT_FILE_DATA: {filename: 'init_program.py', language: 'python'}
+EVAL_FILE_NAME: 'evaluate.py'
+
+BUDGET_CONFIG: {eval_timeout: 60,
+                max_mem_bytes: 1000000000,
+                resource_check_interval_s: 0.1,
+                # num_cpus_per_eval: 2  # Optional (Linux only): pin each island to N dedicated CPUs.
+                #                       # Total CPUs used = num_cpus_per_eval * num_islands.
+                #                       # Omit or set to null to allow all islands to compete freely.
+                }
+
+EVOLVE_CONFIG: {fitness_key: 'benchmark_ratio',
+                num_epochs: 200,ckpt: 10,max_size: null,init_pop: 10,
+                exploration_rate: 0.2, 
+                selection: {policy: 'roulette', kwargs: {roulette_by_rank: True}},
+                early_stopping_rounds: 40,
+                num_islands: 10,
+                migration: {topology: 'ring', interval: 25, rate: 0.1},
+                meta_prompting: True, use_map_elites: True,
+                num_inspirations: 2,
+                max_chat_depth: 3,
+                markers: {mp_start_marker: "# PROMPT-BLOCK-START", mp_end_marker: "# PROMPT-BLOCK-END", evolve_start_marker: "# EVOLVE-BLOCK-START", evolve_end_marker: "# EVOLVE-BLOCK-END"},
+                exploration_scheduler: {type: 'PlateauScheduler', kwargs: {min_value: 0.2, max_value: 0.5, plateau_threshold: 5, increase_factor: 1.05, decrease_factor: 0.95}},
+                }
+
+
+EXPLORATION_ENSEMBLE: [{model_name: 'AWS_QWEN-QWEN3-CODER-30B-INSTRUCT', temp: 0.9, top_p: 0.95, retries: 3, weight: 1, verify_ssl: False}]
+
+EXPLOITATION_ENSEMBLE: [{model_name: 'AWS_QWEN-QWEN3-CODER-30B-INSTRUCT', temp: 0.7, top_p: 0.95, retries: 3, weight: 1, verify_ssl: False}]
+
+SAMPLER_AUX_LM : {model_name: 'AWS_QWEN-QWEN3-CODER-30B-INSTRUCT', temp: 0.7, top_p: 0.95, retries: 3, weight: 1, verify_ssl: False}
+
+MAP_ELITES: {elite_map_type: 'grid',
+             features: [
+              {name: 'eval_time', min_val: 0, max_val: 60, num_bins: 20},
+             ]
+}
