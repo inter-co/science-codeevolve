@@ -613,14 +613,24 @@ Please refer to `CONTRIBUTING.md` for detailed guidelines.
 
 ## Citation
 ```bibtex
-@article{assumpção2025codeevolveopensourceevolutionary,
-      title={CodeEvolve: An open source evolutionary coding agent for algorithm discovery and optimization},
-      author={Henrique Assumpção and Diego Ferreira and Leandro Campos and Fabricio Murai},
-      year={2025},
-      eprint={2510.14150},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2510.14150},
+@inproceedings{assumpcao-etal-2026-codeevolve,
+    title = "{C}ode{E}volve: an open-source evolutionary framework for algorithmic discovery and optimization",
+    author = "Assump{\c{c}}{\~a}o, Henrique  and
+      Ferreira, Diego Leonardo Braga  and
+      Lacerda Campos, Leandro Augusto  and
+      Murai, Fabricio",
+    editor = "Lee, Hung-Yi  and
+      Dev, Sunipa  and
+      Li, Jessy  and
+      Elliott, Desmond",
+    booktitle = "Findings of the {A}ssociation for {C}omputational {L}inguistics: {EMNLP} 2026",
+    month = oct,
+    year = "2026",
+    address = "Budapest, Hungary",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2026.findings-emnlp.1345/",
+    pages = "28559--28581",
+    ISBN = "979-8-89176-462-0"
 }
 ```
 
