@@ -42,6 +42,8 @@ def verify_c2_solution(f_values: np.ndarray) -> dict:
         raise ValueError("Received empty function values.")
     if f_values.shape != (n_points,):
         raise ValueError(f"Expected function values shape {(n_points,)}. Got {f_values.shape}.")
+    if not np.isfinite(f_values).all():
+        raise ValueError("Function values must be finite.")
     if np.any(f_values < -1e-6):  # Allow for small floating point errors
         raise ValueError("Function must be non-negative.")
 
