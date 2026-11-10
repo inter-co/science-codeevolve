@@ -202,7 +202,9 @@ class TestGetLogger:
         )
         logger.info(long_msg)
 
-        queued: str = queue.get_nowait()
+        # mp.Queue.put() hands items to a background feeder thread, so the message may
+        # not be readable yet; get_nowait() here would race that thread.
+        queued: str = queue.get(timeout=5)
         assert "[TRUNCATED]" in queued, "Queue log should truncate long messages"
 
 

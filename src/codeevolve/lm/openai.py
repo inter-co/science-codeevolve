@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import uuid4
 
 import httpx
+import openai
 from openai import AsyncOpenAI
 
 from codeevolve.lm.base import BaseEmbedding, BaseEnsemble, BaseLM
@@ -29,6 +30,42 @@ from codeevolve.utils.constants import (
     MOCK_MODEL_PREFIX,
 )
 from codeevolve.utils.parsing import find_evolve_block_spans
+
+# ---------------------------------------------------------------------------
+# Response helpers
+# ---------------------------------------------------------------------------
+
+# Client errors that will fail the same way on every attempt (bad request, bad
+# credentials, unknown model, ...). Retrying them only wastes time.
+_NON_RETRYABLE_ERRORS: Tuple[type, ...] = (
+    openai.BadRequestError,
+    openai.AuthenticationError,
+    openai.PermissionDeniedError,
+    openai.NotFoundError,
+    openai.UnprocessableEntityError,
+)
+
+
+class EmptyResponseError(RuntimeError):
+    """Raised when a provider returns a response without any generated output."""
+
+
+def _get_usage_count(usage: Any, name: str) -> Optional[int]:
+    """Reads a token count from an optional usage object.
+
+    Usage metadata is optional for many OpenAI-compatible providers and gateways,
+    so a missing usage object or field must not be treated as a failed request.
+
+    Args:
+        usage: The ``usage`` attribute of an SDK response (may be None).
+        name: Name of the token-count field to read.
+
+    Returns:
+        The token count, or None if the provider did not report it.
+    """
+    value: Any = getattr(usage, name, None)
+    return value if isinstance(value, int) else None
+
 
 # ---------------------------------------------------------------------------
 # Language model classes
@@ -100,8 +137,15 @@ class OpenAILM(BaseLM):
             api_key=self.api_key, base_url=self.api_base, http_client=http_client
         )
 
-    async def generate(self, messages: List[Dict[str, str]]) -> Tuple[str, int, int]:
+    async def generate(
+        self, messages: List[Dict[str, str]]
+    ) -> Tuple[str, Optional[int], Optional[int]]:
         """Generates a response from the language model.
+
+        A request is retried (with exponential backoff) only when it fails or returns
+        no choices. A successful completion is never replayed because of missing
+        usage metadata: token counts are reported as None instead. Client errors
+        that cannot succeed on retry (e.g. 400, 401, 404) fail immediately.
 
         Args:
             messages: List of message dictionaries with 'role' and 'content' keys
@@ -110,11 +154,12 @@ class OpenAILM(BaseLM):
         Returns:
             A tuple containing:
                 - Generated text response
-                - Number of prompt tokens used
-                - Number of completion tokens used
+                - Number of prompt tokens used (None if not reported by the provider)
+                - Number of completion tokens used (None if not reported by the provider)
 
         Raises:
-            ConnectionError: If all retry attempts fail to get a response.
+            ConnectionError: If the request fails with a non-retryable error, or if
+                all retry attempts fail to get a response.
         """
         params: Dict[str, Any] = {
             "model": self.model_name,
@@ -130,20 +175,33 @@ class OpenAILM(BaseLM):
         for attempt in range(self.retries + 1):
             try:
                 ret = await self.client.chat.completions.create(**params)
-                content: str = ret.choices[0].message.content
-                content = content if content is not None else ""
-                return (content, ret.usage.prompt_tokens, ret.usage.completion_tokens)
+                if not getattr(ret, "choices", None):
+                    raise EmptyResponseError("Provider returned a response with no choices.")
+            except _NON_RETRYABLE_ERRORS as err:
+                raise ConnectionError(
+                    f"Failed to fetch LM response (non-retryable error: {str(err)})."
+                ) from err
             except Exception as err:
                 if attempt < self.retries:
                     await asyncio.sleep(retry_delay)
                     retry_delay = retry_delay << 1
-                else:
-                    raise ConnectionError(
-                        (
-                            f"Failed to fetch LM response after {self.retries+1} attempts"
-                            f"(Error:{str(err)})."
-                        )
+                    continue
+                raise ConnectionError(
+                    (
+                        f"Failed to fetch LM response after {self.retries+1} attempts "
+                        f"(Error: {str(err)})."
                     )
+                ) from err
+
+            # The request succeeded: from here on nothing may trigger a retry.
+            message: Any = getattr(ret.choices[0], "message", None)
+            content: Optional[str] = getattr(message, "content", None)
+            usage: Any = getattr(ret, "usage", None)
+            return (
+                content if content is not None else "",
+                _get_usage_count(usage, "prompt_tokens"),
+                _get_usage_count(usage, "completion_tokens"),
+            )
 
 
 @dataclass
@@ -412,7 +470,9 @@ class OpenAIEnsemble(BaseEnsemble):
                 model.start_marker = start_marker
                 model.end_marker = end_marker
 
-    async def generate(self, messages: List[Dict[str, str]]) -> Tuple[int, int, str, int]:
+    async def generate(
+        self, messages: List[Dict[str, str]]
+    ) -> Tuple[int, str, Optional[int], Optional[int]]:
         """Generates a response using a randomly selected model from the ensemble.
 
         Args:
@@ -422,8 +482,8 @@ class OpenAIEnsemble(BaseEnsemble):
             A tuple containing:
                 - Selected model ID (index in the ensemble)
                 - Generated text response
-                - Number of prompt tokens used
-                - Number of completion tokens used
+                - Number of prompt tokens used (None if not reported by the provider)
+                - Number of completion tokens used (None if not reported by the provider)
 
         Raises:
             ConnectionError: If the selected model fails to generate a response.
@@ -440,6 +500,11 @@ class OpenAIEnsemble(BaseEnsemble):
                 f" and {compl_tok} completion tokens."
             )
         )
+        if prompt_tok is None or compl_tok is None:
+            self.logger.warning(
+                f"{self.models[model_id]} did not report full token usage; "
+                "recording missing counts as None."
+            )
 
         return (model_id, response, prompt_tok, compl_tok)
 
@@ -504,8 +569,11 @@ class OpenAIEmbedding(BaseEmbedding):
             api_key=self.api_key, base_url=self.api_base, http_client=http_client
         )
 
-    async def embed_batch(self, texts: List[str]) -> Tuple[List[List[float]], int]:
+    async def embed_batch(self, texts: List[str]) -> Tuple[List[List[float]], Optional[int]]:
         """Computes embeddings for multiple text inputs in a single request.
+
+        As in `OpenAILM.generate`, missing usage metadata never causes a retry,
+        and non-retryable client errors fail immediately.
 
         Args:
             texts: List of text strings to embed.
@@ -513,10 +581,11 @@ class OpenAIEmbedding(BaseEmbedding):
         Returns:
             A tuple containing:
                 - List of embedding vectors (each vector is a list of floats)
-                - Total number of tokens used
+                - Total number of tokens used (None if not reported by the provider)
 
         Raises:
-            ConnectionError: If all retry attempts fail to get a response.
+            ConnectionError: If the request fails with a non-retryable error, or if
+                all retry attempts fail to get a response.
         """
         params: Dict[str, Any] = {
             "model": self.model_name,
@@ -531,24 +600,36 @@ class OpenAIEmbedding(BaseEmbedding):
         for attempt in range(self.retries + 1):
             try:
                 response = await self.client.embeddings.create(**params)
-                embeddings = [data.embedding for data in response.data]
-                total_tokens = response.usage.total_tokens
-
-                if len(texts) == 1:
-                    return (embeddings[0], total_tokens)
-                return (embeddings, total_tokens)
-
+                data: Any = getattr(response, "data", None)
+                if not data or len(data) != len(texts):
+                    raise EmptyResponseError(
+                        f"Provider returned {len(data) if data else 0} embeddings "
+                        f"for {len(texts)} inputs."
+                    )
+                embeddings: List[List[float]] = [item.embedding for item in data]
+            except _NON_RETRYABLE_ERRORS as err:
+                raise ConnectionError(
+                    f"Failed to compute embeddings (non-retryable error: {str(err)})."
+                ) from err
             except Exception as err:
                 if attempt < self.retries:
                     await asyncio.sleep(retry_delay)
                     retry_delay = retry_delay << 1
-                else:
-                    raise ConnectionError(
-                        f"Failed to compute embeddings after {self.retries + 1} attempts "
-                        f"(Error: {str(err)})."
-                    )
+                    continue
+                raise ConnectionError(
+                    f"Failed to compute embeddings after {self.retries + 1} attempts "
+                    f"(Error: {str(err)})."
+                ) from err
 
-    async def embed(self, text: str) -> Tuple[List[float], int]:
+            # The request succeeded: from here on nothing may trigger a retry.
+            total_tokens: Optional[int] = _get_usage_count(
+                getattr(response, "usage", None), "total_tokens"
+            )
+            if len(texts) == 1:
+                return (embeddings[0], total_tokens)
+            return (embeddings, total_tokens)
+
+    async def embed(self, text: str) -> Tuple[List[float], Optional[int]]:
         """Computes embeddings for a single text input.
 
         Args:
@@ -557,7 +638,7 @@ class OpenAIEmbedding(BaseEmbedding):
         Returns:
             A tuple containing:
                 - List of embedding values (floats)
-                - Number of tokens used
+                - Number of tokens used (None if not reported by the provider)
 
         Raises:
             ConnectionError: If all retry attempts fail to get a response.

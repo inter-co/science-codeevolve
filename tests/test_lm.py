@@ -10,12 +10,18 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+import asyncio
+import json
+import logging
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+import httpx
 import pytest
+from openai import AsyncOpenAI
 
 from codeevolve.lm.openai import (
     MockOpenAILM,
+    OpenAIEmbedding,
     OpenAIEnsemble,
     OpenAILM,
     _create_lm_from_config,
@@ -224,3 +230,293 @@ class TestOpenAIEnsemble:
             if isinstance(model, MockOpenAILM):
                 assert model.start_marker == "// START"
                 assert model.end_marker == "// END"
+
+
+# ---------------------------------------------------------------------------
+# Offline provider fixtures for OpenAILM / OpenAIEmbedding
+# ---------------------------------------------------------------------------
+
+_MESSAGES: List[Dict[str, str]] = [{"role": "user", "content": "hello"}]
+
+
+def _make_completion_body(
+    content: Optional[str] = "ok",
+    usage: Optional[Dict[str, int]] = None,
+    include_usage_key: bool = True,
+    num_choices: int = 1,
+) -> Dict[str, Any]:
+    """Builds a chat.completion JSON body as returned by an OpenAI-compatible API."""
+    body: Dict[str, Any] = {
+        "id": "chatcmpl-test",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "test-model",
+        "choices": [
+            {
+                "index": i,
+                "message": {"role": "assistant", "content": content},
+                "finish_reason": "stop",
+            }
+            for i in range(num_choices)
+        ],
+    }
+    if include_usage_key:
+        body["usage"] = usage
+    return body
+
+
+def _make_embedding_body(
+    num_vectors: int = 1,
+    usage: Optional[Dict[str, int]] = None,
+    include_usage_key: bool = True,
+) -> Dict[str, Any]:
+    """Builds an embeddings JSON body as returned by an OpenAI-compatible API."""
+    body: Dict[str, Any] = {
+        "object": "list",
+        "model": "test-embedding",
+        "data": [
+            {"object": "embedding", "index": i, "embedding": [0.1 * (i + 1), 0.2]}
+            for i in range(num_vectors)
+        ],
+    }
+    if include_usage_key:
+        body["usage"] = usage
+    return body
+
+
+_USAGE: Dict[str, int] = {"prompt_tokens": 11, "completion_tokens": 7, "total_tokens": 18}
+
+
+class _FakeProvider:
+    """Serves a scripted sequence of HTTP responses and counts requests."""
+
+    def __init__(self, responses: List[Tuple[int, Dict[str, Any]]]):
+        self.responses: List[Tuple[int, Dict[str, Any]]] = responses
+        self.calls: int = 0
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        status, body = self.responses[min(self.calls, len(self.responses) - 1)]
+        self.calls += 1
+        return httpx.Response(status, content=json.dumps(body).encode())
+
+    def client(self) -> AsyncOpenAI:
+        # max_retries=0 disables the SDK's own retries so that only the
+        # wrapper's retry loop is under test.
+        return AsyncOpenAI(
+            api_key="test_key",
+            base_url="http://fake-provider.test/v1",
+            max_retries=0,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(self.handler)),
+        )
+
+
+def _error_body(status: int) -> Dict[str, Any]:
+    return {"error": {"message": f"simulated {status}", "type": "test", "code": None}}
+
+
+@pytest.fixture
+def no_backoff(monkeypatch):
+    """Makes the wrapper's exponential backoff instantaneous."""
+
+    async def _instant(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr("codeevolve.lm.openai.asyncio.sleep", _instant)
+
+
+def _make_lm(provider: _FakeProvider, retries: int = 3) -> OpenAILM:
+    lm: OpenAILM = OpenAILM(
+        model_name="test-model", api_key="test_key", api_base="http://x", retries=retries
+    )
+    lm.client = provider.client()
+    return lm
+
+
+def _make_embedding(provider: _FakeProvider, retries: int = 3) -> OpenAIEmbedding:
+    emb: OpenAIEmbedding = OpenAIEmbedding(
+        model_name="test-embedding", api_key="test_key", api_base="http://x", retries=retries
+    )
+    emb.client = provider.client()
+    return emb
+
+
+class TestOpenAILMUsageMetadata:
+    """Usage metadata is optional and must never cause a successful request to be replayed."""
+
+    @pytest.mark.asyncio
+    async def test_reported_usage_is_returned(self, no_backoff):
+        provider = _FakeProvider([(200, _make_completion_body(usage=_USAGE))])
+        result = await _make_lm(provider).generate(_MESSAGES)
+        assert result == ("ok", 11, 7)
+        assert provider.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_absent_usage_key_is_not_retried(self, no_backoff):
+        provider = _FakeProvider([(200, _make_completion_body(include_usage_key=False))])
+        result = await _make_lm(provider).generate(_MESSAGES)
+        assert result == ("ok", None, None)
+        assert provider.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_null_usage_is_not_retried(self, no_backoff):
+        provider = _FakeProvider([(200, _make_completion_body(usage=None))])
+        result = await _make_lm(provider).generate(_MESSAGES)
+        assert result == ("ok", None, None)
+        assert provider.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_partial_usage(self, no_backoff):
+        provider = _FakeProvider([(200, _make_completion_body(usage={"prompt_tokens": 5}))])
+        result = await _make_lm(provider).generate(_MESSAGES)
+        assert result == ("ok", 5, None)
+        assert provider.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_null_content_becomes_empty_string(self, no_backoff):
+        provider = _FakeProvider([(200, _make_completion_body(content=None, usage=_USAGE))])
+        result = await _make_lm(provider).generate(_MESSAGES)
+        assert result == ("", 11, 7)
+        assert provider.calls == 1
+
+
+class TestOpenAILMRetries:
+    """Retry behaviour for empty responses and provider errors."""
+
+    @pytest.mark.asyncio
+    async def test_empty_choices_retried_until_exhausted(self, no_backoff):
+        provider = _FakeProvider([(200, _make_completion_body(num_choices=0, usage=_USAGE))])
+        with pytest.raises(ConnectionError, match="no choices"):
+            await _make_lm(provider, retries=2).generate(_MESSAGES)
+        assert provider.calls == 3
+
+    @pytest.mark.asyncio
+    async def test_empty_choices_then_success(self, no_backoff):
+        provider = _FakeProvider(
+            [
+                (200, _make_completion_body(num_choices=0)),
+                (200, _make_completion_body(usage=_USAGE)),
+            ]
+        )
+        result = await _make_lm(provider).generate(_MESSAGES)
+        assert result == ("ok", 11, 7)
+        assert provider.calls == 2
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status", [429, 500, 503])
+    async def test_transient_errors_are_retried(self, no_backoff, status):
+        provider = _FakeProvider(
+            [(status, _error_body(status)), (200, _make_completion_body(usage=_USAGE))]
+        )
+        result = await _make_lm(provider).generate(_MESSAGES)
+        assert result == ("ok", 11, 7)
+        assert provider.calls == 2
+
+    @pytest.mark.asyncio
+    async def test_persistent_transient_error_exhausts_retries(self, no_backoff):
+        provider = _FakeProvider([(500, _error_body(500))])
+        with pytest.raises(ConnectionError, match="after 4 attempts"):
+            await _make_lm(provider, retries=3).generate(_MESSAGES)
+        assert provider.calls == 4
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status", [400, 401, 403, 404, 422])
+    async def test_non_retryable_errors_fail_fast(self, no_backoff, status):
+        provider = _FakeProvider([(status, _error_body(status))])
+        with pytest.raises(ConnectionError, match="non-retryable"):
+            await _make_lm(provider, retries=3).generate(_MESSAGES)
+        assert provider.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_backoff_is_exponential(self, monkeypatch):
+        delays: List[float] = []
+
+        async def _record(delay: float) -> None:
+            delays.append(delay)
+
+        monkeypatch.setattr("codeevolve.lm.openai.asyncio.sleep", _record)
+        provider = _FakeProvider([(500, _error_body(500))])
+        with pytest.raises(ConnectionError):
+            await _make_lm(provider, retries=3).generate(_MESSAGES)
+        assert delays == [1, 2, 4]
+
+
+class TestOpenAIEnsembleUsageWarning:
+    """The ensemble surfaces missing usage metadata through its logger."""
+
+    def _make_ensemble(self, provider: _FakeProvider, logger: logging.Logger) -> OpenAIEnsemble:
+        ensemble = OpenAIEnsemble(
+            models_cfg=[{"model_name": "test-model", "retries": 0}],
+            api_key="test_key",
+            api_base="http://x",
+            logger=logger,
+        )
+        ensemble.models[0].client = provider.client()
+        return ensemble
+
+    @pytest.mark.asyncio
+    async def test_missing_usage_logs_warning(self, caplog):
+        logger = logging.getLogger("test_lm.ensemble.missing")
+        provider = _FakeProvider([(200, _make_completion_body(include_usage_key=False))])
+        with caplog.at_level(logging.WARNING, logger=logger.name):
+            result = await self._make_ensemble(provider, logger).generate(_MESSAGES)
+        assert result == (0, "ok", None, None)
+        assert provider.calls == 1
+        assert any("did not report full token usage" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_reported_usage_logs_no_warning(self, caplog):
+        logger = logging.getLogger("test_lm.ensemble.reported")
+        provider = _FakeProvider([(200, _make_completion_body(usage=_USAGE))])
+        with caplog.at_level(logging.WARNING, logger=logger.name):
+            result = await self._make_ensemble(provider, logger).generate(_MESSAGES)
+        assert result == (0, "ok", 11, 7)
+        assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+
+
+class TestOpenAIEmbedding:
+    """Usage handling and retries for the embedding wrapper."""
+
+    @pytest.mark.asyncio
+    async def test_single_text_with_usage(self, no_backoff):
+        provider = _FakeProvider(
+            [(200, _make_embedding_body(usage={"prompt_tokens": 3, "total_tokens": 3}))]
+        )
+        embedding, tokens = await _make_embedding(provider).embed("hello")
+        assert embedding == [0.1, 0.2]
+        assert tokens == 3
+        assert provider.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_missing_usage_is_not_retried(self, no_backoff):
+        provider = _FakeProvider([(200, _make_embedding_body(include_usage_key=False))])
+        embedding, tokens = await _make_embedding(provider).embed("hello")
+        assert embedding == [0.1, 0.2]
+        assert tokens is None
+        assert provider.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_batch_returns_all_vectors(self, no_backoff):
+        provider = _FakeProvider([(200, _make_embedding_body(num_vectors=2, usage=None))])
+        embeddings, tokens = await _make_embedding(provider).embed_batch(["a", "b"])
+        assert len(embeddings) == 2
+        assert tokens is None
+        assert provider.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_wrong_vector_count_is_retried(self, no_backoff):
+        provider = _FakeProvider(
+            [
+                (200, _make_embedding_body(num_vectors=1)),
+                (200, _make_embedding_body(num_vectors=2)),
+            ]
+        )
+        embeddings, _ = await _make_embedding(provider).embed_batch(["a", "b"])
+        assert len(embeddings) == 2
+        assert provider.calls == 2
+
+    @pytest.mark.asyncio
+    async def test_non_retryable_error_fails_fast(self, no_backoff):
+        provider = _FakeProvider([(401, _error_body(401))])
+        with pytest.raises(ConnectionError, match="non-retryable"):
+            await _make_embedding(provider).embed("hello")
+        assert provider.calls == 1

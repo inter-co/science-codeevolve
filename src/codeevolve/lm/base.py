@@ -11,14 +11,16 @@
 # ===--------------------------------------------------------------------------------------===#
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 class BaseLM(ABC):
     """Abstract base class for language models."""
 
     @abstractmethod
-    async def generate(self, messages: List[Dict[str, str]]) -> Tuple[str, int, int]:
+    async def generate(
+        self, messages: List[Dict[str, str]]
+    ) -> Tuple[str, Optional[int], Optional[int]]:
         """Generates a response from the language model.
 
         Args:
@@ -27,8 +29,8 @@ class BaseLM(ABC):
         Returns:
             A tuple containing:
                 - Generated text response
-                - Number of prompt tokens used
-                - Number of completion tokens used
+                - Number of prompt tokens used (None if not reported)
+                - Number of completion tokens used (None if not reported)
         """
         pass
 
@@ -37,7 +39,9 @@ class BaseEnsemble(ABC):
     """Abstract base class for language model ensembles."""
 
     @abstractmethod
-    async def generate(self, messages: List[Dict[str, str]]) -> Tuple[int, str, int, int]:
+    async def generate(
+        self, messages: List[Dict[str, str]]
+    ) -> Tuple[int, str, Optional[int], Optional[int]]:
         """Generates a response using a model from the ensemble.
 
         Args:
@@ -47,8 +51,8 @@ class BaseEnsemble(ABC):
             A tuple containing:
                 - Selected model ID
                 - Generated text response
-                - Number of prompt tokens used
-                - Number of completion tokens used
+                - Number of prompt tokens used (None if not reported)
+                - Number of completion tokens used (None if not reported)
         """
         pass
 
@@ -57,7 +61,7 @@ class BaseEmbedding(ABC):
     """Abstract base class for embedding models."""
 
     @abstractmethod
-    async def embed(self, text: str) -> Tuple[List[float], int]:
+    async def embed(self, text: str) -> Tuple[List[float], Optional[int]]:
         """Computes embeddings for a single text input.
 
         Args:
@@ -66,12 +70,12 @@ class BaseEmbedding(ABC):
         Returns:
             A tuple containing:
                 - List of embedding values
-                - Number of tokens used
+                - Number of tokens used (None if not reported)
         """
         pass
 
     @abstractmethod
-    async def embed_batch(self, texts: List[str]) -> Tuple[List[List[float]], int]:
+    async def embed_batch(self, texts: List[str]) -> Tuple[List[List[float]], Optional[int]]:
         """Computes embeddings for multiple text inputs.
 
         Args:
@@ -80,6 +84,6 @@ class BaseEmbedding(ABC):
         Returns:
             A tuple containing:
                 - List of embedding vectors
-                - Total number of tokens used
+                - Total number of tokens used (None if not reported)
         """
         pass
