@@ -46,6 +46,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/version-v0.3.1-green" alt="v0.3.1"></a>
   <a href="https://arxiv.org/abs/2510.14150"><img src="https://img.shields.io/badge/arxiv-2510.14150-red" alt="Arxiv"></a>
+  <a href="https://huggingface.co/datasets/HAssumpcao/CodeEvolve-Experiments"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20dataset-CodeEvolve--Experiments-yellow" alt="Hugging Face dataset"></a>
   <a href="https://github.com/inter-co/science-codeevolve/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License"></a>
 </p>
 
@@ -470,6 +471,17 @@ This companion repository contains all code necessary to reproduce the results f
 - Raw results and checkpoints from paper runs
 - Analysis notebooks with visualizations
 - Comparisons with AlphaEvolve
+
+The results are also available as a Hugging Face dataset,
+**[HAssumpcao/CodeEvolve-Experiments](https://huggingface.co/datasets/HAssumpcao/CodeEvolve-Experiments)**,
+with every program, evolved prompt, fitness curve, LLM call and error from the paper's runs as Parquet
+tables:
+
+```python
+from datasets import load_dataset
+
+programs = load_dataset("HAssumpcao/CodeEvolve-Experiments", "programs", split="train")
+```
 
 ## Documentation
 
